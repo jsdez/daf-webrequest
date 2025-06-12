@@ -61,14 +61,17 @@ export class DafWebRequestPlugin extends LitElement {
     // Find the ancestor tag name in the parent chain
     let ancestorTag = '';
     let el = this.parentElement;
+    const debugTags: string[] = [];
     while (el) {
       const tag = el.tagName.toLowerCase();
+      debugTags.push(tag);
       if (["ntx-form-preview", "ntx-form-builder", "ntx-form-runtime"].includes(tag)) {
         ancestorTag = tag;
         break;
       }
       el = el.parentElement;
     }
+    console.log('[daf-webrequest-plugin] Ancestor tags:', debugTags, 'Selected ancestorTag:', ancestorTag);
 
     if (ancestorTag === 'ntx-form-preview') {
       // Preview: allow user to enter JSON, minify+escape and show result
