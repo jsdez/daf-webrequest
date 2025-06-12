@@ -58,22 +58,36 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   render() {
-    // Find the ancestor tag name in the parent chain
+    // Enhanced context detection: check if ntx-form-designer has a child ntx-form-preview
+    let isPreviewContext = false;
     let ancestorTag = '';
     let el = this.parentElement;
     const debugTags: string[] = [];
     while (el) {
       const tag = el.tagName.toLowerCase();
       debugTags.push(tag);
-      if (["ntx-form-preview", "ntx-form-builder", "ntx-form-runtime"].includes(tag)) {
+      if (["ntx-form-preview", "ntx-form-builder", "ntx-form-runtime", "ntx-form-designer"].includes(tag)) {
         ancestorTag = tag;
+        // Check for designer/preview combo
+        if (tag === 'ntx-form-designer') {
+          // Look for a child ntx-form-preview
+          const preview = Array.from(el.children).find(child => child.tagName.toLowerCase() === 'ntx-form-preview');
+          if (preview) {
+            isPreviewContext = true;
+            break;
+          }
+        }
+        if (tag === 'ntx-form-preview') {
+          isPreviewContext = true;
+          break;
+        }
         break;
       }
       el = el.parentElement;
     }
-    console.log('[daf-webrequest-plugin] Ancestor tags:', debugTags, 'Selected ancestorTag:', ancestorTag);
+    console.log('[daf-webrequest-plugin] Ancestor tags:', debugTags, 'Selected ancestorTag:', ancestorTag, 'isPreviewContext:', isPreviewContext);
 
-    if (ancestorTag === 'ntx-form-preview') {
+    if (isPreviewContext) {
       // Preview: allow user to enter JSON, minify+escape and show result
       let minified = '';
       let escaped = '';
