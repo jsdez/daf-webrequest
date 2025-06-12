@@ -8,9 +8,7 @@ export class DafWebRequestPlugin extends LitElement {
   @property({ type: String }) description = '';
   @property({ type: Boolean }) readOnly = false;
   @property({ type: String }) value = '';
-  @property({ type: String }) openApiUrl = '';
   @property({ type: String }) requestBody = '';
-  private openApiSpec: any = null;
 
   static getMetaConfig(): PluginContract {
     return {
@@ -19,12 +17,6 @@ export class DafWebRequestPlugin extends LitElement {
       version: '1.0.0',
       description: 'A Nintex Form Plugin for making API calls.',
       properties: {
-        openApiUrl: {
-          type: 'string',
-          title: 'OpenAPI Spec URL',
-          description: 'URL to the OpenAPI (Swagger) specification JSON.',
-          defaultValue: '',
-        } as PropType,
         apiUrl: {
           type: 'string',
           title: 'API URL with Token',
@@ -65,24 +57,6 @@ export class DafWebRequestPlugin extends LitElement {
     };
   }
 
-  updated(changedProps: Map<string, any>) {
-    if (changedProps.has('openApiUrl') && this.openApiUrl) {
-      this.fetchOpenApiSpec(this.openApiUrl);
-    }
-  }
-
-  async fetchOpenApiSpec(url: string) {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('Failed to fetch OpenAPI spec');
-      this.openApiSpec = await res.json();
-      // You can now use this.openApiSpec to build UI or logic
-    } catch (e) {
-      this.openApiSpec = null;
-      // Optionally handle error (show message, etc.)
-    }
-  }
-
   render() {
     // Find the ancestor tag name in the parent chain
     let ancestorTag = '';
@@ -97,19 +71,27 @@ export class DafWebRequestPlugin extends LitElement {
     }
 
     if (ancestorTag === 'ntx-form-preview') {
-      // Render a JSON escaper/minifier for the requestBody
+      // Preview: allow user to enter JSON, minify+escape and show result
       let minified = '';
+      let escaped = '';
+      let error = '';
       try {
         if (this.requestBody) {
           minified = JSON.stringify(JSON.parse(this.requestBody));
+          escaped = minified.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
         }
       } catch (e) {
-        minified = 'Invalid JSON';
+        error = 'Invalid JSON';
       }
       return html`
         <div>
-          <label>Minified JSON:</label>
-          <textarea readonly rows="6" style="width:100%">${minified}</textarea>
+          <label>Enter JSON:</label>
+          <textarea rows="8" style="width:100%" .value=${this.requestBody} @input=${(e: any) => { this.requestBody = e.target.value; this.requestUpdate(); }}></textarea>
+          <div style="margin-top:10px;">
+            <label>Minified & Escaped JSON:</label>
+            <textarea readonly rows="4" style="width:100%">${escaped}</textarea>
+            ${error ? html`<div style="color:red;">${error}</div>` : ''}
+          </div>
         </div>
       `;
     }
