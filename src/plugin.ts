@@ -84,9 +84,19 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   render() {
-    // Detect if rendered inside <ntx-form-preview>
-    const isPreview = this.parentElement?.tagName.toLowerCase() === 'ntx-form-preview';
-    if (isPreview) {
+    // Find the ancestor tag name in the parent chain
+    let ancestorTag = '';
+    let el = this.parentElement;
+    while (el) {
+      const tag = el.tagName.toLowerCase();
+      if (["ntx-form-preview", "ntx-form-builder", "ntx-form-runtime"].includes(tag)) {
+        ancestorTag = tag;
+        break;
+      }
+      el = el.parentElement;
+    }
+
+    if (ancestorTag === 'ntx-form-preview') {
       // Render a JSON escaper/minifier for the requestBody
       let minified = '';
       try {
@@ -103,6 +113,27 @@ export class DafWebRequestPlugin extends LitElement {
         </div>
       `;
     }
+
+    if (ancestorTag === 'ntx-form-runtime') {
+      // Show response details in a bootstrap-like alert
+      return html`
+        <div>
+          <label>${this.label}</label>
+          <input
+            .value=${this.value}
+            ?disabled=${this.readOnly}
+            @input=${this.onInput}
+          />
+          <div>${this.description}</div>
+          <div class="alert alert-info mt-2" role="alert" style="margin-top:10px;">
+            <strong>Response:</strong>
+            <pre style="margin:0;">${this.value ? this.value : 'No response yet.'}</pre>
+          </div>
+        </div>
+      `;
+    }
+
+    // Default: builder/designer and others
     return html`
       <div>
         <label>${this.label}</label>
