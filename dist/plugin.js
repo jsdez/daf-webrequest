@@ -71,7 +71,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         };
     }
     render() {
-        // Enhanced context detection: check if ntx-form-designer has a child ntx-form-preview
+        // Enhanced context detection: check for mode-form-preview class as well
         let isPreviewContext = false;
         let ancestorTag = '';
         let el = this.parentElement;
@@ -94,6 +94,12 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                     isPreviewContext = true;
                     break;
                 }
+                break;
+            }
+            // Check for mode-form-preview class on any ancestor
+            if (el.classList && el.classList.contains('mode-form-preview')) {
+                isPreviewContext = true;
+                debugTags.push('mode-form-preview-class');
                 break;
             }
             el = el.parentElement;
