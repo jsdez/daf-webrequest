@@ -12,6 +12,7 @@ export class DafWebRequestPlugin extends LitElement {
   @property({ type: String }) apiUrl = '';
   @property({ type: String }) requestHeaders = '';
   @property({ type: Boolean }) debugMode = false;
+  @property({ type: String }) method: string = 'POST';
 
   private isLoading = false;
   private apiResponse: string = '';
@@ -58,6 +59,13 @@ export class DafWebRequestPlugin extends LitElement {
           title: 'Debug Mode',
           description: 'If true, enables the JSON converter UI.',
           defaultValue: false,
+        } as PropType,
+        method: {
+          type: 'string',
+          title: 'HTTP Method',
+          description: 'The HTTP method to use for the API call.',
+          enum: ['POST', 'GET', 'PUT', 'DELETE', 'PATCH'],
+          defaultValue: 'POST',
         } as PropType,
       },
       standardProperties: {
@@ -189,13 +197,13 @@ export class DafWebRequestPlugin extends LitElement {
         }
       };
       const res = await fetch(url, {
-        method: 'GET',
+        method: this.method || 'POST',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
           ...headers,
         },
-        body: JSON.stringify(body),
+        body: ['POST', 'PUT', 'PATCH', 'DELETE'].includes((this.method || 'POST').toUpperCase()) ? JSON.stringify(body) : undefined,
       });
       const text = await res.text();
       this.apiResponse = text;

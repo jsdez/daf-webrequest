@@ -26,6 +26,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.apiUrl = '';
         this.requestHeaders = '';
         this.debugMode = false;
+        this.method = 'POST';
         this.isLoading = false;
         this.apiResponse = '';
         this.onInput = (e) => {
@@ -80,6 +81,13 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                     title: 'Debug Mode',
                     description: 'If true, enables the JSON converter UI.',
                     defaultValue: false,
+                },
+                method: {
+                    type: 'string',
+                    title: 'HTTP Method',
+                    description: 'The HTTP method to use for the API call.',
+                    enum: ['POST', 'GET', 'PUT', 'DELETE', 'PATCH'],
+                    defaultValue: 'POST',
                 },
             },
             standardProperties: {
@@ -199,9 +207,9 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                     }
                 };
                 const res = yield fetch(url, {
-                    method: 'GET',
+                    method: this.method || 'POST',
                     headers: Object.assign({ 'Content-Type': 'application/json', Accept: 'application/json' }, headers),
-                    body: JSON.stringify(body),
+                    body: ['POST', 'PUT', 'PATCH', 'DELETE'].includes((this.method || 'POST').toUpperCase()) ? JSON.stringify(body) : undefined,
                 });
                 const text = yield res.text();
                 this.apiResponse = text;
@@ -240,6 +248,9 @@ __decorate([
 __decorate([
     property({ type: Boolean })
 ], DafWebRequestPlugin.prototype, "debugMode", void 0);
+__decorate([
+    property({ type: String })
+], DafWebRequestPlugin.prototype, "method", void 0);
 DafWebRequestPlugin = __decorate([
     customElement('daf-webrequest-plugin')
 ], DafWebRequestPlugin);

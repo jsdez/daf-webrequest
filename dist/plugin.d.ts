@@ -9,6 +9,7 @@ export declare class DafWebRequestPlugin extends LitElement {
     apiUrl: string;
     requestHeaders: string;
     debugMode: boolean;
+    method: string;
     private isLoading;
     private apiResponse;
     static getMetaConfig(): PluginContract;
