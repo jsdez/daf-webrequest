@@ -131,6 +131,33 @@ export class DafWebRequestPlugin extends LitElement {
     }));
   };
 
+  // Recursively remove keys with instructional placeholder values
+  private static removeInstructionalPlaceholders(obj: any): any {
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.removeInstructionalPlaceholders(item));
+    } else if (obj && typeof obj === 'object') {
+      const result: any = {};
+      for (const [key, value] of Object.entries(obj)) {
+        if (
+          typeof value === 'string' &&
+          /^<.*>$/.test(value.trim())
+        ) {
+          // skip this key (remove it)
+          continue;
+        }
+        const cleaned = this.removeInstructionalPlaceholders(value);
+        if (
+          cleaned !== undefined &&
+          !(typeof cleaned === 'object' && cleaned !== null && Object.keys(cleaned).length === 0)
+        ) {
+          result[key] = cleaned;
+        }
+      }
+      return result;
+    }
+    return obj;
+  }
+
   private async callApi() {
     this.isLoading = true;
     this.apiResponse = '';
@@ -154,7 +181,10 @@ export class DafWebRequestPlugin extends LitElement {
           });
         }
       }
-      const body = this.requestBody ? JSON.parse(this.requestBody) : undefined;
+      let body = this.requestBody ? JSON.parse(this.requestBody) : undefined;
+      if (body) {
+        body = DafWebRequestPlugin.removeInstructionalPlaceholders(body);
+      }
       const res = await fetch(url, {
         method: 'POST',
         headers: {

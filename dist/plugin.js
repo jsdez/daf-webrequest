@@ -13,9 +13,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var DafWebRequestPlugin_1;
 import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
+let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin extends LitElement {
     constructor() {
         super(...arguments);
         this.label = '';
@@ -142,6 +143,29 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
       </div>
     `;
     }
+    // Recursively remove keys with instructional placeholder values
+    static removeInstructionalPlaceholders(obj) {
+        if (Array.isArray(obj)) {
+            return obj.map(item => this.removeInstructionalPlaceholders(item));
+        }
+        else if (obj && typeof obj === 'object') {
+            const result = {};
+            for (const [key, value] of Object.entries(obj)) {
+                if (typeof value === 'string' &&
+                    /^<.*>$/.test(value.trim())) {
+                    // skip this key (remove it)
+                    continue;
+                }
+                const cleaned = this.removeInstructionalPlaceholders(value);
+                if (cleaned !== undefined &&
+                    !(typeof cleaned === 'object' && cleaned !== null && Object.keys(cleaned).length === 0)) {
+                    result[key] = cleaned;
+                }
+            }
+            return result;
+        }
+        return obj;
+    }
     callApi() {
         return __awaiter(this, void 0, void 0, function* () {
             this.isLoading = true;
@@ -168,7 +192,10 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                         });
                     }
                 }
-                const body = this.requestBody ? JSON.parse(this.requestBody) : undefined;
+                let body = this.requestBody ? JSON.parse(this.requestBody) : undefined;
+                if (body) {
+                    body = DafWebRequestPlugin_1.removeInstructionalPlaceholders(body);
+                }
                 const res = yield fetch(url, {
                     method: 'POST',
                     headers: Object.assign({ 'Content-Type': 'application/json' }, headers),
@@ -211,7 +238,7 @@ __decorate([
 __decorate([
     property({ type: Boolean })
 ], DafWebRequestPlugin.prototype, "debugMode", void 0);
-DafWebRequestPlugin = __decorate([
+DafWebRequestPlugin = DafWebRequestPlugin_1 = __decorate([
     customElement('daf-webrequest-plugin')
 ], DafWebRequestPlugin);
 export { DafWebRequestPlugin };
