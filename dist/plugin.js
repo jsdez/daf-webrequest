@@ -199,7 +199,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                     }
                 };
                 const res = yield fetch(url, {
-                    method: 'POST',
+                    method: 'GET',
                     headers: Object.assign({ 'Content-Type': 'application/json', Accept: 'application/json' }, headers),
                     body: JSON.stringify(body),
                 });

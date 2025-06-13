@@ -189,7 +189,7 @@ export class DafWebRequestPlugin extends LitElement {
         }
       };
       const res = await fetch(url, {
-        method: 'POST',
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
