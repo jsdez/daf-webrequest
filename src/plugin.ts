@@ -10,6 +10,8 @@ export class DafWebRequestPlugin extends LitElement {
   @property({ type: String }) value = '';
   @property({ type: String }) requestBody = '';
 
+  private isInPreview = false;
+
   static getMetaConfig(): PluginContract {
     return {
       controlName: 'Web Request Plugin',
@@ -57,43 +59,13 @@ export class DafWebRequestPlugin extends LitElement {
     };
   }
 
-  render() {
-    // Enhanced context detection: check for mode-form-preview class as well
-    let isPreviewContext = false;
-    let ancestorTag = '';
-    let el = this.parentElement;
-    const debugTags: string[] = [];
-    while (el) {
-      const tag = el.tagName.toLowerCase();
-      debugTags.push(tag);
-      if (["ntx-form-preview", "ntx-form-builder", "ntx-form-runtime", "ntx-form-designer"].includes(tag)) {
-        ancestorTag = tag;
-        // Check for designer/preview combo
-        if (tag === 'ntx-form-designer') {
-          // Look for a child ntx-form-preview
-          const preview = Array.from(el.children).find(child => child.tagName.toLowerCase() === 'ntx-form-preview');
-          if (preview) {
-            isPreviewContext = true;
-            break;
-          }
-        }
-        if (tag === 'ntx-form-preview') {
-          isPreviewContext = true;
-          break;
-        }
-        break;
-      }
-      // Check for mode-form-preview class on any ancestor
-      if (el.classList && el.classList.contains('mode-form-preview')) {
-        isPreviewContext = true;
-        debugTags.push('mode-form-preview-class');
-        break;
-      }
-      el = el.parentElement;
-    }
-    console.log('[daf-webrequest-plugin] Ancestor tags:', debugTags, 'Selected ancestorTag:', ancestorTag, 'isPreviewContext:', isPreviewContext);
+  connectedCallback() {
+    super.connectedCallback();
+    this.isInPreview = this.closest('ntx-form-preview') !== null;
+  }
 
-    if (isPreviewContext) {
+  render() {
+    if (this.isInPreview) {
       // Preview: allow user to enter JSON, minify+escape and show result
       let minified = '';
       let escaped = '';
@@ -118,27 +90,7 @@ export class DafWebRequestPlugin extends LitElement {
         </div>
       `;
     }
-
-    if (ancestorTag === 'ntx-form-runtime') {
-      // Show response details in a bootstrap-like alert
-      return html`
-        <div>
-          <label>${this.label}</label>
-          <input
-            .value=${this.value}
-            ?disabled=${this.readOnly}
-            @input=${this.onInput}
-          />
-          <div>${this.description}</div>
-          <div class="alert alert-info mt-2" role="alert" style="margin-top:10px;">
-            <strong>Response:</strong>
-            <pre style="margin:0;">${this.value ? this.value : 'No response yet.'}</pre>
-          </div>
-        </div>
-      `;
-    }
-
-    // Default: builder/designer and others
+    // Not in preview: show request content
     return html`
       <div>
         <label>${this.label}</label>
@@ -148,6 +100,10 @@ export class DafWebRequestPlugin extends LitElement {
           @input=${this.onInput}
         />
         <div>${this.description}</div>
+        <div style="margin-top:10px;">
+          <label>Request Body:</label>
+          <pre style="background:#f8f9fa;padding:8px;border-radius:4px;">${this.requestBody}</pre>
+        </div>
       </div>
     `;
   }

@@ -6,7 +6,9 @@ export declare class DafWebRequestPlugin extends LitElement {
     readOnly: boolean;
     value: string;
     requestBody: string;
+    private isInPreview;
     static getMetaConfig(): PluginContract;
+    connectedCallback(): void;
     render(): import("lit-html").TemplateResult<1>;
     private onInput;
 }
