@@ -8,11 +8,10 @@ export declare class DafWebRequestPlugin extends LitElement {
     requestBody: string;
     apiUrl: string;
     requestHeaders: string;
-    private isInPreview;
+    debugMode: boolean;
     private isLoading;
     private apiResponse;
     static getMetaConfig(): PluginContract;
-    connectedCallback(): void;
     render(): import("lit-html").TemplateResult<1>;
     private onInput;
     private callApi;

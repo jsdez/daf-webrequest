@@ -25,7 +25,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.requestBody = '';
         this.apiUrl = '';
         this.requestHeaders = '';
-        this.isInPreview = false;
+        this.debugMode = false;
         this.isLoading = false;
         this.apiResponse = '';
         this.onInput = (e) => {
@@ -75,6 +75,12 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                     isValueField: true,
                     defaultValue: '',
                 },
+                debugMode: {
+                    type: 'boolean',
+                    title: 'Debug Mode',
+                    description: 'If true, enables the JSON converter UI.',
+                    defaultValue: false,
+                },
             },
             standardProperties: {
                 fieldLabel: true,
@@ -84,20 +90,17 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
             },
         };
     }
-    connectedCallback() {
-        super.connectedCallback();
-        this.isInPreview = this.closest('ntx-form-preview') !== null;
-    }
     render() {
-        if (this.isInPreview) {
-            // Preview: allow user to enter JSON, minify+escape and show result
+        const showJsonConverter = this.debugMode;
+        if (showJsonConverter) {
+            // Debug mode: allow user to enter JSON, minify+escape and show result
             let minified = '';
             let escaped = '';
             let error = '';
             try {
                 if (this.requestBody) {
                     minified = JSON.stringify(JSON.parse(this.requestBody));
-                    escaped = minified.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+                    escaped = '"' + minified.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
                 }
             }
             catch (e) {
@@ -115,7 +118,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         </div>
       `;
         }
-        // Not in preview: show request content and API call button
+        // Not in debug mode: show request content and API call button
         return html `
       <div>
         <label>${this.label}</label>
@@ -145,7 +148,26 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
             this.apiResponse = '';
             try {
                 const url = this.apiUrl || '';
-                const headers = this.requestHeaders ? JSON.parse(this.requestHeaders) : {};
+                let headers = {};
+                if (this.requestHeaders) {
+                    // Support both JSON and simple key:value pairs
+                    try {
+                        headers = JSON.parse(this.requestHeaders);
+                    }
+                    catch (_a) {
+                        // Try to parse as key:value lines
+                        headers = {};
+                        this.requestHeaders.split(/\r?\n/).forEach(line => {
+                            const idx = line.indexOf(':');
+                            if (idx > -1) {
+                                const key = line.slice(0, idx).trim();
+                                const value = line.slice(idx + 1).trim();
+                                if (key)
+                                    headers[key] = value;
+                            }
+                        });
+                    }
+                }
                 const body = this.requestBody ? JSON.parse(this.requestBody) : undefined;
                 const res = yield fetch(url, {
                     method: 'POST',
@@ -186,6 +208,9 @@ __decorate([
 __decorate([
     property({ type: String })
 ], DafWebRequestPlugin.prototype, "requestHeaders", void 0);
+__decorate([
+    property({ type: Boolean })
+], DafWebRequestPlugin.prototype, "debugMode", void 0);
 DafWebRequestPlugin = __decorate([
     customElement('daf-webrequest-plugin')
 ], DafWebRequestPlugin);
