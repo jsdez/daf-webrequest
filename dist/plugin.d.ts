@@ -15,5 +15,6 @@ export declare class DafWebRequestPlugin extends LitElement {
     render(): import("lit-html").TemplateResult<1>;
     private onInput;
     private static removeInstructionalPlaceholders;
+    private extractTokenFromUrl;
     private callApi;
 }

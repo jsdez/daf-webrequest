@@ -158,11 +158,22 @@ export class DafWebRequestPlugin extends LitElement {
     return obj;
   }
 
+  private extractTokenFromUrl(url: string): string | null {
+    // Look for token=... in the query string
+    try {
+      const u = new URL(url);
+      const token = u.searchParams.get('token');
+      return token || null;
+    } catch {
+      return null;
+    }
+  }
+
   private async callApi() {
     this.isLoading = true;
     this.apiResponse = '';
     try {
-      const url = this.apiUrl || '';
+      let url = this.apiUrl || '';
       let headers: Record<string, string> = {};
       if (this.requestHeaders) {
         // Support both JSON and simple key:value pairs
@@ -181,6 +192,17 @@ export class DafWebRequestPlugin extends LitElement {
           });
         }
       }
+      // Extract token from URL and add as Authorization header if present
+      const token = this.extractTokenFromUrl(url);
+      if (token) {
+        headers['Authorization'] = token;
+        // Remove token from URL
+        try {
+          const u = new URL(url);
+          u.searchParams.delete('token');
+          url = u.toString();
+        } catch {}
+      }
       let body = this.requestBody ? JSON.parse(this.requestBody) : undefined;
       if (body) {
         body = DafWebRequestPlugin.removeInstructionalPlaceholders(body);
@@ -189,6 +211,7 @@ export class DafWebRequestPlugin extends LitElement {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Accept: 'application/json',
           ...headers,
         },
         body: body ? JSON.stringify(body) : undefined,
