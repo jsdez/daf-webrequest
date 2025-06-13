@@ -9,8 +9,12 @@ export class DafWebRequestPlugin extends LitElement {
   @property({ type: Boolean }) readOnly = false;
   @property({ type: String }) value = '';
   @property({ type: String }) requestBody = '';
+  @property({ type: String }) apiUrl = '';
+  @property({ type: String }) requestHeaders = '';
 
   private isInPreview = false;
+  private isLoading = false;
+  private apiResponse: string = '';
 
   static getMetaConfig(): PluginContract {
     return {
@@ -90,7 +94,7 @@ export class DafWebRequestPlugin extends LitElement {
         </div>
       `;
     }
-    // Not in preview: show request content
+    // Not in preview: show request content and API call button
     return html`
       <div>
         <label>${this.label}</label>
@@ -103,6 +107,13 @@ export class DafWebRequestPlugin extends LitElement {
         <div style="margin-top:10px;">
           <label>Request Body:</label>
           <pre style="background:#f8f9fa;padding:8px;border-radius:4px;">${this.requestBody}</pre>
+        </div>
+        <button @click=${() => this.callApi()} ?disabled=${this.isLoading} style="margin-top:10px;">
+          ${this.isLoading ? 'Calling API...' : 'Call API'}
+        </button>
+        <div style="margin-top:10px;">
+          <label>API Response:</label>
+          <pre style="background:#e9ecef;padding:8px;border-radius:4px;">${this.apiResponse}</pre>
         </div>
       </div>
     `;
@@ -117,4 +128,29 @@ export class DafWebRequestPlugin extends LitElement {
       composed: true,
     }));
   };
+
+  private async callApi() {
+    this.isLoading = true;
+    this.apiResponse = '';
+    try {
+      const url = this.apiUrl || '';
+      const headers = this.requestHeaders ? JSON.parse(this.requestHeaders) : {};
+      const body = this.requestBody ? JSON.parse(this.requestBody) : undefined;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers,
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const text = await res.text();
+      this.apiResponse = text;
+    } catch (e: any) {
+      this.apiResponse = 'Error: ' + (e?.message || e);
+    } finally {
+      this.isLoading = false;
+      this.requestUpdate();
+    }
+  }
 }

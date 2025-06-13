@@ -4,6 +4,15 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
@@ -14,7 +23,11 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.readOnly = false;
         this.value = '';
         this.requestBody = '';
+        this.apiUrl = '';
+        this.requestHeaders = '';
         this.isInPreview = false;
+        this.isLoading = false;
+        this.apiResponse = '';
         this.onInput = (e) => {
             const input = e.target;
             this.value = input.value;
@@ -102,7 +115,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         </div>
       `;
         }
-        // Not in preview: show request content
+        // Not in preview: show request content and API call button
         return html `
       <div>
         <label>${this.label}</label>
@@ -116,8 +129,40 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
           <label>Request Body:</label>
           <pre style="background:#f8f9fa;padding:8px;border-radius:4px;">${this.requestBody}</pre>
         </div>
+        <button @click=${() => this.callApi()} ?disabled=${this.isLoading} style="margin-top:10px;">
+          ${this.isLoading ? 'Calling API...' : 'Call API'}
+        </button>
+        <div style="margin-top:10px;">
+          <label>API Response:</label>
+          <pre style="background:#e9ecef;padding:8px;border-radius:4px;">${this.apiResponse}</pre>
+        </div>
       </div>
     `;
+    }
+    callApi() {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.isLoading = true;
+            this.apiResponse = '';
+            try {
+                const url = this.apiUrl || '';
+                const headers = this.requestHeaders ? JSON.parse(this.requestHeaders) : {};
+                const body = this.requestBody ? JSON.parse(this.requestBody) : undefined;
+                const res = yield fetch(url, {
+                    method: 'POST',
+                    headers: Object.assign({ 'Content-Type': 'application/json' }, headers),
+                    body: body ? JSON.stringify(body) : undefined,
+                });
+                const text = yield res.text();
+                this.apiResponse = text;
+            }
+            catch (e) {
+                this.apiResponse = 'Error: ' + ((e === null || e === void 0 ? void 0 : e.message) || e);
+            }
+            finally {
+                this.isLoading = false;
+                this.requestUpdate();
+            }
+        });
     }
 };
 __decorate([
@@ -135,6 +180,12 @@ __decorate([
 __decorate([
     property({ type: String })
 ], DafWebRequestPlugin.prototype, "requestBody", void 0);
+__decorate([
+    property({ type: String })
+], DafWebRequestPlugin.prototype, "apiUrl", void 0);
+__decorate([
+    property({ type: String })
+], DafWebRequestPlugin.prototype, "requestHeaders", void 0);
 DafWebRequestPlugin = __decorate([
     customElement('daf-webrequest-plugin')
 ], DafWebRequestPlugin);
