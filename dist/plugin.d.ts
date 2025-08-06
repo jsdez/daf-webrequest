@@ -33,9 +33,9 @@ export declare class DafWebRequestPlugin extends LitElement {
     private getAlertIcon;
     private getCustomMessage;
     updated(changedProperties: Map<string, any>): void;
+    private handleAPICallTrigger;
     private triggerAPICall;
     private isButtonDisabled;
-    private canMakeAPICall;
     private static removeInstructionalPlaceholders;
     private handleApiCall;
     private determineResponseType;

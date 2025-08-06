@@ -307,65 +307,41 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
             }));
         }
         // Watch for sendAPICall property changes to trigger API automatically
-        if (changedProperties.has('sendAPICall') && this.sendAPICall && !this.isLoading) {
-            // Immediately reset sendAPICall to prevent infinite loops
-            this.sendAPICall = false;
-            // Check if we can make the API call
-            if (this.canMakeAPICall()) {
-                this.handleApiCall();
-            }
-            else {
-                // If we can't make the call due to cooldown, show the cooldown alert
-                const now = Date.now();
-                const timeSinceLastCall = now - this.lastApiCallTime;
-                if (this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS) {
-                    this.showCooldownAlert = true;
-                    this.startCooldownTimer();
-                }
-            }
+        if (changedProperties.has('sendAPICall') && this.sendAPICall) {
+            this.handleAPICallTrigger();
         }
     }
-    triggerAPICall() {
-        if (this.canMakeAPICall() && !this.isLoading) {
-            // Don't set sendAPICall here to avoid conflicts with external triggers
-            this.handleApiCall();
-        }
-        else {
-            // If we can't make the call due to cooldown, show the cooldown alert
-            const now = Date.now();
-            const timeSinceLastCall = now - this.lastApiCallTime;
-            if (this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS) {
-                this.showCooldownAlert = true;
-                this.startCooldownTimer();
-            }
-        }
-    }
-    isButtonDisabled() {
-        return this.isLoading || !this.canMakeAPICall() || !this.btnEnabled;
-    }
-    canMakeAPICall() {
+    handleAPICallTrigger() {
+        // Immediately set sendAPICall to false to prevent multiple calls
+        this.sendAPICall = false;
+        // Check if we can make the API call (cooldown logic)
         const now = Date.now();
         const timeSinceLastCall = now - this.lastApiCallTime;
-        // Always enforce 5-second cooldown if there was a previous call
-        if (this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS) {
-            return false;
+        const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS;
+        if (inCooldown) {
+            // Show cooldown alert and don't proceed
+            this.showCooldownAlert = true;
+            this.startCooldownTimer();
+            return;
         }
-        // Always allow calls if multiple calls are enabled (after cooldown)
-        if (this.allowMultipleAPICalls)
-            return true;
-        // If multiple calls are disabled, only allow if no successful call has been made
-        // or if the last call was an error
-        const canCall = !this.hasSuccessfulCall || this.responseType === 'error';
-        // Debug logging (remove in production)
-        console.log('canMakeAPICall:', {
-            allowMultipleAPICalls: this.allowMultipleAPICalls,
-            hasSuccessfulCall: this.hasSuccessfulCall,
-            responseType: this.responseType,
-            timeSinceLastCall,
-            lastApiCallTime: this.lastApiCallTime,
-            canCall: canCall
-        });
-        return canCall;
+        // Disable button based on allowMultipleAPICalls setting
+        if (!this.allowMultipleAPICalls) {
+            // Disable button indefinitely
+            this.btnEnabled = false;
+        }
+        // If allowMultipleAPICalls is true, button stays enabled but cooldown will prevent calls
+        // Proceed with API call
+        this.handleApiCall();
+    }
+    triggerAPICall() {
+        // Set sendAPICall to true when button is clicked
+        this.sendAPICall = true;
+    }
+    isButtonDisabled() {
+        const now = Date.now();
+        const timeSinceLastCall = now - this.lastApiCallTime;
+        const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS;
+        return this.isLoading || !this.btnEnabled || inCooldown;
     }
     // Recursively remove keys with instructional placeholder values
     static removeInstructionalPlaceholders(obj) {
@@ -392,7 +368,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
     }
     handleApiCall() {
         return __awaiter(this, void 0, void 0, function* () {
-            if (!this.canMakeAPICall())
+            if (this.isLoading)
                 return;
             // Record the time of this API call
             this.lastApiCallTime = Date.now();
@@ -440,6 +416,10 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                     if (this.responseType === 'success' || this.responseType === 'warning') {
                         this.hasSuccessfulCall = true;
                     }
+                    // Re-enable button if allowMultipleAPICalls is true (after cooldown will expire)
+                    if (this.allowMultipleAPICalls) {
+                        this.btnEnabled = true;
+                    }
                     // Dispatch value change event
                     this.dispatchEvent(new CustomEvent('ntx-value-change', {
                         detail: this.value,
@@ -447,7 +427,6 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                         composed: true,
                     }));
                     this.requestUpdate();
-                    // Don't start cooldown timer here - it will be started only if needed
                 }
             });
         });
