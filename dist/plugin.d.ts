@@ -1,6 +1,7 @@
 import { LitElement } from 'lit';
 import { PluginContract } from '@nintex/form-plugin-contract';
 export declare class DafWebRequestPlugin extends LitElement {
+    static styles: import("lit").CSSResult;
     label: string;
     description: string;
     readOnly: boolean;
@@ -14,7 +15,7 @@ export declare class DafWebRequestPlugin extends LitElement {
     private apiResponse;
     static getMetaConfig(): PluginContract;
     render(): import("lit-html").TemplateResult<1>;
-    private onInput;
+    updated(changedProperties: Map<string, any>): void;
     private static removeInstructionalPlaceholders;
-    private callApi;
+    private handleApiCall;
 }

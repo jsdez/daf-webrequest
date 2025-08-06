@@ -13,7 +13,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import { html, LitElement } from 'lit';
+import { html, LitElement, css } from 'lit';
+import { callApi } from './apiClient.js';
 import { customElement, property } from 'lit/decorators.js';
 let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
     constructor() {
@@ -29,15 +30,6 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.method = 'POST';
         this.isLoading = false;
         this.apiResponse = '';
-        this.onInput = (e) => {
-            const input = e.target;
-            this.value = input.value;
-            this.dispatchEvent(new CustomEvent('ntx-value-change', {
-                detail: this.value,
-                bubbles: true,
-                composed: true,
-            }));
-        };
     }
     static getMetaConfig() {
         return {
@@ -115,40 +107,63 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                 error = 'Invalid JSON';
             }
             return html `
-        <div>
-          <label>Enter JSON:</label>
-          <textarea rows="8" style="width:100%" .value=${this.requestBody} @input=${(e) => { this.requestBody = e.target.value; this.requestUpdate(); }}></textarea>
-          <div style="margin-top:10px;">
-            <label>Minified & Escaped JSON:</label>
-            <textarea readonly rows="4" style="width:100%">${escaped}</textarea>
-            ${error ? html `<div style="color:red;">${error}</div>` : ''}
+        <div class="plugin-container">
+          <div class="form-group">
+            <label class="control-label" part="debug-label">Enter JSON:</label>
+            <textarea 
+              class="form-control" 
+              part="debug-input"
+              rows="8" 
+              .value=${this.requestBody} 
+              @input=${(e) => { this.requestBody = e.target.value; this.requestUpdate(); }}
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label class="control-label" part="output-label">Minified & Escaped JSON:</label>
+            <textarea 
+              class="form-control" 
+              part="debug-output"
+              readonly 
+              rows="4"
+            >${escaped}</textarea>
+            ${error ? html `<div class="text-danger" part="error-message">${error}</div>` : ''}
           </div>
         </div>
       `;
         }
         // Not in debug mode: show request content and API call button
         return html `
-      <div>
-        <label>${this.label}</label>
-        <input
-          .value=${this.value}
-          ?disabled=${this.readOnly}
-          @input=${this.onInput}
-        />
-        <div>${this.description}</div>
-        <div style="margin-top:10px;">
-          <label>Request Body:</label>
-          <pre style="background:#f8f9fa;padding:8px;border-radius:4px;">${this.requestBody}</pre>
+      <div class="plugin-container">
+        <div class="form-group">
+          <label class="control-label" part="request-label">Request Body:</label>
+          <pre class="form-control" part="request-body">${this.requestBody}</pre>
         </div>
-        <button @click=${() => this.callApi()} ?disabled=${this.isLoading} style="margin-top:10px;">
-          ${this.isLoading ? 'Calling API...' : 'Call API'}
-        </button>
-        <div style="margin-top:10px;">
-          <label>API Response:</label>
-          <pre style="background:#e9ecef;padding:8px;border-radius:4px;">${this.apiResponse}</pre>
+        <div class="form-group">
+          <button 
+            class="btn btn-primary" 
+            part="api-button"
+            @click=${() => this.handleApiCall()} 
+            ?disabled=${this.isLoading}
+          >
+            ${this.isLoading ? 'Calling API...' : 'Call API'}
+          </button>
+        </div>
+        <div class="form-group">
+          <label class="control-label" part="response-label">API Response:</label>
+          <pre class="form-control" part="api-response">${this.apiResponse}</pre>
         </div>
       </div>
     `;
+    }
+    // Handle property changes from the host application
+    updated(changedProperties) {
+        if (changedProperties.has('value')) {
+            this.dispatchEvent(new CustomEvent('ntx-value-change', {
+                detail: this.value,
+                bubbles: true,
+                composed: true,
+            }));
+        }
     }
     // Recursively remove keys with instructional placeholder values
     static removeInstructionalPlaceholders(obj) {
@@ -173,57 +188,122 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         }
         return obj;
     }
-    callApi() {
+    handleApiCall() {
         return __awaiter(this, void 0, void 0, function* () {
-            this.isLoading = true;
-            this.apiResponse = '';
-            try {
-                let url = this.apiUrl || '';
-                let headers = {};
-                if (this.requestHeaders) {
-                    // Support both JSON and simple key:value pairs
-                    try {
-                        headers = JSON.parse(this.requestHeaders);
-                    }
-                    catch (_a) {
-                        // Try to parse as key:value lines
-                        headers = {};
-                        this.requestHeaders.split(/\r?\n/).forEach(line => {
-                            const idx = line.indexOf(':');
-                            if (idx > -1) {
-                                const key = line.slice(0, idx).trim();
-                                const value = line.slice(idx + 1).trim();
-                                if (key)
-                                    headers[key] = value;
-                            }
-                        });
-                    }
+            let url = this.apiUrl || '';
+            let headers = {};
+            if (this.requestHeaders) {
+                try {
+                    headers = JSON.parse(this.requestHeaders);
                 }
-                // Do NOT extract token from URL or move to Authorization header. Token must remain as query param per OpenAPI spec.
-                // For testing: ignore requestBody and send a hardcoded value matching OpenAPI expectations
-                const body = {
-                    startData: {
-                        se_input: "This is a test"
-                    }
-                };
-                const res = yield fetch(url, {
-                    method: this.method || 'POST',
-                    headers: Object.assign({ 'Content-Type': 'application/json', Accept: 'application/json' }, headers),
-                    body: ['POST', 'PUT', 'PATCH', 'DELETE'].includes((this.method || 'POST').toUpperCase()) ? JSON.stringify(body) : undefined,
-                });
-                const text = yield res.text();
-                this.apiResponse = text;
+                catch (_a) {
+                    headers = {};
+                    this.requestHeaders.split(/\r?\n/).forEach(line => {
+                        const idx = line.indexOf(':');
+                        if (idx > -1) {
+                            const key = line.slice(0, idx).trim();
+                            const value = line.slice(idx + 1).trim();
+                            if (key)
+                                headers[key] = value;
+                        }
+                    });
+                }
             }
-            catch (e) {
-                this.apiResponse = 'Error: ' + ((e === null || e === void 0 ? void 0 : e.message) || e);
-            }
-            finally {
-                this.isLoading = false;
-                this.requestUpdate();
-            }
+            // For now, still use the hardcoded body for testing
+            const body = {
+                startData: {
+                    se_input: "This is a test"
+                }
+            };
+            yield callApi({
+                url,
+                method: this.method || 'POST',
+                headers,
+                requestBody: body,
+                setLoading: (loading) => { this.isLoading = loading; this.requestUpdate(); },
+                setResponse: (response) => { this.apiResponse = response; this.requestUpdate(); }
+            });
         });
     }
 };
+DafWebRequestPlugin.styles = css `
+    .plugin-container {
+      font-family: var(--ntx-form-theme-font-family);
+      color: var(--ntx-form-theme-color-input-text);
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .control-label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: var(--ntx-form-theme-text-label-size);
+      color: var(--ntx-form-theme-color-input-text);
+      font-weight: 500;
+    }
+
+    .form-control {
+      width: 100%;
+      height: var(--ntx-form-theme-control-height, auto);
+      padding: 8px 12px;
+      font-size: var(--ntx-form-theme-text-input-size);
+      font-family: var(--ntx-form-theme-font-family);
+      color: var(--ntx-form-theme-color-input-text);
+      background-color: var(--ntx-form-theme-color-input-background);
+      border: 1px solid var(--ntx-form-theme-color-border);
+      border-radius: var(--ntx-form-theme-border-radius);
+      box-sizing: border-box;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--ntx-form-theme-color-primary);
+      box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+    }
+
+    .btn {
+      padding: 8px 16px;
+      font-size: var(--ntx-form-theme-text-input-size);
+      font-family: var(--ntx-form-theme-font-family);
+      border: none;
+      border-radius: var(--ntx-form-theme-border-radius);
+      cursor: pointer;
+      transition: background-color 0.15s ease-in-out;
+    }
+
+    .btn-primary {
+      color: white;
+      background-color: var(--ntx-form-theme-color-primary);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      filter: brightness(0.9);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .text-danger {
+      color: var(--ntx-form-theme-color-error);
+      font-size: var(--ntx-form-theme-text-label-size);
+      margin-top: 4px;
+    }
+
+    pre.form-control {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      min-height: 80px;
+      font-family: 'Courier New', Courier, monospace;
+    }
+
+    textarea.form-control {
+      resize: vertical;
+    }
+  `;
 __decorate([
     property({ type: String })
 ], DafWebRequestPlugin.prototype, "label", void 0);
