@@ -102,6 +102,12 @@ export class DafWebRequestPlugin extends LitElement {
       border: 1px solid #f5c6cb;
     }
 
+    .alert-info {
+      background-color: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+
     .alert-icon {
       margin-right: 8px;
       font-weight: bold;
@@ -184,6 +190,8 @@ export class DafWebRequestPlugin extends LitElement {
   private apiResponse: string = '';
   private responseType: 'success' | 'warning' | 'error' | null = null;
   private hasSuccessfulCall = false;
+  private lastApiCallTime = 0;
+  private readonly API_COOLDOWN_MS = 5000; // 5 seconds
 
   static getMetaConfig(): PluginContract {
     return {
@@ -378,6 +386,24 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   private renderResponseAlert() {
+    const now = Date.now();
+    const timeSinceLastCall = now - this.lastApiCallTime;
+    const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS;
+    
+    // Show cooldown message if we're in cooldown period
+    if (inCooldown) {
+      const remainingSeconds = Math.ceil((this.API_COOLDOWN_MS - timeSinceLastCall) / 1000);
+      return html`
+        <div class="alert alert-info" part="cooldown-alert">
+          <div>
+            <span class="alert-icon">ℹ</span>
+            <strong>Information:</strong> Please wait ${remainingSeconds} seconds before sending another request.
+          </div>
+        </div>
+      `;
+    }
+    
+    // Show regular response alert if we have a response
     if (!this.apiResponse || !this.responseType) return '';
     
     const alertClass = `alert-${this.responseType}`;
@@ -452,6 +478,14 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   private canMakeAPICall(): boolean {
+    const now = Date.now();
+    const timeSinceLastCall = now - this.lastApiCallTime;
+    
+    // Always enforce 5-second cooldown
+    if (timeSinceLastCall < this.API_COOLDOWN_MS) {
+      return false;
+    }
+    
     // Always allow calls if multiple calls are enabled
     if (this.allowMultipleAPICalls) return true;
     
@@ -464,7 +498,8 @@ export class DafWebRequestPlugin extends LitElement {
       allowMultipleAPICalls: this.allowMultipleAPICalls,
       hasSuccessfulCall: this.hasSuccessfulCall,
       responseType: this.responseType,
-      canCall: canCall
+      timeSinceLastCall,
+      canCall: canCall && timeSinceLastCall >= this.API_COOLDOWN_MS
     });
     
     return canCall;
@@ -499,6 +534,9 @@ export class DafWebRequestPlugin extends LitElement {
 
   private async handleApiCall() {
     if (!this.canMakeAPICall()) return;
+    
+    // Record the time of this API call
+    this.lastApiCallTime = Date.now();
     
     this.responseType = null;
     this.apiResponse = '';
@@ -554,6 +592,9 @@ export class DafWebRequestPlugin extends LitElement {
         }));
         
         this.requestUpdate(); 
+        
+        // Start countdown timer for cooldown alert
+        this.startCooldownTimer();
       }
     });
   }
@@ -581,5 +622,21 @@ export class DafWebRequestPlugin extends LitElement {
     
     // Default to success for valid responses
     return 'success';
+  }
+
+  private startCooldownTimer() {
+    // Update the UI every second during cooldown to show remaining time
+    const updateTimer = () => {
+      const now = Date.now();
+      const timeSinceLastCall = now - this.lastApiCallTime;
+      
+      if (timeSinceLastCall < this.API_COOLDOWN_MS) {
+        this.requestUpdate();
+        setTimeout(updateTimer, 1000);
+      }
+    };
+    
+    // Start the timer
+    setTimeout(updateTimer, 1000);
   }
 }

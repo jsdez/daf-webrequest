@@ -41,6 +41,8 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.apiResponse = '';
         this.responseType = null;
         this.hasSuccessfulCall = false;
+        this.lastApiCallTime = 0;
+        this.API_COOLDOWN_MS = 5000; // 5 seconds
     }
     static getMetaConfig() {
         return {
@@ -234,6 +236,22 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
     `;
     }
     renderResponseAlert() {
+        const now = Date.now();
+        const timeSinceLastCall = now - this.lastApiCallTime;
+        const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS;
+        // Show cooldown message if we're in cooldown period
+        if (inCooldown) {
+            const remainingSeconds = Math.ceil((this.API_COOLDOWN_MS - timeSinceLastCall) / 1000);
+            return html `
+        <div class="alert alert-info" part="cooldown-alert">
+          <div>
+            <span class="alert-icon">ℹ</span>
+            <strong>Information:</strong> Please wait ${remainingSeconds} seconds before sending another request.
+          </div>
+        </div>
+      `;
+        }
+        // Show regular response alert if we have a response
         if (!this.apiResponse || !this.responseType)
             return '';
         const alertClass = `alert-${this.responseType}`;
@@ -299,6 +317,12 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         return this.isLoading || !this.canMakeAPICall() || !this.btnEnabled;
     }
     canMakeAPICall() {
+        const now = Date.now();
+        const timeSinceLastCall = now - this.lastApiCallTime;
+        // Always enforce 5-second cooldown
+        if (timeSinceLastCall < this.API_COOLDOWN_MS) {
+            return false;
+        }
         // Always allow calls if multiple calls are enabled
         if (this.allowMultipleAPICalls)
             return true;
@@ -310,7 +334,8 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
             allowMultipleAPICalls: this.allowMultipleAPICalls,
             hasSuccessfulCall: this.hasSuccessfulCall,
             responseType: this.responseType,
-            canCall: canCall
+            timeSinceLastCall,
+            canCall: canCall && timeSinceLastCall >= this.API_COOLDOWN_MS
         });
         return canCall;
     }
@@ -341,6 +366,8 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         return __awaiter(this, void 0, void 0, function* () {
             if (!this.canMakeAPICall())
                 return;
+            // Record the time of this API call
+            this.lastApiCallTime = Date.now();
             this.responseType = null;
             this.apiResponse = '';
             let url = this.apiUrl || '';
@@ -392,6 +419,8 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                         composed: true,
                     }));
                     this.requestUpdate();
+                    // Start countdown timer for cooldown alert
+                    this.startCooldownTimer();
                 }
             });
         });
@@ -418,6 +447,19 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         }
         // Default to success for valid responses
         return 'success';
+    }
+    startCooldownTimer() {
+        // Update the UI every second during cooldown to show remaining time
+        const updateTimer = () => {
+            const now = Date.now();
+            const timeSinceLastCall = now - this.lastApiCallTime;
+            if (timeSinceLastCall < this.API_COOLDOWN_MS) {
+                this.requestUpdate();
+                setTimeout(updateTimer, 1000);
+            }
+        };
+        // Start the timer
+        setTimeout(updateTimer, 1000);
     }
 };
 DafWebRequestPlugin.styles = css `
@@ -515,6 +557,12 @@ DafWebRequestPlugin.styles = css `
       background-color: #f8d7da;
       color: #721c24;
       border: 1px solid #f5c6cb;
+    }
+
+    .alert-info {
+      background-color: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
     }
 
     .alert-icon {

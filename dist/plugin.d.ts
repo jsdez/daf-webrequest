@@ -24,6 +24,8 @@ export declare class DafWebRequestPlugin extends LitElement {
     private apiResponse;
     private responseType;
     private hasSuccessfulCall;
+    private lastApiCallTime;
+    private readonly API_COOLDOWN_MS;
     static getMetaConfig(): PluginContract;
     render(): import("lit-html").TemplateResult<1>;
     private renderResponseAlert;
@@ -36,4 +38,5 @@ export declare class DafWebRequestPlugin extends LitElement {
     private static removeInstructionalPlaceholders;
     private handleApiCall;
     private determineResponseType;
+    private startCooldownTimer;
 }
