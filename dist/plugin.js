@@ -33,6 +33,10 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.errorMessage = 'API call failed';
         this.sendAPICall = false;
         this.allowMultipleAPICalls = false;
+        this.btnEnabled = true;
+        this.btnText = 'Execute API Call';
+        this.btnAlignment = 'left';
+        this.btnVisible = true;
         this.isLoading = false;
         this.apiResponse = '';
         this.responseType = null;
@@ -118,6 +122,31 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                     description: 'If true, allows repeated API calls. If false, disables further calls after first success/warning.',
                     defaultValue: false,
                 },
+                btnEnabled: {
+                    type: 'boolean',
+                    title: 'Button Enabled',
+                    description: 'If true, the button is enabled and can be clicked.',
+                    defaultValue: true,
+                },
+                btnText: {
+                    type: 'string',
+                    title: 'Button Text',
+                    description: 'The text to display on the button.',
+                    defaultValue: 'Execute API Call',
+                },
+                btnAlignment: {
+                    type: 'string',
+                    title: 'Button Alignment',
+                    description: 'The alignment of the button within the container.',
+                    enum: ['left', 'center', 'right'],
+                    defaultValue: 'left',
+                },
+                btnVisible: {
+                    type: 'boolean',
+                    title: 'Button Visible',
+                    description: 'If true, the button is visible on the form.',
+                    defaultValue: true,
+                },
             },
             standardProperties: {
                 fieldLabel: true,
@@ -166,14 +195,18 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
             ${error ? html `<div class="text-danger" part="error-message">${error}</div>` : ''}
           </div>
           <div class="form-group">
-            <button 
-              class="btn btn-primary" 
-              part="api-button"
-              @click=${() => this.triggerAPICall()} 
-              ?disabled=${this.isButtonDisabled()}
-            >
-              ${this.isLoading ? html `<span class="spinner"></span>Calling API...` : 'Call API'}
-            </button>
+            ${this.btnVisible ? html `
+              <div class="btn-container align-${this.btnAlignment}">
+                <button 
+                  class="btn btn-primary" 
+                  part="api-button"
+                  @click=${() => this.triggerAPICall()} 
+                  ?disabled=${this.isButtonDisabled()}
+                >
+                  ${this.isLoading ? html `<span class="spinner"></span>Calling API...` : this.btnText}
+                </button>
+              </div>
+            ` : ''}
             ${this.renderResponseAlert()}
           </div>
         </div>
@@ -183,14 +216,18 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         return html `
       <div class="plugin-container">
         <div class="form-group">
-          <button 
-            class="btn btn-primary" 
-            part="api-button"
-            @click=${() => this.triggerAPICall()} 
-            ?disabled=${this.isButtonDisabled()}
-          >
-            ${this.isLoading ? html `<span class="spinner"></span>Processing...` : 'Execute API Call'}
-          </button>
+          ${this.btnVisible ? html `
+            <div class="btn-container align-${this.btnAlignment}">
+              <button 
+                class="btn btn-primary" 
+                part="api-button"
+                @click=${() => this.triggerAPICall()} 
+                ?disabled=${this.isButtonDisabled()}
+              >
+                ${this.isLoading ? html `<span class="spinner"></span>Processing...` : this.btnText}
+              </button>
+            </div>
+          ` : ''}
           ${this.renderResponseAlert()}
           
           <!-- Debug info -->
@@ -261,7 +298,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         }
     }
     isButtonDisabled() {
-        return this.isLoading || !this.canMakeAPICall();
+        return this.isLoading || !this.canMakeAPICall() || !this.btnEnabled;
     }
     canMakeAPICall() {
         // Always allow calls if multiple calls are enabled
@@ -525,6 +562,22 @@ DafWebRequestPlugin.styles = css `
     textarea.form-control {
       resize: vertical;
     }
+
+    .btn-container {
+      display: flex;
+    }
+
+    .btn-container.align-left {
+      justify-content: flex-start;
+    }
+
+    .btn-container.align-center {
+      justify-content: center;
+    }
+
+    .btn-container.align-right {
+      justify-content: flex-end;
+    }
   `;
 __decorate([
     property({ type: String })
@@ -568,6 +621,18 @@ __decorate([
 __decorate([
     property({ type: Boolean })
 ], DafWebRequestPlugin.prototype, "allowMultipleAPICalls", void 0);
+__decorate([
+    property({ type: Boolean })
+], DafWebRequestPlugin.prototype, "btnEnabled", void 0);
+__decorate([
+    property({ type: String })
+], DafWebRequestPlugin.prototype, "btnText", void 0);
+__decorate([
+    property({ type: String })
+], DafWebRequestPlugin.prototype, "btnAlignment", void 0);
+__decorate([
+    property({ type: Boolean })
+], DafWebRequestPlugin.prototype, "btnVisible", void 0);
 DafWebRequestPlugin = __decorate([
     customElement('daf-webrequest-plugin')
 ], DafWebRequestPlugin);

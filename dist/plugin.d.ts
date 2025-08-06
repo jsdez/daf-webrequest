@@ -16,6 +16,10 @@ export declare class DafWebRequestPlugin extends LitElement {
     errorMessage: string;
     sendAPICall: boolean;
     allowMultipleAPICalls: boolean;
+    btnEnabled: boolean;
+    btnText: string;
+    btnAlignment: string;
+    btnVisible: boolean;
     private isLoading;
     private apiResponse;
     private responseType;
