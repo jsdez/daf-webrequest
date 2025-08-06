@@ -31,9 +31,12 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.successMessage = 'API call completed successfully';
         this.warningMessage = 'API call completed with warnings';
         this.errorMessage = 'API call failed';
+        this.sendAPICall = false;
+        this.allowMultipleAPICalls = true;
         this.isLoading = false;
         this.apiResponse = '';
         this.responseType = null;
+        this.hasSuccessfulCall = false;
     }
     static getMetaConfig() {
         return {
@@ -103,6 +106,18 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                     description: 'Custom message to display when the API call fails.',
                     defaultValue: 'API call failed',
                 },
+                sendAPICall: {
+                    type: 'boolean',
+                    title: 'Send API Call',
+                    description: 'Set to true to trigger the API call. Automatically resets to false after execution.',
+                    defaultValue: false,
+                },
+                allowMultipleAPICalls: {
+                    type: 'boolean',
+                    title: 'Allow Multiple API Calls',
+                    description: 'If true, allows repeated API calls. If false, disables further calls after first success/warning.',
+                    defaultValue: true,
+                },
             },
             standardProperties: {
                 fieldLabel: true,
@@ -154,8 +169,8 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
             <button 
               class="btn btn-primary" 
               part="api-button"
-              @click=${() => this.handleApiCall()} 
-              ?disabled=${this.isLoading}
+              @click=${() => this.triggerAPICall()} 
+              ?disabled=${this.isButtonDisabled()}
             >
               ${this.isLoading ? html `<span class="spinner"></span>Calling API...` : 'Call API'}
             </button>
@@ -171,8 +186,8 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
           <button 
             class="btn btn-primary" 
             part="api-button"
-            @click=${() => this.handleApiCall()} 
-            ?disabled=${this.isLoading}
+            @click=${() => this.triggerAPICall()} 
+            ?disabled=${this.isButtonDisabled()}
           >
             ${this.isLoading ? html `<span class="spinner"></span>Processing...` : 'Execute API Call'}
           </button>
@@ -227,6 +242,27 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                 composed: true,
             }));
         }
+        // Watch for sendAPICall property changes to trigger API automatically
+        if (changedProperties.has('sendAPICall') && this.sendAPICall && !this.isLoading) {
+            if (this.canMakeAPICall()) {
+                this.handleApiCall();
+            }
+        }
+    }
+    triggerAPICall() {
+        this.sendAPICall = true;
+        this.requestUpdate();
+    }
+    isButtonDisabled() {
+        return this.isLoading || !this.canMakeAPICall();
+    }
+    canMakeAPICall() {
+        // Always allow calls if multiple calls are enabled
+        if (this.allowMultipleAPICalls)
+            return true;
+        // If multiple calls are disabled, only allow if no successful call has been made
+        // or if the last call was an error
+        return !this.hasSuccessfulCall || this.responseType === 'error';
     }
     // Recursively remove keys with instructional placeholder values
     static removeInstructionalPlaceholders(obj) {
@@ -253,6 +289,8 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
     }
     handleApiCall() {
         return __awaiter(this, void 0, void 0, function* () {
+            if (!this.canMakeAPICall())
+                return;
             this.responseType = null;
             this.apiResponse = '';
             let url = this.apiUrl || '';
@@ -293,6 +331,12 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                     this.apiResponse = response;
                     this.responseType = this.determineResponseType(response);
                     this.value = response; // Store response in the value field for Nintex
+                    // Mark as successful call if success or warning
+                    if (this.responseType === 'success' || this.responseType === 'warning') {
+                        this.hasSuccessfulCall = true;
+                    }
+                    // Reset sendAPICall flag
+                    this.sendAPICall = false;
                     this.requestUpdate();
                 }
             });
@@ -497,6 +541,12 @@ __decorate([
 __decorate([
     property({ type: String })
 ], DafWebRequestPlugin.prototype, "errorMessage", void 0);
+__decorate([
+    property({ type: Boolean })
+], DafWebRequestPlugin.prototype, "sendAPICall", void 0);
+__decorate([
+    property({ type: Boolean })
+], DafWebRequestPlugin.prototype, "allowMultipleAPICalls", void 0);
 DafWebRequestPlugin = __decorate([
     customElement('daf-webrequest-plugin')
 ], DafWebRequestPlugin);
