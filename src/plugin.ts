@@ -506,12 +506,12 @@ export class DafWebRequestPlugin extends LitElement {
     const now = Date.now();
     const timeSinceLastCall = now - this.lastApiCallTime;
     
-    // Always enforce 5-second cooldown
-    if (timeSinceLastCall < this.API_COOLDOWN_MS) {
+    // Always enforce 5-second cooldown if there was a previous call
+    if (this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS) {
       return false;
     }
     
-    // Always allow calls if multiple calls are enabled
+    // Always allow calls if multiple calls are enabled (after cooldown)
     if (this.allowMultipleAPICalls) return true;
     
     // If multiple calls are disabled, only allow if no successful call has been made
@@ -524,7 +524,8 @@ export class DafWebRequestPlugin extends LitElement {
       hasSuccessfulCall: this.hasSuccessfulCall,
       responseType: this.responseType,
       timeSinceLastCall,
-      canCall: canCall && timeSinceLastCall >= this.API_COOLDOWN_MS
+      lastApiCallTime: this.lastApiCallTime,
+      canCall: canCall
     });
     
     return canCall;
