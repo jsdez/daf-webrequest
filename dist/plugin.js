@@ -336,7 +336,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         }
         else {
             // If allowMultipleAPICalls is true, keep button enabled (cooldown will handle prevention)
-            this.btnEnabled = this.originalBtnEnabled;
+            this.btnEnabled = true;
         }
         // Proceed with API call
         this.handleApiCall();
