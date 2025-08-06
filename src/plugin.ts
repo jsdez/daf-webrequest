@@ -385,6 +385,10 @@ export class DafWebRequestPlugin extends LitElement {
             </div>
           ` : ''}
           ${this.renderResponseAlert()}
+          <!-- Debug info -->
+            <div style="margin-top: 8px; font-size: 12px; color: #666;">
+              Debug: allowMultiple=${this.allowMultipleAPICalls}, hasSuccessful=${this.hasSuccessfulCall}, responseType=${this.responseType}
+            </div>
         </div>
       </div>
     `;
