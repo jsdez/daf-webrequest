@@ -193,6 +193,7 @@ export class DafWebRequestPlugin extends LitElement {
   private lastApiCallTime = 0;
   private readonly API_COOLDOWN_MS = 5000; // 5 seconds
   private showCooldownAlert = false;
+  private originalBtnEnabled = true; // Track the original button enabled state
 
   static getMetaConfig(): PluginContract {
     return {
@@ -463,6 +464,11 @@ export class DafWebRequestPlugin extends LitElement {
       }));
     }
     
+    // Track original btnEnabled state when it changes from external source
+    if (changedProperties.has('btnEnabled')) {
+      this.originalBtnEnabled = this.btnEnabled;
+    }
+    
     // Watch for sendAPICall property changes to trigger API automatically
     if (changedProperties.has('sendAPICall') && this.sendAPICall) {
       this.handleAPICallTrigger();
@@ -590,7 +596,7 @@ export class DafWebRequestPlugin extends LitElement {
         
         // Re-enable button if allowMultipleAPICalls is true (after cooldown will expire)
         if (this.allowMultipleAPICalls) {
-          this.btnEnabled = true;
+          this.btnEnabled = this.originalBtnEnabled;
         }
         
         // Dispatch value change event

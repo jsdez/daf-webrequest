@@ -27,6 +27,7 @@ export declare class DafWebRequestPlugin extends LitElement {
     private lastApiCallTime;
     private readonly API_COOLDOWN_MS;
     private showCooldownAlert;
+    private originalBtnEnabled;
     static getMetaConfig(): PluginContract;
     render(): import("lit-html").TemplateResult<1>;
     private renderResponseAlert;
