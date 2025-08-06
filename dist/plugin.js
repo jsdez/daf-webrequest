@@ -30,6 +30,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.method = 'POST';
         this.isLoading = false;
         this.apiResponse = '';
+        this.responseType = null;
     }
     static getMetaConfig() {
         return {
@@ -128,16 +129,23 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
             >${escaped}</textarea>
             ${error ? html `<div class="text-danger" part="error-message">${error}</div>` : ''}
           </div>
+          <div class="form-group">
+            <button 
+              class="btn btn-primary" 
+              part="api-button"
+              @click=${() => this.handleApiCall()} 
+              ?disabled=${this.isLoading}
+            >
+              ${this.isLoading ? html `<span class="spinner"></span>Calling API...` : 'Call API'}
+            </button>
+            ${this.renderResponseAlert()}
+          </div>
         </div>
       `;
         }
-        // Not in debug mode: show request content and API call button
+        // Not in debug mode: show only button and response
         return html `
       <div class="plugin-container">
-        <div class="form-group">
-          <label class="control-label" part="request-label">Request Body:</label>
-          <pre class="form-control" part="request-body">${this.requestBody}</pre>
-        </div>
         <div class="form-group">
           <button 
             class="btn btn-primary" 
@@ -145,13 +153,20 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
             @click=${() => this.handleApiCall()} 
             ?disabled=${this.isLoading}
           >
-            ${this.isLoading ? 'Calling API...' : 'Call API'}
+            ${this.isLoading ? html `<span class="spinner"></span>Processing...` : 'Execute API Call'}
           </button>
+          ${this.renderResponseAlert()}
         </div>
-        <div class="form-group">
-          <label class="control-label" part="response-label">API Response:</label>
-          <pre class="form-control" part="api-response">${this.apiResponse}</pre>
-        </div>
+      </div>
+    `;
+    }
+    renderResponseAlert() {
+        if (!this.apiResponse)
+            return '';
+        const alertClass = this.responseType ? `alert-${this.responseType}` : 'alert-success';
+        return html `
+      <div class="alert ${alertClass}" part="response-alert">
+        ${this.apiResponse}
       </div>
     `;
     }
@@ -190,6 +205,8 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
     }
     handleApiCall() {
         return __awaiter(this, void 0, void 0, function* () {
+            this.responseType = null;
+            this.apiResponse = '';
             let url = this.apiUrl || '';
             let headers = {};
             if (this.requestHeaders) {
@@ -220,10 +237,41 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                 method: this.method || 'POST',
                 headers,
                 requestBody: body,
-                setLoading: (loading) => { this.isLoading = loading; this.requestUpdate(); },
-                setResponse: (response) => { this.apiResponse = response; this.requestUpdate(); }
+                setLoading: (loading) => {
+                    this.isLoading = loading;
+                    this.requestUpdate();
+                },
+                setResponse: (response) => {
+                    this.apiResponse = response;
+                    this.responseType = this.determineResponseType(response);
+                    this.value = response; // Store response in the value field for Nintex
+                    this.requestUpdate();
+                }
             });
         });
+    }
+    determineResponseType(response) {
+        // Check if response indicates an error
+        if (response.toLowerCase().includes('error:') ||
+            response.toLowerCase().includes('failed') ||
+            response.toLowerCase().includes('exception')) {
+            return 'error';
+        }
+        // Try to parse as JSON to check for error status codes
+        try {
+            const parsed = JSON.parse(response);
+            if (parsed.error || parsed.status === 'error') {
+                return 'error';
+            }
+            if (parsed.warning || parsed.status === 'warning') {
+                return 'warning';
+            }
+        }
+        catch (_a) {
+            // Not JSON, continue with other checks
+        }
+        // Default to success for valid responses
+        return 'success';
     }
 };
 DafWebRequestPlugin.styles = css `
@@ -291,6 +339,48 @@ DafWebRequestPlugin.styles = css `
       color: var(--ntx-form-theme-color-error);
       font-size: var(--ntx-form-theme-text-label-size);
       margin-top: 4px;
+    }
+
+    .alert {
+      padding: 12px 16px;
+      margin-top: 12px;
+      border-radius: var(--ntx-form-theme-border-radius);
+      font-size: var(--ntx-form-theme-text-label-size);
+      font-family: var(--ntx-form-theme-font-family);
+    }
+
+    .alert-success {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .alert-warning {
+      background-color: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeaa7;
+    }
+
+    .alert-error {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-right: 8px;
+      border: 2px solid transparent;
+      border-top: 2px solid currentColor;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
 
     pre.form-control {
