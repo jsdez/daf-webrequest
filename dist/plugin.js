@@ -43,6 +43,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.hasSuccessfulCall = false;
         this.lastApiCallTime = 0;
         this.API_COOLDOWN_MS = 5000; // 5 seconds
+        this.showCooldownAlert = false;
     }
     static getMetaConfig() {
         return {
@@ -239,8 +240,8 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         const now = Date.now();
         const timeSinceLastCall = now - this.lastApiCallTime;
         const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS;
-        // Show cooldown message if we're in cooldown period
-        if (inCooldown) {
+        // Show cooldown message only if someone attempted to trigger during cooldown
+        if (inCooldown && this.showCooldownAlert) {
             const remainingSeconds = Math.ceil((this.API_COOLDOWN_MS - timeSinceLastCall) / 1000);
             return html `
         <div class="alert alert-info" part="cooldown-alert">
@@ -301,9 +302,18 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         if (changedProperties.has('sendAPICall') && this.sendAPICall && !this.isLoading) {
             // Immediately reset sendAPICall to prevent infinite loops
             this.sendAPICall = false;
-            // Only proceed if we can make the API call
+            // Check if we can make the API call
             if (this.canMakeAPICall()) {
                 this.handleApiCall();
+            }
+            else {
+                // If we can't make the call due to cooldown, show the cooldown alert
+                const now = Date.now();
+                const timeSinceLastCall = now - this.lastApiCallTime;
+                if (this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS) {
+                    this.showCooldownAlert = true;
+                    this.startCooldownTimer();
+                }
             }
         }
     }
@@ -311,6 +321,15 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         if (this.canMakeAPICall() && !this.isLoading) {
             // Don't set sendAPICall here to avoid conflicts with external triggers
             this.handleApiCall();
+        }
+        else {
+            // If we can't make the call due to cooldown, show the cooldown alert
+            const now = Date.now();
+            const timeSinceLastCall = now - this.lastApiCallTime;
+            if (this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS) {
+                this.showCooldownAlert = true;
+                this.startCooldownTimer();
+            }
         }
     }
     isButtonDisabled() {
@@ -419,8 +438,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                         composed: true,
                     }));
                     this.requestUpdate();
-                    // Start countdown timer for cooldown alert
-                    this.startCooldownTimer();
+                    // Don't start cooldown timer here - it will be started only if needed
                 }
             });
         });
@@ -456,6 +474,11 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
             if (timeSinceLastCall < this.API_COOLDOWN_MS) {
                 this.requestUpdate();
                 setTimeout(updateTimer, 1000);
+            }
+            else {
+                // Cooldown period ended, hide the alert
+                this.showCooldownAlert = false;
+                this.requestUpdate();
             }
         };
         // Start the timer
