@@ -176,7 +176,7 @@ export class DafWebRequestPlugin extends LitElement {
   @property({ type: Boolean }) sendAPICall = false;
   @property({ type: Boolean }) allowMultipleAPICalls = false;
   @property({ type: Boolean }) btnEnabled = true;
-  @property({ type: String }) btnText = 'Execute API Call';
+  @property({ type: String }) btnText = 'Send API Request';
   @property({ type: String }) btnAlignment = 'left';
   @property({ type: Boolean }) btnVisible = true;
 
@@ -265,6 +265,12 @@ export class DafWebRequestPlugin extends LitElement {
           description: 'If true, allows repeated API calls. If false, disables further calls after first success/warning.',
           defaultValue: false,
         } as PropType,
+        btnVisible: {
+          type: 'boolean',
+          title: 'Button Visible',
+          description: 'If true, the button is visible on the form.',
+          defaultValue: true,
+        } as PropType,
         btnEnabled: {
           type: 'boolean',
           title: 'Button Enabled',
@@ -275,7 +281,7 @@ export class DafWebRequestPlugin extends LitElement {
           type: 'string',
           title: 'Button Text',
           description: 'The text to display on the button.',
-          defaultValue: 'Execute API Call',
+          defaultValue: 'Send API Request',
         } as PropType,
         btnAlignment: {
           type: 'string',
@@ -283,12 +289,6 @@ export class DafWebRequestPlugin extends LitElement {
           description: 'The alignment of the button within the container.',
           enum: ['left', 'center', 'right'],
           defaultValue: 'left',
-        } as PropType,
-        btnVisible: {
-          type: 'boolean',
-          title: 'Button Visible',
-          description: 'If true, the button is visible on the form.',
-          defaultValue: true,
         } as PropType,
       },
       standardProperties: {
@@ -372,11 +372,6 @@ export class DafWebRequestPlugin extends LitElement {
             </div>
           ` : ''}
           ${this.renderResponseAlert()}
-          
-          <!-- Debug info -->
-          <div style="margin-top: 8px; font-size: 12px; color: #666;">
-            Debug: allowMultiple=${this.allowMultipleAPICalls}, hasSuccessful=${this.hasSuccessfulCall}, responseType=${this.responseType}
-          </div>
         </div>
       </div>
     `;
@@ -435,6 +430,10 @@ export class DafWebRequestPlugin extends LitElement {
     
     // Watch for sendAPICall property changes to trigger API automatically
     if (changedProperties.has('sendAPICall') && this.sendAPICall && !this.isLoading) {
+      // Immediately reset sendAPICall to prevent infinite loops
+      this.sendAPICall = false;
+      
+      // Only proceed if we can make the API call
       if (this.canMakeAPICall()) {
         this.handleApiCall();
       }
@@ -443,7 +442,7 @@ export class DafWebRequestPlugin extends LitElement {
 
   private triggerAPICall() {
     if (this.canMakeAPICall() && !this.isLoading) {
-      this.sendAPICall = true;
+      // Don't set sendAPICall here to avoid conflicts with external triggers
       this.handleApiCall();
     }
   }
@@ -546,9 +545,6 @@ export class DafWebRequestPlugin extends LitElement {
         if (this.responseType === 'success' || this.responseType === 'warning') {
           this.hasSuccessfulCall = true;
         }
-        
-        // Reset sendAPICall flag and dispatch value change
-        this.sendAPICall = false;
         
         // Dispatch value change event
         this.dispatchEvent(new CustomEvent('ntx-value-change', {

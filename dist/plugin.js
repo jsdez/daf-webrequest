@@ -34,7 +34,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.sendAPICall = false;
         this.allowMultipleAPICalls = false;
         this.btnEnabled = true;
-        this.btnText = 'Execute API Call';
+        this.btnText = 'Send API Request';
         this.btnAlignment = 'left';
         this.btnVisible = true;
         this.isLoading = false;
@@ -122,6 +122,12 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                     description: 'If true, allows repeated API calls. If false, disables further calls after first success/warning.',
                     defaultValue: false,
                 },
+                btnVisible: {
+                    type: 'boolean',
+                    title: 'Button Visible',
+                    description: 'If true, the button is visible on the form.',
+                    defaultValue: true,
+                },
                 btnEnabled: {
                     type: 'boolean',
                     title: 'Button Enabled',
@@ -132,7 +138,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                     type: 'string',
                     title: 'Button Text',
                     description: 'The text to display on the button.',
-                    defaultValue: 'Execute API Call',
+                    defaultValue: 'Send API Request',
                 },
                 btnAlignment: {
                     type: 'string',
@@ -140,12 +146,6 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                     description: 'The alignment of the button within the container.',
                     enum: ['left', 'center', 'right'],
                     defaultValue: 'left',
-                },
-                btnVisible: {
-                    type: 'boolean',
-                    title: 'Button Visible',
-                    description: 'If true, the button is visible on the form.',
-                    defaultValue: true,
                 },
             },
             standardProperties: {
@@ -229,11 +229,6 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
             </div>
           ` : ''}
           ${this.renderResponseAlert()}
-          
-          <!-- Debug info -->
-          <div style="margin-top: 8px; font-size: 12px; color: #666;">
-            Debug: allowMultiple=${this.allowMultipleAPICalls}, hasSuccessful=${this.hasSuccessfulCall}, responseType=${this.responseType}
-          </div>
         </div>
       </div>
     `;
@@ -286,6 +281,9 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         }
         // Watch for sendAPICall property changes to trigger API automatically
         if (changedProperties.has('sendAPICall') && this.sendAPICall && !this.isLoading) {
+            // Immediately reset sendAPICall to prevent infinite loops
+            this.sendAPICall = false;
+            // Only proceed if we can make the API call
             if (this.canMakeAPICall()) {
                 this.handleApiCall();
             }
@@ -293,7 +291,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
     }
     triggerAPICall() {
         if (this.canMakeAPICall() && !this.isLoading) {
-            this.sendAPICall = true;
+            // Don't set sendAPICall here to avoid conflicts with external triggers
             this.handleApiCall();
         }
     }
@@ -387,8 +385,6 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                     if (this.responseType === 'success' || this.responseType === 'warning') {
                         this.hasSuccessfulCall = true;
                     }
-                    // Reset sendAPICall flag and dispatch value change
-                    this.sendAPICall = false;
                     // Dispatch value change event
                     this.dispatchEvent(new CustomEvent('ntx-value-change', {
                         detail: this.value,
