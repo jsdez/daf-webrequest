@@ -158,7 +158,7 @@ export class DafWebRequestPlugin extends LitElement {
   @property({ type: String }) warningMessage = 'API call completed with warnings';
   @property({ type: String }) errorMessage = 'API call failed';
   @property({ type: Boolean }) sendAPICall = false;
-  @property({ type: Boolean }) allowMultipleAPICalls = true;
+  @property({ type: Boolean }) allowMultipleAPICalls = false;
 
   private isLoading = false;
   private apiResponse: string = '';
@@ -243,7 +243,7 @@ export class DafWebRequestPlugin extends LitElement {
           type: 'boolean',
           title: 'Allow Multiple API Calls',
           description: 'If true, allows repeated API calls. If false, disables further calls after first success/warning.',
-          defaultValue: true,
+          defaultValue: false,
         } as PropType,
       },
       standardProperties: {
@@ -319,6 +319,11 @@ export class DafWebRequestPlugin extends LitElement {
             ${this.isLoading ? html`<span class="spinner"></span>Processing...` : 'Execute API Call'}
           </button>
           ${this.renderResponseAlert()}
+          
+          <!-- Debug info -->
+          <div style="margin-top: 8px; font-size: 12px; color: #666;">
+            Debug: allowMultiple=${this.allowMultipleAPICalls}, hasSuccessful=${this.hasSuccessfulCall}, responseType=${this.responseType}
+          </div>
         </div>
       </div>
     `;
