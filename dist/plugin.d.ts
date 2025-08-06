@@ -11,12 +11,17 @@ export declare class DafWebRequestPlugin extends LitElement {
     requestHeaders: string;
     debugMode: boolean;
     method: string;
+    successMessage: string;
+    warningMessage: string;
+    errorMessage: string;
     private isLoading;
     private apiResponse;
     private responseType;
     static getMetaConfig(): PluginContract;
     render(): import("lit-html").TemplateResult<1>;
     private renderResponseAlert;
+    private getAlertIcon;
+    private getCustomMessage;
     updated(changedProperties: Map<string, any>): void;
     private static removeInstructionalPlaceholders;
     private handleApiCall;

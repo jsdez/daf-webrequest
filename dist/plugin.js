@@ -28,6 +28,9 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.requestHeaders = '';
         this.debugMode = false;
         this.method = 'POST';
+        this.successMessage = 'API call completed successfully';
+        this.warningMessage = 'API call completed with warnings';
+        this.errorMessage = 'API call failed';
         this.isLoading = false;
         this.apiResponse = '';
         this.responseType = null;
@@ -81,6 +84,24 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                     description: 'The HTTP method to use for the API call.',
                     enum: ['POST', 'GET', 'PUT', 'DELETE', 'PATCH'],
                     defaultValue: 'POST',
+                },
+                successMessage: {
+                    type: 'string',
+                    title: 'Success Message',
+                    description: 'Custom message to display when the API call succeeds.',
+                    defaultValue: 'API call completed successfully',
+                },
+                warningMessage: {
+                    type: 'string',
+                    title: 'Warning Message',
+                    description: 'Custom message to display when the API call returns a warning.',
+                    defaultValue: 'API call completed with warnings',
+                },
+                errorMessage: {
+                    type: 'string',
+                    title: 'Error Message',
+                    description: 'Custom message to display when the API call fails.',
+                    defaultValue: 'API call failed',
                 },
             },
             standardProperties: {
@@ -161,14 +182,41 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
     `;
     }
     renderResponseAlert() {
-        if (!this.apiResponse)
+        if (!this.apiResponse || !this.responseType)
             return '';
-        const alertClass = this.responseType ? `alert-${this.responseType}` : 'alert-success';
+        const alertClass = `alert-${this.responseType}`;
+        const icon = this.getAlertIcon(this.responseType);
+        const typeLabel = this.responseType.charAt(0).toUpperCase() + this.responseType.slice(1);
+        const customMessage = this.getCustomMessage(this.responseType);
         return html `
       <div class="alert ${alertClass}" part="response-alert">
-        ${this.apiResponse}
+        <div>
+          <span class="alert-icon">${icon}</span>
+          <strong>${typeLabel}:</strong> ${customMessage}
+        </div>
+        ${this.debugMode ? html `
+          <div class="alert-response">
+            <strong>Response:</strong> ${this.apiResponse}
+          </div>
+        ` : ''}
       </div>
     `;
+    }
+    getAlertIcon(type) {
+        switch (type) {
+            case 'success': return '✓';
+            case 'warning': return '⚠';
+            case 'error': return '✗';
+            default: return '•';
+        }
+    }
+    getCustomMessage(type) {
+        switch (type) {
+            case 'success': return this.successMessage;
+            case 'warning': return this.warningMessage;
+            case 'error': return this.errorMessage;
+            default: return 'Unknown response type';
+        }
     }
     // Handle property changes from the host application
     updated(changedProperties) {
@@ -347,6 +395,10 @@ DafWebRequestPlugin.styles = css `
       border-radius: var(--ntx-form-theme-border-radius);
       font-size: var(--ntx-form-theme-text-label-size);
       font-family: var(--ntx-form-theme-font-family);
+      user-select: text;
+      -webkit-user-select: text;
+      -moz-user-select: text;
+      -ms-user-select: text;
     }
 
     .alert-success {
@@ -365,6 +417,21 @@ DafWebRequestPlugin.styles = css `
       background-color: #f8d7da;
       color: #721c24;
       border: 1px solid #f5c6cb;
+    }
+
+    .alert-icon {
+      margin-right: 8px;
+      font-weight: bold;
+    }
+
+    .alert-response {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(0, 0, 0, 0.1);
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-all;
     }
 
     .spinner {
@@ -421,6 +488,15 @@ __decorate([
 __decorate([
     property({ type: String })
 ], DafWebRequestPlugin.prototype, "method", void 0);
+__decorate([
+    property({ type: String })
+], DafWebRequestPlugin.prototype, "successMessage", void 0);
+__decorate([
+    property({ type: String })
+], DafWebRequestPlugin.prototype, "warningMessage", void 0);
+__decorate([
+    property({ type: String })
+], DafWebRequestPlugin.prototype, "errorMessage", void 0);
 DafWebRequestPlugin = __decorate([
     customElement('daf-webrequest-plugin')
 ], DafWebRequestPlugin);
