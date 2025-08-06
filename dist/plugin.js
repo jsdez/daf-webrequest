@@ -250,8 +250,10 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         }
     }
     triggerAPICall() {
-        this.sendAPICall = true;
-        this.requestUpdate();
+        if (this.canMakeAPICall() && !this.isLoading) {
+            this.sendAPICall = true;
+            this.handleApiCall();
+        }
     }
     isButtonDisabled() {
         return this.isLoading || !this.canMakeAPICall();
@@ -262,7 +264,15 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
             return true;
         // If multiple calls are disabled, only allow if no successful call has been made
         // or if the last call was an error
-        return !this.hasSuccessfulCall || this.responseType === 'error';
+        const canCall = !this.hasSuccessfulCall || this.responseType === 'error';
+        // Debug logging (remove in production)
+        console.log('canMakeAPICall:', {
+            allowMultipleAPICalls: this.allowMultipleAPICalls,
+            hasSuccessfulCall: this.hasSuccessfulCall,
+            responseType: this.responseType,
+            canCall: canCall
+        });
+        return canCall;
     }
     // Recursively remove keys with instructional placeholder values
     static removeInstructionalPlaceholders(obj) {
@@ -335,8 +345,14 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                     if (this.responseType === 'success' || this.responseType === 'warning') {
                         this.hasSuccessfulCall = true;
                     }
-                    // Reset sendAPICall flag
+                    // Reset sendAPICall flag and dispatch value change
                     this.sendAPICall = false;
+                    // Dispatch value change event
+                    this.dispatchEvent(new CustomEvent('ntx-value-change', {
+                        detail: this.value,
+                        bubbles: true,
+                        composed: true,
+                    }));
                     this.requestUpdate();
                 }
             });
