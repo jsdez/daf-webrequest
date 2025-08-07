@@ -5,7 +5,7 @@ esbuild.build({
   bundle: true,
   minify: true,
   format: 'esm',
-  outfile: 'plugin.bundle.js',
+  outfile: 'dist/plugin.bundle.js',
   target: ['es2017'],
   platform: 'browser',
   sourcemap: false,

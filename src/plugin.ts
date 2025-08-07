@@ -170,7 +170,15 @@ export class DafWebRequestPlugin extends LitElement {
   @property({ type: String }) label = '';
   @property({ type: String }) description = '';
   @property({ type: Boolean }) readOnly = false;
-  @property({ type: String }) value = '';
+  @property({ type: Object }) value = {
+    success: false,
+    statusCode: 0,
+    responseType: '',
+    data: '',
+    message: '',
+    timestamp: '',
+    executionTime: 0
+  };
   @property({ type: String }) requestBody = '';
   @property({ type: String }) apiUrl = '';
   @property({ type: String }) requestHeaders = '';
@@ -194,6 +202,7 @@ export class DafWebRequestPlugin extends LitElement {
   private readonly API_COOLDOWN_MS = 5000; // 5 seconds
   private showCooldownAlert = false;
   private originalBtnEnabled = true; // Track the original button enabled state
+  private apiCallStartTime = 0; // Track API call execution time
 
   static getMetaConfig(): PluginContract {
     return {
@@ -227,10 +236,56 @@ export class DafWebRequestPlugin extends LitElement {
           defaultValue: false,
         } as PropType,
         value: {
-          type: 'string',
-          title: 'Value',
+          type: 'object',
+          title: 'API Response',
+          description: 'The complete API response object containing status, data, and metadata',
           isValueField: true,
-          defaultValue: '',
+          properties: {
+            success: {
+              type: 'boolean',
+              title: 'Success',
+              description: 'Whether the API call was successful',
+            },
+            statusCode: {
+              type: 'integer',
+              title: 'HTTP Status Code',
+              description: 'The HTTP response status code',
+            },
+            responseType: {
+              type: 'string',
+              title: 'Response Type',
+              description: 'The categorized response type (success, warning, error)',
+            },
+            data: {
+              type: 'string',
+              title: 'Response Data',
+              description: 'The raw response data from the API',
+            },
+            message: {
+              type: 'string',
+              title: 'Response Message',
+              description: 'User-friendly message describing the result',
+            },
+            timestamp: {
+              type: 'string',
+              title: 'Timestamp',
+              description: 'ISO timestamp of when the API call was made',
+            },
+            executionTime: {
+              type: 'integer',
+              title: 'Execution Time',
+              description: 'Time taken for the API call in milliseconds',
+            }
+          },
+          defaultValue: {
+            success: false,
+            statusCode: 0,
+            responseType: '',
+            data: '',
+            message: '',
+            timestamp: '',
+            executionTime: 0
+          },
         } as PropType,
         debugMode: {
           type: 'boolean',
@@ -547,8 +602,9 @@ export class DafWebRequestPlugin extends LitElement {
   private async handleApiCall() {
     if (this.isLoading) return;
     
-    // Record the time of this API call
+    // Record the time of this API call and start execution timer
     this.lastApiCallTime = Date.now();
+    this.apiCallStartTime = Date.now();
     
     this.responseType = null;
     this.apiResponse = '';
@@ -586,10 +642,23 @@ export class DafWebRequestPlugin extends LitElement {
         this.isLoading = loading; 
         this.requestUpdate(); 
       },
-      setResponse: (response: string) => { 
+      setResponse: (response: string, statusCode?: number, success?: boolean) => { 
+        const executionTime = Date.now() - this.apiCallStartTime;
+        const timestamp = new Date().toISOString();
+        
         this.apiResponse = response;
-        this.responseType = this.determineResponseType(response);
-        this.value = response; // Store response in the value field for Nintex
+        this.responseType = success === false ? 'error' : this.determineResponseType(response);
+        
+        // Create structured value object
+        this.value = {
+          success: success !== false && (this.responseType === 'success' || this.responseType === 'warning'),
+          statusCode: statusCode || (this.responseType === 'success' ? 200 : 500),
+          responseType: this.responseType,
+          data: response,
+          message: this.getCustomMessage(this.responseType),
+          timestamp: timestamp,
+          executionTime: executionTime
+        };
         
         // Mark as successful call if success or warning
         if (this.responseType === 'success' || this.responseType === 'warning') {

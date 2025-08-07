@@ -11,7 +11,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 export function callApi(_a) {
     return __awaiter(this, arguments, void 0, function* ({ url, method = 'POST', headers = {}, requestBody, setLoading, setResponse, }) {
         setLoading(true);
-        setResponse('');
+        setResponse('', 0, false);
         try {
             const res = yield fetch(url, {
                 method,
@@ -21,10 +21,10 @@ export function callApi(_a) {
                     : undefined,
             });
             const text = yield res.text();
-            setResponse(text);
+            setResponse(text, res.status, res.ok);
         }
         catch (e) {
-            setResponse('Error: ' + ((e === null || e === void 0 ? void 0 : e.message) || e));
+            setResponse('Error: ' + ((e === null || e === void 0 ? void 0 : e.message) || e), 0, false);
         }
         finally {
             setLoading(false);

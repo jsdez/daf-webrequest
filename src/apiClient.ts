@@ -13,10 +13,10 @@ export async function callApi({
   headers?: Record<string, string>;
   requestBody?: any;
   setLoading: (loading: boolean) => void;
-  setResponse: (response: string) => void;
+  setResponse: (response: string, statusCode?: number, success?: boolean) => void;
 }) {
   setLoading(true);
-  setResponse('');
+  setResponse('', 0, false);
   try {
     const res = await fetch(url, {
       method,
@@ -30,9 +30,9 @@ export async function callApi({
         : undefined,
     });
     const text = await res.text();
-    setResponse(text);
+    setResponse(text, res.status, res.ok);
   } catch (e: any) {
-    setResponse('Error: ' + (e?.message || e));
+    setResponse('Error: ' + (e?.message || e), 0, false);
   } finally {
     setLoading(false);
   }
