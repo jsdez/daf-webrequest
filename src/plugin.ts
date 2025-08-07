@@ -337,7 +337,7 @@ export class DafWebRequestPlugin extends LitElement {
           defaultValue: true,
         } as PropType,
         countdownTimer: {
-          type: 'integer',
+          type: 'number',
           title: 'Countdown Timer (seconds)',
           description: 'Number of seconds to wait between API calls when countdown is enabled.',
           defaultValue: 5,
