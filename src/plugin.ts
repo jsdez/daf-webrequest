@@ -198,6 +198,9 @@ export class DafWebRequestPlugin extends LitElement {
   private apiResponse: string = '';
   private responseType: 'success' | 'warning' | 'error' | null = null;
   private hasSuccessfulCall = false;
+  private lastApiCallTime = 0;
+  private readonly API_COOLDOWN_MS = 5000; // 5 seconds
+  private showCooldownAlert = false;
   private apiCallStartTime = 0; // Track API call execution time
 
   static getMetaConfig(): PluginContract {
@@ -447,6 +450,23 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   private renderResponseAlert() {
+    const now = Date.now();
+    const timeSinceLastCall = now - this.lastApiCallTime;
+    const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS;
+    
+    // Show cooldown message only if someone attempted to trigger during cooldown
+    if (inCooldown && this.showCooldownAlert) {
+      const remainingSeconds = Math.ceil((this.API_COOLDOWN_MS - timeSinceLastCall) / 1000);
+      return html`
+        <div class="alert alert-info" part="cooldown-alert">
+          <div>
+            <span class="alert-icon">ℹ</span>
+            <strong>Information:</strong> Please wait ${remainingSeconds} seconds before sending another request.
+          </div>
+        </div>
+      `;
+    }
+    
     // Show regular response alert if we have a response
     if (!this.apiResponse || !this.responseType) return '';
     
@@ -514,6 +534,18 @@ export class DafWebRequestPlugin extends LitElement {
       return;
     }
     
+    // Check cooldown timer - prevent API call if still in cooldown
+    const now = Date.now();
+    const timeSinceLastCall = now - this.lastApiCallTime;
+    const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS;
+    
+    if (inCooldown) {
+      // Show cooldown alert and don't proceed
+      this.showCooldownAlert = true;
+      this.startCooldownTimer();
+      return;
+    }
+    
     // Proceed with API call
     this.handleApiCall();
   }
@@ -542,8 +574,9 @@ export class DafWebRequestPlugin extends LitElement {
       return result;
     }
     
-    // If allowMultipleAPICalls is false, use original logic with btnEnabled and permanent disable
-    const permanentlyDisabled = this.hasSuccessfulCall;
+    // If allowMultipleAPICalls is false, disable for loading, btnEnabled, OR after successful/warning call
+    // Note: Errors (this.responseType === 'error') still allow retry
+    const permanentlyDisabled = this.hasSuccessfulCall && (this.responseType === 'success' || this.responseType === 'warning');
     const result = this.isLoading || !this.btnEnabled || permanentlyDisabled;
     
     // Debug logging to console
@@ -553,6 +586,7 @@ export class DafWebRequestPlugin extends LitElement {
         btnEnabled: this.btnEnabled,
         permanentlyDisabled,
         hasSuccessfulCall: this.hasSuccessfulCall,
+        responseType: this.responseType,
         result
       });
     }
@@ -590,7 +624,8 @@ export class DafWebRequestPlugin extends LitElement {
   private async handleApiCall() {
     if (this.isLoading) return;
     
-    // Start execution timer
+    // Record the time of this API call and start execution timer
+    this.lastApiCallTime = Date.now();
     this.apiCallStartTime = Date.now();
     
     this.responseType = null;
@@ -687,5 +722,26 @@ export class DafWebRequestPlugin extends LitElement {
     
     // Default to success for valid responses
     return 'success';
+  }
+
+  private startCooldownTimer() {
+    // Update the UI every second during cooldown to show remaining time
+    const updateTimer = () => {
+      const now = Date.now();
+      const timeSinceLastCall = now - this.lastApiCallTime;
+      
+      if (timeSinceLastCall < this.API_COOLDOWN_MS) {
+        // Still in cooldown, update in another second
+        this.requestUpdate();
+        setTimeout(updateTimer, 1000);
+      } else {
+        // Cooldown period ended, hide the alert
+        this.showCooldownAlert = false;
+        this.requestUpdate();
+      }
+    };
+    
+    // Start the timer
+    setTimeout(updateTimer, 1000);
   }
 }
