@@ -219,13 +219,13 @@ export class DafWebRequestPlugin extends LitElement {
         } as PropType,
         requestHeaders: {
           type: 'string',
-          title: 'Request Headers (JSON)',
+          title: 'Request Headers',
           description: 'Headers to include in the API request, as a JSON object.',
           defaultValue: '',
         } as PropType,
         requestBody: {
           type: 'string',
-          title: 'Request Body (JSON)',
+          title: 'Request Body',
           description: 'Body to send in the API request, as a JSON object.',
           defaultValue: '',
         } as PropType,
