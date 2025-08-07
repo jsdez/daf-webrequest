@@ -165,7 +165,109 @@ export class DafWebRequestPlugin extends LitElement {
     .btn-container.align-right {
       justify-content: flex-end;
     }
+
+    /* Debug Tabs */
+    .debug-tabs {
+      margin-top: var(--ntx-form-theme-spacing-md, 16px);
+    }
+
+    .debug-tab-nav {
+      display: flex;
+      border-bottom: 1px solid var(--ntx-form-theme-tab-border, #dee2e6);
+      margin-bottom: var(--ntx-form-theme-spacing-md, 16px);
+    }
+
+    .debug-tab-button {
+      padding: var(--ntx-form-theme-spacing-sm, 8px) var(--ntx-form-theme-spacing-md, 16px);
+      border: none;
+      background: none;
+      font-family: var(--ntx-form-theme-font-family);
+      font-size: var(--ntx-form-theme-text-label-size, 14px);
+      cursor: pointer;
+      color: var(--ntx-form-theme-tab-inactive, #6c757d);
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s ease;
+    }
+
+    .debug-tab-button:hover {
+      color: var(--ntx-form-theme-color-primary, #0078d4);
+      background-color: var(--ntx-form-theme-color-background-alt, #f8f9fa);
+    }
+
+    .debug-tab-button.active {
+      color: var(--ntx-form-theme-tab-active, #0078d4);
+      border-bottom-color: var(--ntx-form-theme-tab-active, #0078d4);
+      font-weight: 500;
+    }
+
+    .debug-tab-content {
+      display: none;
+    }
+
+    .debug-tab-content.active {
+      display: block;
+    }
+
+    /* Debug Tables */
+    .debug-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--ntx-form-theme-font-family);
+      font-size: var(--ntx-form-theme-text-input-size, 14px);
+      background: var(--ntx-form-theme-color-background, #ffffff);
+      border-radius: var(--ntx-form-theme-border-radius, 4px);
+      overflow: hidden;
+      box-shadow: var(--ntx-form-theme-shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.05));
+    }
+
+    .debug-table th,
+    .debug-table td {
+      padding: var(--ntx-form-theme-spacing-sm, 8px) var(--ntx-form-theme-spacing-md, 16px);
+      text-align: left;
+      border-bottom: 1px solid var(--ntx-form-theme-table-border, #dee2e6);
+    }
+
+    .debug-table th {
+      background-color: var(--ntx-form-theme-color-background-alt, #f8f9fa);
+      font-weight: 500;
+      color: var(--ntx-form-theme-color-input-text, #333333);
+    }
+
+    .debug-table tr:nth-child(even) {
+      background-color: var(--ntx-form-theme-table-stripe, #f8f9fa);
+    }
+
+    .debug-table tr:hover {
+      background-color: var(--ntx-form-theme-table-hover, #e9ecef);
+    }
+
+    .debug-table .property-name {
+      font-weight: 500;
+      color: var(--ntx-form-theme-color-primary, #0078d4);
+    }
+
+    .debug-table .value-default {
+      font-style: italic;
+      color: var(--ntx-form-theme-color-secondary, #6c757d);
+    }
+
+    .debug-table .value-current {
+      font-weight: 500;
+    }
+
+    .debug-table .value-json {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 12px;
+      background-color: var(--ntx-form-theme-color-background-alt, #f8f9fa);
+      padding: 4px 8px;
+      border-radius: 3px;
+      max-width: 300px;
+      word-break: break-all;
+    }
   `;
+
+  // Add private property to track active debug tab
+  private activeDebugTab: string = 'properties';
 
   @property({ type: String }) label = '';
   @property({ type: String }) description = '';
@@ -414,40 +516,9 @@ export class DafWebRequestPlugin extends LitElement {
   render() {
     const showJsonConverter = this.debugMode;
     if (showJsonConverter) {
-      // Debug mode: allow user to enter JSON, minify+escape and show result
-      let minified = '';
-      let escaped = '';
-      let error = '';
-      try {
-        if (this.requestBody) {
-          minified = JSON.stringify(JSON.parse(this.requestBody));
-          escaped = '"' + minified.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
-        }
-      } catch (e) {
-        error = 'Invalid JSON';
-      }
+      // Debug mode: Enhanced debug interface with tabs
       return html`
         <div class="plugin-container">
-          <div class="form-group">
-            <label class="control-label" part="debug-label">Enter JSON:</label>
-            <textarea 
-              class="form-control" 
-              part="debug-input"
-              rows="8" 
-              .value=${this.requestBody} 
-              @input=${(e: any) => { this.requestBody = e.target.value; this.requestUpdate(); }}
-            ></textarea>
-          </div>
-          <div class="form-group">
-            <label class="control-label" part="output-label">Minified & Escaped JSON:</label>
-            <textarea 
-              class="form-control" 
-              part="debug-output"
-              readonly 
-              rows="4"
-            >${escaped}</textarea>
-            ${error ? html`<div class="text-danger" part="error-message">${error}</div>` : ''}
-          </div>
           <div class="form-group">
             ${this.btnVisible ? html`
               <div class="btn-container align-${this.btnAlignment}">
@@ -461,10 +532,41 @@ export class DafWebRequestPlugin extends LitElement {
                 </button>
               </div>
             ` : ''}
-            ${this.renderResponseAlert()}        
-            <!-- Debug info -->
-            <div style="margin-top: 8px; font-size: 12px; color: #666;">
-              Debug: allowMultiple=${this.allowMultipleAPICalls}, hasSuccessful=${this.hasSuccessfulCall}, responseType=${this.responseType}, btnEnabled=${this.btnEnabled}, isLoading=${this.isLoading}, buttonDisabled=${this.isButtonDisabled()}
+            ${this.renderResponseAlert()}
+          </div>
+
+          <div class="debug-tabs">
+            <div class="debug-tab-nav">
+              <button 
+                class="debug-tab-button ${this.activeDebugTab === 'properties' ? 'active' : ''}"
+                @click=${() => this.setActiveTab('properties')}
+              >
+                Plugin Properties
+              </button>
+              <button 
+                class="debug-tab-button ${this.activeDebugTab === 'request' ? 'active' : ''}"
+                @click=${() => this.setActiveTab('request')}
+              >
+                Request Details
+              </button>
+              <button 
+                class="debug-tab-button ${this.activeDebugTab === 'tools' ? 'active' : ''}"
+                @click=${() => this.setActiveTab('tools')}
+              >
+                API Tools
+              </button>
+            </div>
+
+            <div class="debug-tab-content ${this.activeDebugTab === 'properties' ? 'active' : ''}">
+              ${this.renderPropertiesTab()}
+            </div>
+
+            <div class="debug-tab-content ${this.activeDebugTab === 'request' ? 'active' : ''}">
+              ${this.renderRequestDetailsTab()}
+            </div>
+
+            <div class="debug-tab-content ${this.activeDebugTab === 'tools' ? 'active' : ''}">
+              ${this.renderAPIToolsTab()}
             </div>
           </div>
         </div>
@@ -487,10 +589,6 @@ export class DafWebRequestPlugin extends LitElement {
             </div>
           ` : ''}
           ${this.renderResponseAlert()}
-          <!-- Debug info -->
-            <div style="margin-top: 8px; font-size: 12px; color: #666;">
-              Debug: allowMultiple=${this.allowMultipleAPICalls}, hasSuccessful=${this.hasSuccessfulCall}, responseType=${this.responseType}, btnEnabled=${this.btnEnabled}, isLoading=${this.isLoading}, buttonDisabled=${this.isButtonDisabled()}
-            </div>
         </div>
       </div>
     `;
@@ -647,6 +745,146 @@ export class DafWebRequestPlugin extends LitElement {
     }
     
     return result;
+  }
+
+  private setActiveTab(tabName: 'properties' | 'request' | 'tools'): void {
+    this.activeDebugTab = tabName;
+    this.requestUpdate();
+  }
+
+  private renderPropertiesTab() {
+    const properties = [
+      { name: 'btnText', default: 'Send API Call', current: this.btnText },
+      { name: 'btnAlignment', default: 'left', current: this.btnAlignment },
+      { name: 'btnVisible', default: true, current: this.btnVisible },
+      { name: 'btnEnabled', default: true, current: this.btnEnabled },
+      { name: 'debugMode', default: false, current: this.debugMode },
+      { name: 'countdownEnabled', default: true, current: this.countdownEnabled },
+      { name: 'countdownTimer', default: 5, current: this.countdownTimer },
+      { name: 'allowMultipleAPICalls', default: false, current: this.allowMultipleAPICalls },
+      { name: 'sendAPICall', default: false, current: this.sendAPICall },
+      { name: 'successMessage', default: 'API call completed successfully', current: this.successMessage },
+      { name: 'warningMessage', default: 'API call completed with warnings', current: this.warningMessage },
+      { name: 'errorMessage', default: 'API call failed', current: this.errorMessage }
+    ];
+
+    return html`
+      <table class="debug-table">
+        <thead>
+          <tr>
+            <th>Property</th>
+            <th>Default Value</th>
+            <th>Current Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${properties.map(prop => html`
+            <tr>
+              <td><code>${prop.name}</code></td>
+              <td>${this.formatValue(prop.default)}</td>
+              <td>${this.formatValue(prop.current)}</td>
+            </tr>
+          `)}
+        </tbody>
+      </table>
+    `;
+  }
+
+  private renderRequestDetailsTab() {
+    return html`
+      <table class="debug-table">
+        <thead>
+          <tr>
+            <th>Property</th>
+            <th>Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>apiUrl</code></td>
+            <td>${this.apiUrl || '<not set>'}</td>
+          </tr>
+          <tr>
+            <td><code>method</code></td>
+            <td>${this.method}</td>
+          </tr>
+          <tr>
+            <td><code>requestHeaders</code></td>
+            <td>
+              ${this.requestHeaders ? html`
+                <pre class="debug-json">${this.requestHeaders}</pre>
+              ` : '<not set>'}
+            </td>
+          </tr>
+          <tr>
+            <td><code>requestBody</code></td>
+            <td>
+              ${this.requestBody ? html`
+                <pre class="debug-json">${this.requestBody}</pre>
+              ` : '<not set>'}
+            </td>
+          </tr>
+          <tr>
+            <td><code>State</code></td>
+            <td>
+              Loading: ${this.isLoading}<br>
+              Has Successful Call: ${this.hasSuccessfulCall}<br>
+              Button Disabled: ${this.isButtonDisabled()}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `;
+  }
+
+  private renderAPIToolsTab() {
+    let minified = '';
+    let escaped = '';
+    let error = '';
+    try {
+      if (this.requestBody) {
+        minified = JSON.stringify(JSON.parse(this.requestBody));
+        escaped = '"' + minified.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+      }
+    } catch (e) {
+      error = 'Invalid JSON';
+    }
+
+    return html`
+      <div class="debug-tools">
+        <div class="form-group">
+          <label class="control-label" part="debug-label">JSON Editor:</label>
+          <textarea 
+            class="form-control" 
+            part="debug-input"
+            rows="8" 
+            .value=${this.requestBody} 
+            @input=${(e: any) => { this.requestBody = e.target.value; this.requestUpdate(); }}
+            placeholder="Enter JSON request body..."
+          ></textarea>
+        </div>
+        <div class="form-group">
+          <label class="control-label" part="output-label">Minified & Escaped JSON:</label>
+          <textarea 
+            class="form-control" 
+            part="debug-output"
+            readonly 
+            rows="4"
+            .value=${escaped}
+          ></textarea>
+          ${error ? html`<div class="text-danger" part="error-message">${error}</div>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  private formatValue(value: any): string {
+    if (typeof value === 'boolean') return value.toString();
+    if (typeof value === 'string') return `"${value}"`;
+    if (typeof value === 'number') return value.toString();
+    if (value === null) return 'null';
+    if (value === undefined) return 'undefined';
+    return JSON.stringify(value);
   }
 
   // Recursively remove keys with instructional placeholder values

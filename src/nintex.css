@@ -1,0 +1,54 @@
+/* Nintex Forms Theme CSS Variables */
+:root {
+  /* Typography */
+  --ntx-form-theme-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --ntx-form-theme-text-input-size: 14px;
+  --ntx-form-theme-text-label-size: 14px;
+  --ntx-form-theme-text-heading-size: 18px;
+
+  /* Colors - Input */
+  --ntx-form-theme-color-input-text: #333333;
+  --ntx-form-theme-color-input-background: #ffffff;
+  --ntx-form-theme-color-input-placeholder: #999999;
+
+  /* Colors - Theme */
+  --ntx-form-theme-color-primary: #0078d4;
+  --ntx-form-theme-color-secondary: #6c757d;
+  --ntx-form-theme-color-success: #28a745;
+  --ntx-form-theme-color-warning: #ffc107;
+  --ntx-form-theme-color-error: #dc3545;
+  --ntx-form-theme-color-info: #17a2b8;
+
+  /* Colors - Border */
+  --ntx-form-theme-color-border: #ced4da;
+  --ntx-form-theme-color-border-focus: #0078d4;
+
+  /* Colors - Background */
+  --ntx-form-theme-color-background: #ffffff;
+  --ntx-form-theme-color-background-alt: #f8f9fa;
+  --ntx-form-theme-color-background-disabled: #e9ecef;
+
+  /* Layout */
+  --ntx-form-theme-control-height: 38px;
+  --ntx-form-theme-border-radius: 4px;
+  --ntx-form-theme-spacing-xs: 4px;
+  --ntx-form-theme-spacing-sm: 8px;
+  --ntx-form-theme-spacing-md: 16px;
+  --ntx-form-theme-spacing-lg: 24px;
+  --ntx-form-theme-spacing-xl: 32px;
+
+  /* Shadows */
+  --ntx-form-theme-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --ntx-form-theme-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --ntx-form-theme-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+
+  /* Table */
+  --ntx-form-theme-table-border: #dee2e6;
+  --ntx-form-theme-table-stripe: #f8f9fa;
+  --ntx-form-theme-table-hover: #e9ecef;
+
+  /* Tabs */
+  --ntx-form-theme-tab-border: #dee2e6;
+  --ntx-form-theme-tab-active: #0078d4;
+  --ntx-form-theme-tab-inactive: #6c757d;
+}
