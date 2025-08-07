@@ -561,9 +561,10 @@ export class DafWebRequestPlugin extends LitElement {
     const timeSinceLastCall = now - this.lastApiCallTime;
     const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS;
     
-    // If allowMultipleAPICalls is true, never permanently disable - only check loading, btnEnabled, and cooldown
+    // If allowMultipleAPICalls is true, NEVER disable the button permanently
+    // Only disable during loading or cooldown - ignore btnEnabled and hasSuccessfulCall
     if (this.allowMultipleAPICalls) {
-      const result = this.isLoading || !this.btnEnabled || inCooldown;
+      const result = this.isLoading || inCooldown;
       
       // Debug logging to console (reference buttonStateVersion to ensure this recalculates)
       if (this.debugMode) {
@@ -572,14 +573,15 @@ export class DafWebRequestPlugin extends LitElement {
           btnEnabled: this.btnEnabled,
           inCooldown,
           timeSinceLastCall,
-          result
+          result,
+          note: 'btnEnabled is ignored when allowMultipleAPICalls=true'
         });
       }
       
       return result;
     }
     
-    // If allowMultipleAPICalls is false, permanently disable after successful call
+    // If allowMultipleAPICalls is false, use original logic with btnEnabled and permanent disable
     const permanentlyDisabled = this.hasSuccessfulCall;
     const result = this.isLoading || !this.btnEnabled || inCooldown || permanentlyDisabled;
     
