@@ -198,11 +198,7 @@ export class DafWebRequestPlugin extends LitElement {
   private apiResponse: string = '';
   private responseType: 'success' | 'warning' | 'error' | null = null;
   private hasSuccessfulCall = false;
-  private lastApiCallTime = 0;
-  private readonly API_COOLDOWN_MS = 5000; // 5 seconds
-  private showCooldownAlert = false;
   private apiCallStartTime = 0; // Track API call execution time
-  private buttonStateVersion = 0; // Force button state updates
 
   static getMetaConfig(): PluginContract {
     return {
@@ -451,23 +447,6 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   private renderResponseAlert() {
-    const now = Date.now();
-    const timeSinceLastCall = now - this.lastApiCallTime;
-    const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS;
-    
-    // Show cooldown message only if someone attempted to trigger during cooldown
-    if (inCooldown && this.showCooldownAlert) {
-      const remainingSeconds = Math.ceil((this.API_COOLDOWN_MS - timeSinceLastCall) / 1000);
-      return html`
-        <div class="alert alert-info" part="cooldown-alert">
-          <div>
-            <span class="alert-icon">ℹ</span>
-            <strong>Information:</strong> Please wait ${remainingSeconds} seconds before sending another request.
-          </div>
-        </div>
-      `;
-    }
-    
     // Show regular response alert if we have a response
     if (!this.apiResponse || !this.responseType) return '';
     
@@ -535,19 +514,7 @@ export class DafWebRequestPlugin extends LitElement {
       return;
     }
     
-    // Check if we can make the API call (cooldown logic)
-    const now = Date.now();
-    const timeSinceLastCall = now - this.lastApiCallTime;
-    const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS;
-    
-    if (inCooldown) {
-      // Show cooldown alert and don't proceed
-      this.showCooldownAlert = true;
-      this.startCooldownTimer();
-      return;
-    }
-    
-    // Proceed with API call (don't modify btnEnabled - let host application control it)
+    // Proceed with API call
     this.handleApiCall();
   }
 
@@ -557,22 +524,16 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   private isButtonDisabled(): boolean {
-    const now = Date.now();
-    const timeSinceLastCall = now - this.lastApiCallTime;
-    const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS;
-    
     // If allowMultipleAPICalls is true, NEVER disable the button permanently
-    // Only disable during loading or cooldown - ignore btnEnabled and hasSuccessfulCall
+    // Only disable during loading - ignore btnEnabled and hasSuccessfulCall
     if (this.allowMultipleAPICalls) {
-      const result = this.isLoading || inCooldown;
+      const result = this.isLoading;
       
-      // Debug logging to console (reference buttonStateVersion to ensure this recalculates)
+      // Debug logging to console
       if (this.debugMode) {
-        console.log('Button disabled check - multiple calls allowed (v' + this.buttonStateVersion + '):', {
+        console.log('Button disabled check - multiple calls allowed:', {
           isLoading: this.isLoading,
           btnEnabled: this.btnEnabled,
-          inCooldown,
-          timeSinceLastCall,
           result,
           note: 'btnEnabled is ignored when allowMultipleAPICalls=true'
         });
@@ -583,17 +544,15 @@ export class DafWebRequestPlugin extends LitElement {
     
     // If allowMultipleAPICalls is false, use original logic with btnEnabled and permanent disable
     const permanentlyDisabled = this.hasSuccessfulCall;
-    const result = this.isLoading || !this.btnEnabled || inCooldown || permanentlyDisabled;
+    const result = this.isLoading || !this.btnEnabled || permanentlyDisabled;
     
-    // Debug logging to console (reference buttonStateVersion to ensure this recalculates)
+    // Debug logging to console
     if (this.debugMode) {
-      console.log('Button disabled check - single call only (v' + this.buttonStateVersion + '):', {
+      console.log('Button disabled check - single call only:', {
         isLoading: this.isLoading,
         btnEnabled: this.btnEnabled,
-        inCooldown,
         permanentlyDisabled,
         hasSuccessfulCall: this.hasSuccessfulCall,
-        timeSinceLastCall,
         result
       });
     }
@@ -631,8 +590,7 @@ export class DafWebRequestPlugin extends LitElement {
   private async handleApiCall() {
     if (this.isLoading) return;
     
-    // Record the time of this API call and start execution timer
-    this.lastApiCallTime = Date.now();
+    // Start execution timer
     this.apiCallStartTime = Date.now();
     
     this.responseType = null;
@@ -729,30 +687,5 @@ export class DafWebRequestPlugin extends LitElement {
     
     // Default to success for valid responses
     return 'success';
-  }
-
-  private startCooldownTimer() {
-    // Update the UI every second during cooldown to show remaining time
-    const updateTimer = () => {
-      const now = Date.now();
-      const timeSinceLastCall = now - this.lastApiCallTime;
-      
-      if (timeSinceLastCall < this.API_COOLDOWN_MS) {
-        // Increment version to force button state re-evaluation
-        this.buttonStateVersion++;
-        this.requestUpdate();
-        setTimeout(updateTimer, 1000);
-      } else {
-        // Cooldown period ended, hide the alert
-        this.showCooldownAlert = false;
-        
-        // Force button state update when cooldown expires
-        this.buttonStateVersion++;
-        this.requestUpdate();
-      }
-    };
-    
-    // Start the timer
-    setTimeout(updateTimer, 1000);
   }
 }
