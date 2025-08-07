@@ -202,6 +202,7 @@ export class DafWebRequestPlugin extends LitElement {
   private readonly API_COOLDOWN_MS = 5000; // 5 seconds
   private showCooldownAlert = false;
   private apiCallStartTime = 0; // Track API call execution time
+  private buttonStateVersion = 0; // Force button state updates
 
   static getMetaConfig(): PluginContract {
     return {
@@ -565,15 +566,16 @@ export class DafWebRequestPlugin extends LitElement {
     
     const result = this.isLoading || !this.btnEnabled || inCooldown || permanentlyDisabled;
     
-    // Debug logging to console
+    // Debug logging to console (reference buttonStateVersion to ensure this recalculates)
     if (this.debugMode) {
-      console.log('Button disabled check:', {
+      console.log('Button disabled check (v' + this.buttonStateVersion + '):', {
         isLoading: this.isLoading,
         btnEnabled: this.btnEnabled,
         inCooldown,
         permanentlyDisabled,
         allowMultipleAPICalls: this.allowMultipleAPICalls,
         hasSuccessfulCall: this.hasSuccessfulCall,
+        timeSinceLastCall,
         result
       });
     }
@@ -718,11 +720,16 @@ export class DafWebRequestPlugin extends LitElement {
       const timeSinceLastCall = now - this.lastApiCallTime;
       
       if (timeSinceLastCall < this.API_COOLDOWN_MS) {
+        // Increment version to force button state re-evaluation
+        this.buttonStateVersion++;
         this.requestUpdate();
         setTimeout(updateTimer, 1000);
       } else {
         // Cooldown period ended, hide the alert
         this.showCooldownAlert = false;
+        
+        // Force button state update when cooldown expires
+        this.buttonStateVersion++;
         this.requestUpdate();
       }
     };

@@ -53,6 +53,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.API_COOLDOWN_MS = 5000; // 5 seconds
         this.showCooldownAlert = false;
         this.apiCallStartTime = 0; // Track API call execution time
+        this.buttonStateVersion = 0; // Force button state updates
     }
     static getMetaConfig() {
         return {
@@ -398,15 +399,16 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         // Only permanently disable the button if multiple calls are NOT allowed AND we've had a successful call
         const permanentlyDisabled = !this.allowMultipleAPICalls && this.hasSuccessfulCall;
         const result = this.isLoading || !this.btnEnabled || inCooldown || permanentlyDisabled;
-        // Debug logging to console
+        // Debug logging to console (reference buttonStateVersion to ensure this recalculates)
         if (this.debugMode) {
-            console.log('Button disabled check:', {
+            console.log('Button disabled check (v' + this.buttonStateVersion + '):', {
                 isLoading: this.isLoading,
                 btnEnabled: this.btnEnabled,
                 inCooldown,
                 permanentlyDisabled,
                 allowMultipleAPICalls: this.allowMultipleAPICalls,
                 hasSuccessfulCall: this.hasSuccessfulCall,
+                timeSinceLastCall,
                 result
             });
         }
@@ -537,12 +539,16 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
             const now = Date.now();
             const timeSinceLastCall = now - this.lastApiCallTime;
             if (timeSinceLastCall < this.API_COOLDOWN_MS) {
+                // Increment version to force button state re-evaluation
+                this.buttonStateVersion++;
                 this.requestUpdate();
                 setTimeout(updateTimer, 1000);
             }
             else {
                 // Cooldown period ended, hide the alert
                 this.showCooldownAlert = false;
+                // Force button state update when cooldown expires
+                this.buttonStateVersion++;
                 this.requestUpdate();
             }
         };
