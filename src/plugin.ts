@@ -189,7 +189,7 @@ export class DafWebRequestPlugin extends LitElement {
   @property({ type: String }) errorMessage = 'API call failed';
   @property({ type: Boolean }) sendAPICall = false;
   @property({ type: Boolean }) allowMultipleAPICalls = false;
-  @property({ type: Boolean }) countdownEnabled = true;
+  @property({ type: Boolean }) countdownEnabled = false;
   @property({ type: Number }) countdownTimer = 5;
   @property({ type: Boolean }) btnEnabled = true;
   @property({ type: String }) btnText = 'Send API Request';
@@ -203,6 +203,39 @@ export class DafWebRequestPlugin extends LitElement {
   private lastApiCallTime = 0;
   private showCooldownAlert = false;
   private apiCallStartTime = 0; // Track API call execution time
+
+  constructor() {
+    super();
+    // Initialize all properties with their default values
+    this.label = '';
+    this.description = '';
+    this.readOnly = false;
+    this.value = {
+      success: false,
+      statusCode: 0,
+      responseType: '',
+      data: '',
+      message: '',
+      timestamp: '',
+      executionTime: 0
+    };
+    this.requestBody = '';
+    this.apiUrl = '';
+    this.requestHeaders = '';
+    this.debugMode = false;
+    this.method = 'POST';
+    this.successMessage = 'API call completed successfully';
+    this.warningMessage = 'API call completed with warnings';
+    this.errorMessage = 'API call failed';
+    this.sendAPICall = false;
+    this.allowMultipleAPICalls = false;
+    this.countdownEnabled = false;
+    this.countdownTimer = 5;
+    this.btnEnabled = true;
+    this.btnText = 'Send API Request';
+    this.btnAlignment = 'left';
+    this.btnVisible = true;
+  }
 
   static getMetaConfig(): PluginContract {
     return {
@@ -334,7 +367,7 @@ export class DafWebRequestPlugin extends LitElement {
           type: 'boolean',
           title: 'Enable Countdown Timer',
           description: 'If true, enforces a countdown timer between API calls. If false, allows unlimited rapid calls.',
-          defaultValue: true,
+          defaultValue: false,
         } as PropType,
         countdownTimer: {
           type: 'number',

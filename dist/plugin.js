@@ -18,7 +18,7 @@ import { callApi } from './apiClient.js';
 import { customElement, property } from 'lit/decorators.js';
 let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
     constructor() {
-        super(...arguments);
+        super();
         this.label = '';
         this.description = '';
         this.readOnly = false;
@@ -41,7 +41,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.errorMessage = 'API call failed';
         this.sendAPICall = false;
         this.allowMultipleAPICalls = false;
-        this.countdownEnabled = true;
+        this.countdownEnabled = false;
         this.countdownTimer = 5;
         this.btnEnabled = true;
         this.btnText = 'Send API Request';
@@ -54,6 +54,35 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.lastApiCallTime = 0;
         this.showCooldownAlert = false;
         this.apiCallStartTime = 0; // Track API call execution time
+        // Initialize all properties with their default values
+        this.label = '';
+        this.description = '';
+        this.readOnly = false;
+        this.value = {
+            success: false,
+            statusCode: 0,
+            responseType: '',
+            data: '',
+            message: '',
+            timestamp: '',
+            executionTime: 0
+        };
+        this.requestBody = '';
+        this.apiUrl = '';
+        this.requestHeaders = '';
+        this.debugMode = false;
+        this.method = 'POST';
+        this.successMessage = 'API call completed successfully';
+        this.warningMessage = 'API call completed with warnings';
+        this.errorMessage = 'API call failed';
+        this.sendAPICall = false;
+        this.allowMultipleAPICalls = false;
+        this.countdownEnabled = false;
+        this.countdownTimer = 5;
+        this.btnEnabled = true;
+        this.btnText = 'Send API Request';
+        this.btnAlignment = 'left';
+        this.btnVisible = true;
     }
     static getMetaConfig() {
         return {
@@ -185,7 +214,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                     type: 'boolean',
                     title: 'Enable Countdown Timer',
                     description: 'If true, enforces a countdown timer between API calls. If false, allows unlimited rapid calls.',
-                    defaultValue: true,
+                    defaultValue: false,
                 },
                 countdownTimer: {
                     type: 'number',
