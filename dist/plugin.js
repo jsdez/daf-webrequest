@@ -524,7 +524,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         <tbody>
           <tr>
             <td><code>apiUrl</code></td>
-            <td>${this.apiUrl || '<not set>'}</td>
+            <td style="word-break: break-all;">${this.apiUrl || '<not set>'}</td>
           </tr>
           <tr>
             <td><code>method</code></td>
@@ -534,7 +534,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
             <td><code>requestHeaders</code></td>
             <td>
               ${this.requestHeaders ? html `
-                <pre class="debug-json">${this.requestHeaders}</pre>
+                <pre class="debug-json">${this.formatJsonForDisplay(this.requestHeaders)}</pre>
               ` : '<not set>'}
             </td>
           </tr>
@@ -542,16 +542,16 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
             <td><code>requestBody</code></td>
             <td>
               ${this.requestBody ? html `
-                <pre class="debug-json">${this.requestBody}</pre>
+                <pre class="debug-json">${this.formatJsonForDisplay(this.requestBody)}</pre>
               ` : '<not set>'}
             </td>
           </tr>
           <tr>
             <td><code>State</code></td>
             <td>
-              Loading: ${this.isLoading}<br>
-              Has Successful Call: ${this.hasSuccessfulCall}<br>
-              Button Disabled: ${this.isButtonDisabled()}
+              <strong>Loading:</strong> ${this.isLoading}<br>
+              <strong>Has Successful Call:</strong> ${this.hasSuccessfulCall}<br>
+              <strong>Button Disabled:</strong> ${this.isButtonDisabled()}
             </td>
           </tr>
         </tbody>
@@ -610,6 +610,17 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         if (value === undefined)
             return 'undefined';
         return JSON.stringify(value);
+    }
+    formatJsonForDisplay(jsonString) {
+        try {
+            // Try to parse and pretty-format the JSON
+            const parsed = JSON.parse(jsonString);
+            return JSON.stringify(parsed, null, 2);
+        }
+        catch (e) {
+            // If it's not valid JSON, return as-is
+            return jsonString;
+        }
     }
     // Recursively remove keys with instructional placeholder values
     static removeInstructionalPlaceholders(obj) {
@@ -974,9 +985,12 @@ DafWebRequestPlugin.styles = css `
     }
 
     .debug-table th {
-      background-color: var(--ntx-form-theme-color-background-alt, #f8f9fa);
-      font-weight: 500;
-      color: var(--ntx-form-theme-color-input-text, #333333);
+      background-color: var(--ntx-form-theme-color-primary, #0078d4);
+      color: white;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.5px;
     }
 
     .debug-table tr:nth-child(even) {
@@ -1009,6 +1023,26 @@ DafWebRequestPlugin.styles = css `
       border-radius: 3px;
       max-width: 300px;
       word-break: break-all;
+    }
+
+    .debug-json {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 12px;
+      background-color: var(--ntx-form-theme-color-background-alt, #f8f9fa);
+      padding: 8px;
+      border-radius: 3px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid var(--ntx-form-theme-color-border, #dee2e6);
+      margin: 0;
+    }
+
+    .debug-table td {
+      vertical-align: top;
+      max-width: 400px;
+      word-wrap: break-word;
     }
   `;
 __decorate([
