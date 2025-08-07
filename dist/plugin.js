@@ -396,17 +396,31 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         const now = Date.now();
         const timeSinceLastCall = now - this.lastApiCallTime;
         const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS;
-        // Only permanently disable the button if multiple calls are NOT allowed AND we've had a successful call
-        const permanentlyDisabled = !this.allowMultipleAPICalls && this.hasSuccessfulCall;
+        // If allowMultipleAPICalls is true, never permanently disable - only check loading, btnEnabled, and cooldown
+        if (this.allowMultipleAPICalls) {
+            const result = this.isLoading || !this.btnEnabled || inCooldown;
+            // Debug logging to console (reference buttonStateVersion to ensure this recalculates)
+            if (this.debugMode) {
+                console.log('Button disabled check - multiple calls allowed (v' + this.buttonStateVersion + '):', {
+                    isLoading: this.isLoading,
+                    btnEnabled: this.btnEnabled,
+                    inCooldown,
+                    timeSinceLastCall,
+                    result
+                });
+            }
+            return result;
+        }
+        // If allowMultipleAPICalls is false, permanently disable after successful call
+        const permanentlyDisabled = this.hasSuccessfulCall;
         const result = this.isLoading || !this.btnEnabled || inCooldown || permanentlyDisabled;
         // Debug logging to console (reference buttonStateVersion to ensure this recalculates)
         if (this.debugMode) {
-            console.log('Button disabled check (v' + this.buttonStateVersion + '):', {
+            console.log('Button disabled check - single call only (v' + this.buttonStateVersion + '):', {
                 isLoading: this.isLoading,
                 btnEnabled: this.btnEnabled,
                 inCooldown,
                 permanentlyDisabled,
-                allowMultipleAPICalls: this.allowMultipleAPICalls,
                 hasSuccessfulCall: this.hasSuccessfulCall,
                 timeSinceLastCall,
                 result
