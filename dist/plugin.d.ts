@@ -23,13 +23,22 @@ export declare class DafWebRequestPlugin extends LitElement {
     private isLoading;
     private apiResponse;
     private responseType;
+    private hasSuccessfulCall;
+    private lastApiCallTime;
+    private readonly API_COOLDOWN_MS;
+    private showCooldownAlert;
+    private originalBtnEnabled;
     static getMetaConfig(): PluginContract;
     render(): import("lit-html").TemplateResult<1>;
     private renderResponseAlert;
     private getAlertIcon;
     private getCustomMessage;
     updated(changedProperties: Map<string, any>): void;
+    private handleAPICallTrigger;
     private triggerAPICall;
+    private isButtonDisabled;
     private static removeInstructionalPlaceholders;
     private handleApiCall;
+    private determineResponseType;
+    private startCooldownTimer;
 }

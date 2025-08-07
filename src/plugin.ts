@@ -1,4 +1,5 @@
 import { html, LitElement, css } from 'lit';
+import { callApi } from './apiClient.js';
 import { customElement, property } from 'lit/decorators.js';
 import { PluginContract, PropType } from '@nintex/form-plugin-contract';
 
@@ -188,6 +189,11 @@ export class DafWebRequestPlugin extends LitElement {
   private isLoading = false;
   private apiResponse: string = '';
   private responseType: 'success' | 'warning' | 'error' | null = null;
+  private hasSuccessfulCall = false;
+  private lastApiCallTime = 0;
+  private readonly API_COOLDOWN_MS = 5000; // 5 seconds
+  private showCooldownAlert = false;
+  private originalBtnEnabled = true; // Track the original button enabled state
 
   static getMetaConfig(): PluginContract {
     return {
@@ -348,13 +354,17 @@ export class DafWebRequestPlugin extends LitElement {
                   class="btn btn-primary" 
                   part="api-button"
                   @click=${() => this.triggerAPICall()} 
-                  ?disabled=${this.isLoading || !this.btnEnabled}
+                  ?disabled=${this.isButtonDisabled()}
                 >
                   ${this.isLoading ? html`<span class="spinner"></span>Calling API...` : this.btnText}
                 </button>
               </div>
             ` : ''}
             ${this.renderResponseAlert()}        
+            <!-- Debug info -->
+            <div style="margin-top: 8px; font-size: 12px; color: #666;">
+              Debug: allowMultiple=${this.allowMultipleAPICalls}, hasSuccessful=${this.hasSuccessfulCall}, responseType=${this.responseType}
+            </div>
           </div>
         </div>
       `;
@@ -369,20 +379,41 @@ export class DafWebRequestPlugin extends LitElement {
                 class="btn btn-primary" 
                 part="api-button"
                 @click=${() => this.triggerAPICall()} 
-                ?disabled=${this.isLoading || !this.btnEnabled}
+                ?disabled=${this.isButtonDisabled()}
               >
                 ${this.isLoading ? html`<span class="spinner"></span>Processing...` : this.btnText}
               </button>
             </div>
           ` : ''}
           ${this.renderResponseAlert()}
+          <!-- Debug info -->
+            <div style="margin-top: 8px; font-size: 12px; color: #666;">
+              Debug: allowMultiple=${this.allowMultipleAPICalls}, hasSuccessful=${this.hasSuccessfulCall}, responseType=${this.responseType}
+            </div>
         </div>
       </div>
     `;
   }
 
   private renderResponseAlert() {
-    // Show response alert if we have a response
+    const now = Date.now();
+    const timeSinceLastCall = now - this.lastApiCallTime;
+    const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS;
+    
+    // Show cooldown message only if someone attempted to trigger during cooldown
+    if (inCooldown && this.showCooldownAlert) {
+      const remainingSeconds = Math.ceil((this.API_COOLDOWN_MS - timeSinceLastCall) / 1000);
+      return html`
+        <div class="alert alert-info" part="cooldown-alert">
+          <div>
+            <span class="alert-icon">ℹ</span>
+            <strong>Information:</strong> Please wait ${remainingSeconds} seconds before sending another request.
+          </div>
+        </div>
+      `;
+    }
+    
+    // Show regular response alert if we have a response
     if (!this.apiResponse || !this.responseType) return '';
     
     const alertClass = `alert-${this.responseType}`;
@@ -433,16 +464,57 @@ export class DafWebRequestPlugin extends LitElement {
       }));
     }
     
-    // Simple sendAPICall trigger
-    if (changedProperties.has('sendAPICall') && this.sendAPICall) {
-      this.sendAPICall = false; // Immediately set to false
-      this.handleApiCall(); // Send the API call
+    // Track original btnEnabled state when it changes from external source
+    if (changedProperties.has('btnEnabled')) {
+      this.originalBtnEnabled = this.btnEnabled;
     }
+    
+    // Watch for sendAPICall property changes to trigger API automatically
+    if (changedProperties.has('sendAPICall') && this.sendAPICall) {
+      this.handleAPICallTrigger();
+    }
+  }
+
+  private handleAPICallTrigger() {
+    // Immediately set sendAPICall to false to prevent multiple calls
+    this.sendAPICall = false;
+    
+    // Check if we can make the API call (cooldown logic)
+    const now = Date.now();
+    const timeSinceLastCall = now - this.lastApiCallTime;
+    const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS;
+    
+    if (inCooldown) {
+      // Show cooldown alert and don't proceed
+      this.showCooldownAlert = true;
+      this.startCooldownTimer();
+      return;
+    }
+    
+    // Disable button based on allowMultipleAPICalls setting
+    if (!this.allowMultipleAPICalls) {
+      // Disable button indefinitely
+      this.btnEnabled = false;
+    } else {
+      // If allowMultipleAPICalls is true, keep button enabled (cooldown will handle prevention)
+      this.btnEnabled = this.originalBtnEnabled;
+    }
+    
+    // Proceed with API call
+    this.handleApiCall();
   }
 
   private triggerAPICall() {
     // Set sendAPICall to true when button is clicked
     this.sendAPICall = true;
+  }
+
+  private isButtonDisabled(): boolean {
+    const now = Date.now();
+    const timeSinceLastCall = now - this.lastApiCallTime;
+    const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS;
+    
+    return this.isLoading || !this.btnEnabled || inCooldown;
   }
 
   // Recursively remove keys with instructional placeholder values
@@ -475,88 +547,114 @@ export class DafWebRequestPlugin extends LitElement {
   private async handleApiCall() {
     if (this.isLoading) return;
     
+    // Record the time of this API call
+    this.lastApiCallTime = Date.now();
+    
     this.responseType = null;
     this.apiResponse = '';
-    this.isLoading = true;
-    this.requestUpdate();
     
-    try {
-      if (!this.apiUrl?.trim()) {
-        this.responseType = 'error';
-        this.apiResponse = this.errorMessage || 'API URL is required';
-        this.requestUpdate();
-        return;
-      }
-
-      // Prepare headers
-      let headers: { [key: string]: string } = {
-        'Content-Type': 'application/json'
-      };
-
-      if (this.requestHeaders?.trim()) {
-        try {
-          const parsedHeaders = JSON.parse(this.requestHeaders);
-          headers = { ...headers, ...parsedHeaders };
-        } catch (e) {
-          this.responseType = 'error';
-          this.apiResponse = this.errorMessage || 'Invalid JSON in request headers';
-          this.requestUpdate();
-          return;
-        }
-      }
-
-      // Prepare the request
-      const requestOptions: RequestInit = {
-        method: this.method,
-        headers: headers,
-      };
-
-      if (this.method !== 'GET' && this.requestBody?.trim()) {
-        requestOptions.body = this.requestBody;
-      }
-
-      // Make the API call
-      const response = await fetch(this.apiUrl, requestOptions);
-      const responseData = await response.text();
-
-      let displayData = responseData;
-      
-      // Try to parse as JSON for better formatting
+    let url = this.apiUrl || '';
+    let headers: Record<string, string> = {};
+    if (this.requestHeaders) {
       try {
-        const jsonData = JSON.parse(responseData);
-        if (this.debugMode) {
-          displayData = JSON.stringify(jsonData, null, 2);
-        } else {
-          displayData = JSON.stringify(jsonData);
-        }
-      } catch (e) {
-        // Not JSON, display as is
-        displayData = responseData;
+        headers = JSON.parse(this.requestHeaders);
+      } catch {
+        headers = {};
+        this.requestHeaders.split(/\r?\n/).forEach(line => {
+          const idx = line.indexOf(':');
+          if (idx > -1) {
+            const key = line.slice(0, idx).trim();
+            const value = line.slice(idx + 1).trim();
+            if (key) headers[key] = value;
+          }
+        });
       }
-
-      if (response.ok) {
-        this.responseType = 'success';
-        this.apiResponse = this.successMessage || displayData;
-        this.value = displayData; // Store response in the value field for Nintex
-      } else {
-        this.responseType = 'error';
-        this.apiResponse = this.errorMessage || `Error ${response.status}: ${displayData}`;
-      }
-
-      // Dispatch value change event
-      this.dispatchEvent(new CustomEvent('ntx-value-change', {
-        detail: this.value,
-        bubbles: true,
-        composed: true,
-      }));
-
-    } catch (error) {
-      this.responseType = 'error';
-      this.apiResponse = this.errorMessage || `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`;
-    } finally {
-      this.isLoading = false;
-      this.requestUpdate();
     }
+    // For now, still use the hardcoded body for testing
+    const body = {
+      startData: {
+        se_input: "This is a test"
+      }
+    };
+    
+    await callApi({
+      url,
+      method: this.method || 'POST',
+      headers,
+      requestBody: body,
+      setLoading: (loading: boolean) => { 
+        this.isLoading = loading; 
+        this.requestUpdate(); 
+      },
+      setResponse: (response: string) => { 
+        this.apiResponse = response;
+        this.responseType = this.determineResponseType(response);
+        this.value = response; // Store response in the value field for Nintex
+        
+        // Mark as successful call if success or warning
+        if (this.responseType === 'success' || this.responseType === 'warning') {
+          this.hasSuccessfulCall = true;
+        }
+        
+        // Re-enable button if allowMultipleAPICalls is true (after cooldown will expire)
+        if (this.allowMultipleAPICalls) {
+          this.btnEnabled = this.originalBtnEnabled;
+        }
+        
+        // Dispatch value change event
+        this.dispatchEvent(new CustomEvent('ntx-value-change', {
+          detail: this.value,
+          bubbles: true,
+          composed: true,
+        }));
+        
+        this.requestUpdate(); 
+      }
+    });
   }
 
+  private determineResponseType(response: string): 'success' | 'warning' | 'error' {
+    // Check if response indicates an error
+    if (response.toLowerCase().includes('error:') || 
+        response.toLowerCase().includes('failed') ||
+        response.toLowerCase().includes('exception')) {
+      return 'error';
+    }
+    
+    // Try to parse as JSON to check for error status codes
+    try {
+      const parsed = JSON.parse(response);
+      if (parsed.error || parsed.status === 'error') {
+        return 'error';
+      }
+      if (parsed.warning || parsed.status === 'warning') {
+        return 'warning';
+      }
+    } catch {
+      // Not JSON, continue with other checks
+    }
+    
+    // Default to success for valid responses
+    return 'success';
+  }
+
+  private startCooldownTimer() {
+    // Update the UI every second during cooldown to show remaining time
+    const updateTimer = () => {
+      const now = Date.now();
+      const timeSinceLastCall = now - this.lastApiCallTime;
+      
+      if (timeSinceLastCall < this.API_COOLDOWN_MS) {
+        this.requestUpdate();
+        setTimeout(updateTimer, 1000);
+      } else {
+        // Cooldown period ended, hide the alert
+        this.showCooldownAlert = false;
+        this.requestUpdate();
+      }
+    };
+    
+    // Start the timer
+    setTimeout(updateTimer, 1000);
+  }
 }
