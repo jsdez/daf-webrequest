@@ -52,7 +52,6 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.lastApiCallTime = 0;
         this.API_COOLDOWN_MS = 5000; // 5 seconds
         this.showCooldownAlert = false;
-        this.originalBtnEnabled = true; // Track the original button enabled state
         this.apiCallStartTime = 0; // Track API call execution time
     }
     static getMetaConfig() {
@@ -67,6 +66,13 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                     title: 'API URL with Token',
                     description: 'The endpoint URL to call, including any required token as a query parameter.',
                     defaultValue: '',
+                },
+                method: {
+                    type: 'string',
+                    title: 'HTTP Method',
+                    description: 'The HTTP method to use for the API call.',
+                    enum: ['POST', 'GET', 'PUT', 'DELETE', 'PATCH'],
+                    defaultValue: 'POST',
                 },
                 requestHeaders: {
                     type: 'string',
@@ -144,13 +150,6 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                     description: 'If true, enables the JSON converter UI.',
                     defaultValue: false,
                 },
-                method: {
-                    type: 'string',
-                    title: 'HTTP Method',
-                    description: 'The HTTP method to use for the API call.',
-                    enum: ['POST', 'GET', 'PUT', 'DELETE', 'PATCH'],
-                    defaultValue: 'POST',
-                },
                 successMessage: {
                     type: 'string',
                     title: 'Success Message',
@@ -211,7 +210,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                 fieldLabel: true,
                 description: true,
                 readOnly: true,
-                defaultValue: true,
+                defaultValue: false,
             },
         };
     }
@@ -362,10 +361,6 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                 composed: true,
             }));
         }
-        // Track original btnEnabled state when it changes from external source
-        if (changedProperties.has('btnEnabled')) {
-            this.originalBtnEnabled = this.btnEnabled;
-        }
         // Watch for sendAPICall property changes to trigger API automatically
         if (changedProperties.has('sendAPICall') && this.sendAPICall) {
             this.handleAPICallTrigger();
@@ -374,6 +369,11 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
     handleAPICallTrigger() {
         // Immediately set sendAPICall to false to prevent multiple calls
         this.sendAPICall = false;
+        // Check if multiple API calls are allowed
+        if (!this.allowMultipleAPICalls && this.hasSuccessfulCall) {
+            // Multiple calls not allowed and we've already had a successful call - prevent execution
+            return;
+        }
         // Check if we can make the API call (cooldown logic)
         const now = Date.now();
         const timeSinceLastCall = now - this.lastApiCallTime;
@@ -384,16 +384,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
             this.startCooldownTimer();
             return;
         }
-        // Disable button based on allowMultipleAPICalls setting
-        if (!this.allowMultipleAPICalls) {
-            // Disable button indefinitely
-            this.btnEnabled = false;
-        }
-        else {
-            // If allowMultipleAPICalls is true, keep button enabled (cooldown will handle prevention)
-            this.btnEnabled = this.originalBtnEnabled;
-        }
-        // Proceed with API call
+        // Proceed with API call (don't modify btnEnabled - let host application control it)
         this.handleApiCall();
     }
     triggerAPICall() {
@@ -404,7 +395,9 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         const now = Date.now();
         const timeSinceLastCall = now - this.lastApiCallTime;
         const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS;
-        return this.isLoading || !this.btnEnabled || inCooldown;
+        // Check if multiple API calls are allowed and we've already had a successful call
+        const permanentlyDisabled = !this.allowMultipleAPICalls && this.hasSuccessfulCall;
+        return this.isLoading || !this.btnEnabled || inCooldown || permanentlyDisabled;
     }
     // Recursively remove keys with instructional placeholder values
     static removeInstructionalPlaceholders(obj) {
@@ -490,10 +483,6 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                     // Mark as successful call if success or warning
                     if (this.responseType === 'success' || this.responseType === 'warning') {
                         this.hasSuccessfulCall = true;
-                    }
-                    // Re-enable button if allowMultipleAPICalls is true (after cooldown will expire)
-                    if (this.allowMultipleAPICalls) {
-                        this.btnEnabled = this.originalBtnEnabled;
                     }
                     // Dispatch value change event
                     this.dispatchEvent(new CustomEvent('ntx-value-change', {
