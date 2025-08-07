@@ -559,42 +559,65 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
     `;
     }
     renderAPIToolsTab() {
-        let minified = '';
-        let escaped = '';
-        let error = '';
-        try {
-            if (this.requestBody) {
-                minified = JSON.stringify(JSON.parse(this.requestBody));
-                escaped = '"' + minified.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
-            }
-        }
-        catch (e) {
-            error = 'Invalid JSON';
-        }
+        const isValidJson = this.isValidJson(this.requestBody);
+        const jsonStatus = this.getJsonStatus(this.requestBody);
         return html `
       <div class="debug-tools">
         <div class="form-group">
-          <label class="control-label" part="debug-label">JSON Editor:</label>
-          <textarea 
-            class="form-control" 
-            part="debug-input"
-            rows="8" 
-            .value=${this.requestBody} 
-            @input=${(e) => { this.requestBody = e.target.value; this.requestUpdate(); }}
-            placeholder="Enter JSON request body..."
-          ></textarea>
+          <label class="control-label">JSON Request Body Editor</label>
+          <div class="json-editor-container">
+            <div class="json-editor-toolbar">
+              <div class="json-editor-actions">
+                <button 
+                  class="json-editor-btn" 
+                  @click=${this.formatJson}
+                  ?disabled=${!isValidJson}
+                  title="Format and beautify JSON"
+                >
+                  ✨ Format
+                </button>
+                <button 
+                  class="json-editor-btn" 
+                  @click=${this.minifyJson}
+                  ?disabled=${!isValidJson}
+                  title="Minify JSON to single line"
+                >
+                  🗜️ Minify
+                </button>
+                <button 
+                  class="json-editor-btn" 
+                  @click=${this.clearJson}
+                  title="Clear JSON content"
+                >
+                  🗑️ Clear
+                </button>
+                <button 
+                  class="json-editor-btn" 
+                  @click=${this.insertSampleJson}
+                  title="Insert sample JSON"
+                >
+                  📝 Sample
+                </button>
+              </div>
+              <div class="json-editor-status ${isValidJson ? 'valid' : 'invalid'}">
+                ${jsonStatus}
+              </div>
+            </div>
+            <textarea 
+              class="form-control json-editor-textarea" 
+              .value=${this.requestBody} 
+              @input=${this.handleJsonInput}
+              @blur=${this.handleJsonBlur}
+              @paste=${this.handleJsonPaste}
+              placeholder="Enter JSON request body here..."
+              spellcheck="false"
+            ></textarea>
+          </div>
         </div>
-        <div class="form-group">
-          <label class="control-label" part="output-label">Minified & Escaped JSON:</label>
-          <textarea 
-            class="form-control" 
-            part="debug-output"
-            readonly 
-            rows="4"
-            .value=${escaped}
-          ></textarea>
-          ${error ? html `<div class="text-danger" part="error-message">${error}</div>` : ''}
-        </div>
+
+        ${this.renderJsonOutput()}
+        
+        ${this.renderJsonPreview()}
       </div>
     `;
     }
@@ -621,6 +644,204 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
             // If it's not valid JSON, return as-is
             return jsonString;
         }
+    }
+    // JSON Editor Helper Methods
+    isValidJson(jsonString) {
+        if (!jsonString.trim())
+            return true; // Empty is valid
+        try {
+            JSON.parse(jsonString);
+            return true;
+        }
+        catch (_a) {
+            return false;
+        }
+    }
+    getJsonStatus(jsonString) {
+        if (!jsonString.trim()) {
+            return 'Empty';
+        }
+        try {
+            const parsed = JSON.parse(jsonString);
+            const charCount = jsonString.length;
+            const lineCount = jsonString.split('\n').length;
+            const keyCount = this.countJsonKeys(parsed);
+            return `Valid JSON • ${charCount} chars • ${lineCount} lines • ${keyCount} keys`;
+        }
+        catch (e) {
+            return `Invalid JSON • ${e.message}`;
+        }
+    }
+    countJsonKeys(obj) {
+        if (typeof obj !== 'object' || obj === null)
+            return 0;
+        if (Array.isArray(obj)) {
+            return obj.reduce((count, item) => count + this.countJsonKeys(item), 0);
+        }
+        return Object.keys(obj).length + Object.values(obj).reduce((count, value) => count + this.countJsonKeys(value), 0);
+    }
+    formatJson() {
+        if (!this.isValidJson(this.requestBody))
+            return;
+        try {
+            const parsed = JSON.parse(this.requestBody);
+            this.requestBody = JSON.stringify(parsed, null, 2);
+            this.requestUpdate();
+        }
+        catch (_a) {
+            // Already validated, shouldn't happen
+        }
+    }
+    minifyJson() {
+        if (!this.isValidJson(this.requestBody))
+            return;
+        try {
+            const parsed = JSON.parse(this.requestBody);
+            this.requestBody = JSON.stringify(parsed);
+            this.requestUpdate();
+        }
+        catch (_a) {
+            // Already validated, shouldn't happen
+        }
+    }
+    clearJson() {
+        this.requestBody = '';
+        this.requestUpdate();
+    }
+    insertSampleJson() {
+        const sample = {
+            "startData": {
+                "se_input": "This is a test",
+                "options": {
+                    "callbackUrl": "optionally add a callback URL here. Must be https",
+                    "metadata": {
+                        "userId": "12345",
+                        "requestId": "req-" + Date.now()
+                    }
+                }
+            }
+        };
+        this.requestBody = JSON.stringify(sample, null, 2);
+        this.requestUpdate();
+    }
+    handleJsonInput(e) {
+        const target = e.target;
+        this.requestBody = target.value;
+        this.requestUpdate();
+    }
+    handleJsonBlur(e) {
+        // Auto-format valid JSON on blur
+        if (this.isValidJson(this.requestBody) && this.requestBody.trim()) {
+            try {
+                const parsed = JSON.parse(this.requestBody);
+                const formatted = JSON.stringify(parsed, null, 2);
+                if (formatted !== this.requestBody) {
+                    this.requestBody = formatted;
+                    this.requestUpdate();
+                }
+            }
+            catch (_a) {
+                // Don't auto-format if invalid
+            }
+        }
+    }
+    handleJsonPaste(e) {
+        // Auto-format pasted JSON after a short delay
+        setTimeout(() => {
+            if (this.isValidJson(this.requestBody)) {
+                this.formatJson();
+            }
+        }, 100);
+    }
+    renderJsonOutput() {
+        if (!this.requestBody.trim())
+            return '';
+        let minified = '';
+        let escaped = '';
+        let error = '';
+        try {
+            const parsed = JSON.parse(this.requestBody);
+            minified = JSON.stringify(parsed);
+            escaped = '"' + minified.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+        }
+        catch (e) {
+            error = e.message;
+        }
+        return html `
+      <div class="form-group">
+        <label class="control-label">Generated Output</label>
+        <div style="display: flex; gap: 16px;">
+          <div style="flex: 1;">
+            <label class="control-label" style="font-size: 12px; color: #6c757d;">Minified JSON</label>
+            <textarea 
+              class="form-control" 
+              readonly 
+              rows="3"
+              .value=${minified}
+              style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 12px;"
+            ></textarea>
+          </div>
+          <div style="flex: 1;">
+            <label class="control-label" style="font-size: 12px; color: #6c757d;">Escaped for Code</label>
+            <textarea 
+              class="form-control" 
+              readonly 
+              rows="3"
+              .value=${escaped}
+              style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 12px;"
+            ></textarea>
+          </div>
+        </div>
+        ${error ? html `<div class="text-danger" style="margin-top: 8px; font-size: 12px;">${error}</div>` : ''}
+      </div>
+    `;
+    }
+    renderJsonPreview() {
+        if (!this.requestBody.trim() || !this.isValidJson(this.requestBody))
+            return '';
+        try {
+            const parsed = JSON.parse(this.requestBody);
+            return html `
+        <div class="form-group">
+          <label class="control-label">JSON Structure Preview</label>
+          <div class="json-viewer">
+${this.renderJsonWithSyntaxHighlight(parsed, 0)}
+          </div>
+        </div>
+      `;
+        }
+        catch (_a) {
+            return '';
+        }
+    }
+    renderJsonWithSyntaxHighlight(obj, indent = 0) {
+        const spaces = '  '.repeat(indent);
+        if (obj === null) {
+            return `<span class="json-syntax-null">null</span>`;
+        }
+        if (typeof obj === 'string') {
+            return `<span class="json-syntax-string">"${obj}"</span>`;
+        }
+        if (typeof obj === 'number') {
+            return `<span class="json-syntax-number">${obj}</span>`;
+        }
+        if (typeof obj === 'boolean') {
+            return `<span class="json-syntax-boolean">${obj}</span>`;
+        }
+        if (Array.isArray(obj)) {
+            if (obj.length === 0)
+                return '<span class="json-syntax-punctuation">[]</span>';
+            const items = obj.map(item => `${spaces}  ${this.renderJsonWithSyntaxHighlight(item, indent + 1)}`).join(',\n');
+            return `<span class="json-syntax-punctuation">[</span>\n${items}\n${spaces}<span class="json-syntax-punctuation">]</span>`;
+        }
+        if (typeof obj === 'object') {
+            const keys = Object.keys(obj);
+            if (keys.length === 0)
+                return '<span class="json-syntax-punctuation">{}</span>';
+            const items = keys.map(key => `${spaces}  <span class="json-syntax-key">"${key}"</span><span class="json-syntax-punctuation">:</span> ${this.renderJsonWithSyntaxHighlight(obj[key], indent + 1)}`).join(',\n');
+            return `<span class="json-syntax-punctuation">{</span>\n${items}\n${spaces}<span class="json-syntax-punctuation">}</span>`;
+        }
+        return String(obj);
     }
     // Recursively remove keys with instructional placeholder values
     static removeInstructionalPlaceholders(obj) {
@@ -1044,6 +1265,96 @@ DafWebRequestPlugin.styles = css `
       max-width: 400px;
       word-wrap: break-word;
     }
+
+    /* JSON Editor Enhancements */
+    .json-editor-container {
+      border: 1px solid var(--ntx-form-theme-color-border, #dee2e6);
+      border-radius: var(--ntx-form-theme-border-radius, 4px);
+      overflow: hidden;
+      background: var(--ntx-form-theme-color-input-background, #ffffff);
+    }
+
+    .json-editor-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: var(--ntx-form-theme-color-background-alt, #f8f9fa);
+      border-bottom: 1px solid var(--ntx-form-theme-color-border, #dee2e6);
+      font-size: 12px;
+    }
+
+    .json-editor-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .json-editor-btn {
+      padding: 4px 8px;
+      font-size: 11px;
+      border: 1px solid var(--ntx-form-theme-color-border, #dee2e6);
+      background: white;
+      border-radius: 3px;
+      cursor: pointer;
+      color: var(--ntx-form-theme-color-input-text, #333333);
+      transition: all 0.2s ease;
+    }
+
+    .json-editor-btn:hover {
+      background: var(--ntx-form-theme-color-primary, #0078d4);
+      color: white;
+      border-color: var(--ntx-form-theme-color-primary, #0078d4);
+    }
+
+    .json-editor-status {
+      font-size: 11px;
+      color: var(--ntx-form-theme-color-secondary, #6c757d);
+    }
+
+    .json-editor-status.valid {
+      color: #28a745;
+    }
+
+    .json-editor-status.invalid {
+      color: var(--ntx-form-theme-color-error, #dc3545);
+    }
+
+    .json-editor-textarea {
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      padding: 12px;
+      border: none;
+      resize: vertical;
+      background: transparent;
+      color: var(--ntx-form-theme-color-input-text, #333333);
+      min-height: 200px;
+      tab-size: 2;
+    }
+
+    .json-editor-textarea:focus {
+      outline: none;
+    }
+
+    .json-viewer {
+      background: var(--ntx-form-theme-color-background-alt, #f8f9fa);
+      border: 1px solid var(--ntx-form-theme-color-border, #dee2e6);
+      border-radius: var(--ntx-form-theme-border-radius, 4px);
+      padding: 12px;
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      font-size: 12px;
+      white-space: pre;
+      overflow-x: auto;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .json-syntax-string { color: #032f62; }
+    .json-syntax-number { color: #005cc5; }
+    .json-syntax-boolean { color: #d73a49; }
+    .json-syntax-null { color: #6f42c1; }
+    .json-syntax-key { color: #22863a; font-weight: 500; }
+    .json-syntax-punctuation { color: #24292e; }
   `;
 __decorate([
     property({ type: String })
