@@ -417,7 +417,7 @@ export class DafWebRequestPlugin extends LitElement {
             ${this.renderResponseAlert()}        
             <!-- Debug info -->
             <div style="margin-top: 8px; font-size: 12px; color: #666;">
-              Debug: allowMultiple=${this.allowMultipleAPICalls}, hasSuccessful=${this.hasSuccessfulCall}, responseType=${this.responseType}
+              Debug: allowMultiple=${this.allowMultipleAPICalls}, hasSuccessful=${this.hasSuccessfulCall}, responseType=${this.responseType}, btnEnabled=${this.btnEnabled}, isLoading=${this.isLoading}, buttonDisabled=${this.isButtonDisabled()}
             </div>
           </div>
         </div>
@@ -442,7 +442,7 @@ export class DafWebRequestPlugin extends LitElement {
           ${this.renderResponseAlert()}
           <!-- Debug info -->
             <div style="margin-top: 8px; font-size: 12px; color: #666;">
-              Debug: allowMultiple=${this.allowMultipleAPICalls}, hasSuccessful=${this.hasSuccessfulCall}, responseType=${this.responseType}
+              Debug: allowMultiple=${this.allowMultipleAPICalls}, hasSuccessful=${this.hasSuccessfulCall}, responseType=${this.responseType}, btnEnabled=${this.btnEnabled}, isLoading=${this.isLoading}, buttonDisabled=${this.isButtonDisabled()}
             </div>
         </div>
       </div>
@@ -560,10 +560,25 @@ export class DafWebRequestPlugin extends LitElement {
     const timeSinceLastCall = now - this.lastApiCallTime;
     const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS;
     
-    // Check if multiple API calls are allowed and we've already had a successful call
+    // Only permanently disable the button if multiple calls are NOT allowed AND we've had a successful call
     const permanentlyDisabled = !this.allowMultipleAPICalls && this.hasSuccessfulCall;
     
-    return this.isLoading || !this.btnEnabled || inCooldown || permanentlyDisabled;
+    const result = this.isLoading || !this.btnEnabled || inCooldown || permanentlyDisabled;
+    
+    // Debug logging to console
+    if (this.debugMode) {
+      console.log('Button disabled check:', {
+        isLoading: this.isLoading,
+        btnEnabled: this.btnEnabled,
+        inCooldown,
+        permanentlyDisabled,
+        allowMultipleAPICalls: this.allowMultipleAPICalls,
+        hasSuccessfulCall: this.hasSuccessfulCall,
+        result
+      });
+    }
+    
+    return result;
   }
 
   // Recursively remove keys with instructional placeholder values
