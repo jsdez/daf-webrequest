@@ -189,6 +189,8 @@ export class DafWebRequestPlugin extends LitElement {
   @property({ type: String }) errorMessage = 'API call failed';
   @property({ type: Boolean }) sendAPICall = false;
   @property({ type: Boolean }) allowMultipleAPICalls = false;
+  @property({ type: Boolean }) countdownEnabled = true;
+  @property({ type: Number }) countdownTimer = 5;
   @property({ type: Boolean }) btnEnabled = true;
   @property({ type: String }) btnText = 'Send API Request';
   @property({ type: String }) btnAlignment = 'left';
@@ -199,7 +201,6 @@ export class DafWebRequestPlugin extends LitElement {
   private responseType: 'success' | 'warning' | 'error' | null = null;
   private hasSuccessfulCall = false;
   private lastApiCallTime = 0;
-  private readonly API_COOLDOWN_MS = 5000; // 5 seconds
   private showCooldownAlert = false;
   private apiCallStartTime = 0; // Track API call execution time
 
@@ -329,6 +330,18 @@ export class DafWebRequestPlugin extends LitElement {
           description: 'If true, allows repeated API calls. If false, disables further calls after first success/warning.',
           defaultValue: false,
         } as PropType,
+        countdownEnabled: {
+          type: 'boolean',
+          title: 'Enable Countdown Timer',
+          description: 'If true, enforces a countdown timer between API calls. If false, allows unlimited rapid calls.',
+          defaultValue: true,
+        } as PropType,
+        countdownTimer: {
+          type: 'integer',
+          title: 'Countdown Timer (seconds)',
+          description: 'Number of seconds to wait between API calls when countdown is enabled.',
+          defaultValue: 5,
+        } as PropType,
         btnVisible: {
           type: 'boolean',
           title: 'Button Visible',
@@ -452,11 +465,12 @@ export class DafWebRequestPlugin extends LitElement {
   private renderResponseAlert() {
     const now = Date.now();
     const timeSinceLastCall = now - this.lastApiCallTime;
-    const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS;
+    const cooldownMs = this.countdownTimer * 1000;
+    const inCooldown = this.countdownEnabled && this.lastApiCallTime > 0 && timeSinceLastCall < cooldownMs;
     
     // Show cooldown message only if someone attempted to trigger during cooldown
     if (inCooldown && this.showCooldownAlert) {
-      const remainingSeconds = Math.ceil((this.API_COOLDOWN_MS - timeSinceLastCall) / 1000);
+      const remainingSeconds = Math.ceil((cooldownMs - timeSinceLastCall) / 1000);
       return html`
         <div class="alert alert-info" part="cooldown-alert">
           <div>
@@ -534,16 +548,19 @@ export class DafWebRequestPlugin extends LitElement {
       return;
     }
     
-    // Check cooldown timer - prevent API call if still in cooldown
-    const now = Date.now();
-    const timeSinceLastCall = now - this.lastApiCallTime;
-    const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < this.API_COOLDOWN_MS;
-    
-    if (inCooldown) {
-      // Show cooldown alert and don't proceed
-      this.showCooldownAlert = true;
-      this.startCooldownTimer();
-      return;
+    // Check cooldown timer - prevent API call if still in cooldown (only if countdown is enabled)
+    if (this.countdownEnabled) {
+      const now = Date.now();
+      const timeSinceLastCall = now - this.lastApiCallTime;
+      const cooldownMs = this.countdownTimer * 1000;
+      const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < cooldownMs;
+      
+      if (inCooldown) {
+        // Show cooldown alert and don't proceed
+        this.showCooldownAlert = true;
+        this.startCooldownTimer();
+        return;
+      }
     }
     
     // Proceed with API call
@@ -729,8 +746,9 @@ export class DafWebRequestPlugin extends LitElement {
     const updateTimer = () => {
       const now = Date.now();
       const timeSinceLastCall = now - this.lastApiCallTime;
+      const cooldownMs = this.countdownTimer * 1000;
       
-      if (timeSinceLastCall < this.API_COOLDOWN_MS) {
+      if (timeSinceLastCall < cooldownMs) {
         // Still in cooldown, update in another second
         this.requestUpdate();
         setTimeout(updateTimer, 1000);
