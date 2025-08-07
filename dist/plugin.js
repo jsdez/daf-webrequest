@@ -53,6 +53,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.hasSuccessfulCall = false;
         this.lastApiCallTime = 0;
         this.showCooldownAlert = false;
+        this.lastCooldownAlertTime = 0; // Track when we last showed a cooldown alert
         this.apiCallStartTime = 0; // Track API call execution time
         // Initialize all properties with their default values
         this.label = '';
@@ -358,8 +359,11 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         </div>
       `;
         }
-        // Show regular response alert if we have a response
+        // Only show response alert if we have a response AND it's newer than the last cooldown alert
         if (!this.apiResponse || !this.responseType)
+            return '';
+        // Don't show old responses that happened before we showed a cooldown alert
+        if (this.lastCooldownAlertTime > this.lastApiCallTime)
             return '';
         const alertClass = `alert-${this.responseType}`;
         const icon = this.getAlertIcon(this.responseType);
@@ -426,6 +430,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
             if (inCooldown) {
                 // Show cooldown alert and don't proceed
                 this.showCooldownAlert = true;
+                this.lastCooldownAlertTime = Date.now(); // Record when we showed the cooldown alert
                 this.startCooldownTimer();
                 return;
             }
