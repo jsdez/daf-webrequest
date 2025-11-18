@@ -221,7 +221,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                 },
                 countdownTimer: {
                     type: 'number',
-                    title: 'Countdown Timer (seconds)',
+                    title: 'Countdown Timer',
                     description: 'Number of seconds to wait between API calls when countdown is enabled.',
                     defaultValue: 5,
                 },
