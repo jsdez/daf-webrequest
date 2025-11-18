@@ -21,35 +21,6 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         super();
         // Add private property to track active debug tab
         this.activeDebugTab = 'properties';
-        this.label = '';
-        this.description = '';
-        this.readOnly = false;
-        this.value = {
-            success: false,
-            statusCode: 0,
-            responseType: '',
-            data: '',
-            message: '',
-            timestamp: '',
-            executionTime: 0
-        };
-        this.requestBody = '';
-        this.apiUrl = '';
-        this.requestHeaders = '';
-        this.contentType = 'application/json';
-        this.debugMode = false;
-        this.method = 'POST';
-        this.successMessage = 'API call completed successfully';
-        this.warningMessage = 'API call completed with warnings';
-        this.errorMessage = 'API call failed';
-        this.sendAPICall = false;
-        this.allowMultipleAPICalls = false;
-        this.countdownEnabled = false;
-        this.countdownTimer = 5;
-        this.btnEnabled = true;
-        this.btnText = 'Send API Request';
-        this.btnAlignment = 'left';
-        this.btnVisible = true;
         // Instance-specific state (not reactive properties - these are internal state only)
         this.isLoading = false;
         this.apiResponse = '';

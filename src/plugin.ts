@@ -382,35 +382,35 @@ export class DafWebRequestPlugin extends LitElement {
   // Add private property to track active debug tab
   private activeDebugTab: string = 'properties';
 
-  @property({ type: String }) label = '';
-  @property({ type: String }) description = '';
-  @property({ type: Boolean }) readOnly = false;
-  @property({ type: Object }) value = {
-    success: false,
-    statusCode: 0,
-    responseType: '',
-    data: '',
-    message: '',
-    timestamp: '',
-    executionTime: 0
+  @property({ type: String }) label!: string;
+  @property({ type: String }) description!: string;
+  @property({ type: Boolean }) readOnly!: boolean;
+  @property({ type: Object }) value!: {
+    success: boolean;
+    statusCode: number;
+    responseType: string;
+    data: string;
+    message: string;
+    timestamp: string;
+    executionTime: number;
   };
-  @property({ type: String }) requestBody = '';
-  @property({ type: String }) apiUrl = '';
-  @property({ type: String }) requestHeaders = '';
-  @property({ type: String }) contentType = 'application/json';
-  @property({ type: Boolean }) debugMode = false;
-  @property({ type: String }) method: string = 'POST';
-  @property({ type: String }) successMessage = 'API call completed successfully';
-  @property({ type: String }) warningMessage = 'API call completed with warnings';
-  @property({ type: String }) errorMessage = 'API call failed';
-  @property({ type: Boolean }) sendAPICall = false;
-  @property({ type: Boolean }) allowMultipleAPICalls = false;
-  @property({ type: Boolean }) countdownEnabled = false;
-  @property({ type: Number }) countdownTimer = 5;
-  @property({ type: Boolean }) btnEnabled = true;
-  @property({ type: String }) btnText = 'Send API Request';
-  @property({ type: String }) btnAlignment = 'left';
-  @property({ type: Boolean }) btnVisible = true;
+  @property({ type: String }) requestBody!: string;
+  @property({ type: String }) apiUrl!: string;
+  @property({ type: String }) requestHeaders!: string;
+  @property({ type: String }) contentType!: string;
+  @property({ type: Boolean }) debugMode!: boolean;
+  @property({ type: String }) method!: string;
+  @property({ type: String }) successMessage!: string;
+  @property({ type: String }) warningMessage!: string;
+  @property({ type: String }) errorMessage!: string;
+  @property({ type: Boolean }) sendAPICall!: boolean;
+  @property({ type: Boolean }) allowMultipleAPICalls!: boolean;
+  @property({ type: Boolean }) countdownEnabled!: boolean;
+  @property({ type: Number }) countdownTimer!: number;
+  @property({ type: Boolean }) btnEnabled!: boolean;
+  @property({ type: String }) btnText!: string;
+  @property({ type: String }) btnAlignment!: string;
+  @property({ type: Boolean }) btnVisible!: boolean;
 
   // Instance-specific state (not reactive properties - these are internal state only)
   private isLoading = false;
