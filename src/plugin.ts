@@ -412,14 +412,15 @@ export class DafWebRequestPlugin extends LitElement {
   @property({ type: String }) btnAlignment = 'left';
   @property({ type: Boolean }) btnVisible = true;
 
-  private isLoading = false;
-  private apiResponse: string = '';
-  private responseType: 'success' | 'warning' | 'error' | null = null;
-  private hasSuccessfulCall = false;
-  private lastApiCallTime = 0;
-  private showCooldownAlert = false;
-  private lastCooldownAlertTime = 0; // Track when we last showed a cooldown alert
-  private apiCallStartTime = 0; // Track API call execution time
+  // Instance-specific state (not static)
+  @property({ type: Boolean }) private isLoading = false;
+  @property({ type: String }) private apiResponse: string = '';
+  @property({ type: String }) private responseType: 'success' | 'warning' | 'error' | null = null;
+  @property({ type: Boolean }) private hasSuccessfulCall = false;
+  @property({ type: Number }) private lastApiCallTime = 0;
+  @property({ type: Boolean }) private showCooldownAlert = false;
+  @property({ type: Number }) private lastCooldownAlertTime = 0; // Track when we last showed a cooldown alert
+  @property({ type: Number }) private apiCallStartTime = 0; // Track API call execution time
 
   constructor() {
     super();
@@ -637,25 +638,29 @@ export class DafWebRequestPlugin extends LitElement {
 
   render() {
     const showJsonConverter = this.debugMode;
+    const isSilentMode = !this.btnVisible && this.sendAPICall;
+    
     if (showJsonConverter) {
       // Debug mode: Enhanced debug interface with tabs
       return html`
         <div class="plugin-container">
-          <div class="form-group">
-            ${this.btnVisible ? html`
-              <div class="btn-container align-${this.btnAlignment}">
-                <button 
-                  class="btn btn-primary" 
-                  part="api-button"
-                  @click=${() => this.triggerAPICall()} 
-                  ?disabled=${this.isButtonDisabled()}
-                >
-                  ${this.isLoading ? html`<span class="spinner"></span>Calling API...` : this.btnText}
-                </button>
-              </div>
-            ` : ''}
-            ${this.renderResponseAlert()}
-          </div>
+          ${!isSilentMode ? html`
+            <div class="form-group">
+              ${this.btnVisible ? html`
+                <div class="btn-container align-${this.btnAlignment}">
+                  <button 
+                    class="btn btn-primary" 
+                    part="api-button"
+                    @click=${() => this.triggerAPICall()} 
+                    ?disabled=${this.isButtonDisabled()}
+                  >
+                    ${this.isLoading ? html`<span class="spinner"></span>Calling API...` : this.btnText}
+                  </button>
+                </div>
+              ` : ''}
+              ${this.renderResponseAlert()}
+            </div>
+          ` : ''}
 
           <div class="debug-tabs">
             <div class="debug-tab-nav">
@@ -694,7 +699,13 @@ export class DafWebRequestPlugin extends LitElement {
         </div>
       `;
     }
-    // Not in debug mode: show only button and response
+    
+    // Not in debug mode: show only button and response (unless in silent mode)
+    if (isSilentMode) {
+      // Silent mode: no visible UI, API call happens in background
+      return html`<div class="plugin-container" style="display: none;"></div>`;
+    }
+    
     return html`
       <div class="plugin-container">
         <div class="form-group">

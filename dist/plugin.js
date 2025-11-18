@@ -50,6 +50,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.btnText = 'Send API Request';
         this.btnAlignment = 'left';
         this.btnVisible = true;
+        // Instance-specific state (not static)
         this.isLoading = false;
         this.apiResponse = '';
         this.responseType = null;
@@ -270,25 +271,28 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
     }
     render() {
         const showJsonConverter = this.debugMode;
+        const isSilentMode = !this.btnVisible && this.sendAPICall;
         if (showJsonConverter) {
             // Debug mode: Enhanced debug interface with tabs
             return html `
         <div class="plugin-container">
-          <div class="form-group">
-            ${this.btnVisible ? html `
-              <div class="btn-container align-${this.btnAlignment}">
-                <button 
-                  class="btn btn-primary" 
-                  part="api-button"
-                  @click=${() => this.triggerAPICall()} 
-                  ?disabled=${this.isButtonDisabled()}
-                >
-                  ${this.isLoading ? html `<span class="spinner"></span>Calling API...` : this.btnText}
-                </button>
-              </div>
-            ` : ''}
-            ${this.renderResponseAlert()}
-          </div>
+          ${!isSilentMode ? html `
+            <div class="form-group">
+              ${this.btnVisible ? html `
+                <div class="btn-container align-${this.btnAlignment}">
+                  <button 
+                    class="btn btn-primary" 
+                    part="api-button"
+                    @click=${() => this.triggerAPICall()} 
+                    ?disabled=${this.isButtonDisabled()}
+                  >
+                    ${this.isLoading ? html `<span class="spinner"></span>Calling API...` : this.btnText}
+                  </button>
+                </div>
+              ` : ''}
+              ${this.renderResponseAlert()}
+            </div>
+          ` : ''}
 
           <div class="debug-tabs">
             <div class="debug-tab-nav">
@@ -327,7 +331,11 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         </div>
       `;
         }
-        // Not in debug mode: show only button and response
+        // Not in debug mode: show only button and response (unless in silent mode)
+        if (isSilentMode) {
+            // Silent mode: no visible UI, API call happens in background
+            return html `<div class="plugin-container" style="display: none;"></div>`;
+        }
         return html `
       <div class="plugin-container">
         <div class="form-group">
@@ -1448,6 +1456,30 @@ __decorate([
 __decorate([
     property({ type: Boolean })
 ], DafWebRequestPlugin.prototype, "btnVisible", void 0);
+__decorate([
+    property({ type: Boolean })
+], DafWebRequestPlugin.prototype, "isLoading", void 0);
+__decorate([
+    property({ type: String })
+], DafWebRequestPlugin.prototype, "apiResponse", void 0);
+__decorate([
+    property({ type: String })
+], DafWebRequestPlugin.prototype, "responseType", void 0);
+__decorate([
+    property({ type: Boolean })
+], DafWebRequestPlugin.prototype, "hasSuccessfulCall", void 0);
+__decorate([
+    property({ type: Number })
+], DafWebRequestPlugin.prototype, "lastApiCallTime", void 0);
+__decorate([
+    property({ type: Boolean })
+], DafWebRequestPlugin.prototype, "showCooldownAlert", void 0);
+__decorate([
+    property({ type: Number })
+], DafWebRequestPlugin.prototype, "lastCooldownAlertTime", void 0);
+__decorate([
+    property({ type: Number })
+], DafWebRequestPlugin.prototype, "apiCallStartTime", void 0);
 DafWebRequestPlugin = __decorate([
     customElement('daf-webrequest-plugin')
 ], DafWebRequestPlugin);
