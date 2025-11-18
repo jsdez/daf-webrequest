@@ -638,26 +638,23 @@ export class DafWebRequestPlugin extends LitElement {
 
   render() {
     const showJsonConverter = this.debugMode;
-    const isSilentMode = !this.btnVisible && this.sendAPICall;
     
     if (showJsonConverter) {
       // Debug mode: Enhanced debug interface with tabs
       return html`
         <div class="plugin-container">
-          ${!isSilentMode ? html`
+          ${this.btnVisible ? html`
             <div class="form-group">
-              ${this.btnVisible ? html`
-                <div class="btn-container align-${this.btnAlignment}">
-                  <button 
-                    class="btn btn-primary" 
-                    part="api-button"
-                    @click=${() => this.triggerAPICall()} 
-                    ?disabled=${this.isButtonDisabled()}
-                  >
-                    ${this.isLoading ? html`<span class="spinner"></span>Calling API...` : this.btnText}
-                  </button>
-                </div>
-              ` : ''}
+              <div class="btn-container align-${this.btnAlignment}">
+                <button 
+                  class="btn btn-primary" 
+                  part="api-button"
+                  @click=${() => this.triggerAPICall()} 
+                  ?disabled=${this.isButtonDisabled()}
+                >
+                  ${this.isLoading ? html`<span class="spinner"></span>Calling API...` : this.btnText}
+                </button>
+              </div>
               ${this.renderResponseAlert()}
             </div>
           ` : ''}
@@ -700,8 +697,8 @@ export class DafWebRequestPlugin extends LitElement {
       `;
     }
     
-    // Not in debug mode: show only button and response (unless in silent mode)
-    if (isSilentMode) {
+    // Not in debug mode: only show UI if button is visible
+    if (!this.btnVisible) {
       // Silent mode: no visible UI, API call happens in background
       return html`<div class="plugin-container" style="display: none;"></div>`;
     }
@@ -709,18 +706,16 @@ export class DafWebRequestPlugin extends LitElement {
     return html`
       <div class="plugin-container">
         <div class="form-group">
-          ${this.btnVisible ? html`
-            <div class="btn-container align-${this.btnAlignment}">
-              <button 
-                class="btn btn-primary" 
-                part="api-button"
-                @click=${() => this.triggerAPICall()} 
-                ?disabled=${this.isButtonDisabled()}
-              >
-                ${this.isLoading ? html`<span class="spinner"></span>Processing...` : this.btnText}
-              </button>
-            </div>
-          ` : ''}
+          <div class="btn-container align-${this.btnAlignment}">
+            <button 
+              class="btn btn-primary" 
+              part="api-button"
+              @click=${() => this.triggerAPICall()} 
+              ?disabled=${this.isButtonDisabled()}
+            >
+              ${this.isLoading ? html`<span class="spinner"></span>Processing...` : this.btnText}
+            </button>
+          </div>
           ${this.renderResponseAlert()}
         </div>
       </div>
