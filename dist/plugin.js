@@ -993,7 +993,11 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
         return 'success';
     }
     extractNestedValue(obj, path) {
-        // Support nested paths like "developer.email" or "data.user.name"
+        // First, try to find the exact key (for keys like "developer.email")
+        if (obj && typeof obj === 'object' && path in obj) {
+            return obj[path];
+        }
+        // If not found, try nested path navigation (for paths like "data.user.name")
         const keys = path.split('.');
         let current = obj;
         for (const key of keys) {
