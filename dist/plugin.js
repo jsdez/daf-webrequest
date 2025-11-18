@@ -36,6 +36,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.requestBody = '';
         this.apiUrl = '';
         this.requestHeaders = '';
+        this.contentType = 'application/json';
         this.debugMode = false;
         this.method = 'POST';
         this.successMessage = 'API call completed successfully';
@@ -73,6 +74,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.requestBody = '';
         this.apiUrl = '';
         this.requestHeaders = '';
+        this.contentType = 'application/json';
         this.debugMode = false;
         this.method = 'POST';
         this.successMessage = 'API call completed successfully';
@@ -116,8 +118,15 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                 requestBody: {
                     type: 'string',
                     title: 'Request Body',
-                    description: 'Body to send in the API request, as a JSON object.',
+                    description: 'Body to send in the API request. Format depends on Content Type.',
                     defaultValue: '',
+                },
+                contentType: {
+                    type: 'string',
+                    title: 'Content Type',
+                    description: 'The Content-Type header for the request body.',
+                    enum: ['application/json', 'application/x-www-form-urlencoded', 'text/plain'],
+                    defaultValue: 'application/json',
                 },
                 waitForResponse: {
                     type: 'boolean',
@@ -900,11 +909,31 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
                     se_input: "This is a test"
                 }
             };
+            // Determine the actual body to use
+            let actualBody;
+            if (this.contentType === 'application/x-www-form-urlencoded') {
+                // For URL-encoded, use the raw requestBody string
+                actualBody = this.requestBody || '';
+            }
+            else if (this.contentType === 'application/json') {
+                // For JSON, try to parse requestBody or use default
+                try {
+                    actualBody = this.requestBody ? JSON.parse(this.requestBody) : body;
+                }
+                catch (_b) {
+                    actualBody = body;
+                }
+            }
+            else {
+                // For other types, use raw string
+                actualBody = this.requestBody || '';
+            }
             yield callApi({
                 url,
                 method: this.method || 'POST',
                 headers,
-                requestBody: body,
+                requestBody: actualBody,
+                contentType: this.contentType,
                 setLoading: (loading) => {
                     this.isLoading = loading;
                     this.requestUpdate();
@@ -1377,6 +1406,9 @@ __decorate([
 __decorate([
     property({ type: String })
 ], DafWebRequestPlugin.prototype, "requestHeaders", void 0);
+__decorate([
+    property({ type: String })
+], DafWebRequestPlugin.prototype, "contentType", void 0);
 __decorate([
     property({ type: Boolean })
 ], DafWebRequestPlugin.prototype, "debugMode", void 0);

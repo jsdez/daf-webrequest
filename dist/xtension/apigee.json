@@ -1,0 +1,403 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "PACCAR Apigee HR",
+    "description": "Nintex Xtension for PACCAR Apigee HR API integration",
+    "version": "1.0.0"
+  },
+  "host": "api-qa.digital.paccar.cloud",
+  "basePath": "/sap/api/v1/hr",
+  "schemes": [
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "securityDefinitions": {
+    "basicAuth": {
+      "type": "basic",
+      "description": "Use your OAuth2 Client ID as username and Client Secret as password"
+    }
+  },
+  "security": [
+    {
+      "basicAuth": []
+    }
+  ],
+  "paths": {
+    "/token": {
+      "post": {
+        "operationId": "getAccessToken",
+        "summary": "Get access token",
+        "description": "Request a new OAuth2 access token. Nintex handles authentication using your saved connection. Use this token in your Nintex Form Web Request Plugin.",
+        "x-ntx-summary": "Get access token",
+        "x-ntx-host": "api-qa.digital.paccar.cloud",
+        "x-ntx-basePath": "/security/oauth2/v1",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "parameters": [
+          {
+            "name": "grant_type",
+            "in": "formData",
+            "description": "OAuth2 grant type",
+            "required": true,
+            "type": "string",
+            "default": "client_credentials",
+            "x-ntx-visibility": "internal"
+          },
+          {
+            "name": "scope",
+            "in": "formData",
+            "description": "OAuth2 scope (optional)",
+            "required": false,
+            "type": "string",
+            "x-ntx-visibility": "internal"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token retrieved successfully",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "access_token": {
+                  "type": "string",
+                  "title": "Access token",
+                  "description": "Bearer token to use in API requests from your form"
+                },
+                "token_type": {
+                  "type": "string",
+                  "title": "Token type",
+                  "description": "Type of token (typically 'Bearer')"
+                },
+                "expires_in": {
+                  "type": "integer",
+                  "title": "Expires in (seconds)",
+                  "description": "Number of seconds until token expires"
+                },
+                "scope": {
+                  "type": "string",
+                  "title": "Scope",
+                  "description": "Granted OAuth2 scopes"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid grant_type"
+          },
+          "401": {
+            "description": "Unauthorized - Invalid connection credentials"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/hr011": {
+      "post": {
+        "operationId": "submitHR011Form",
+        "summary": "Submit HR011 form",
+        "description": "Submit an HR011 employee details update form to SAP",
+        "x-ntx-summary": "Submit HR011 form",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sap-client",
+            "in": "query",
+            "description": "SAP client identifier",
+            "required": true,
+            "type": "string",
+            "default": "170"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "description": "HR011 form data",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "d"
+              ],
+              "properties": {
+                "d": {
+                  "type": "object",
+                  "title": "Form data",
+                  "required": [
+                    "Form",
+                    "Pernr",
+                    "Operation"
+                  ],
+                  "properties": {
+                    "Form": {
+                      "type": "string",
+                      "title": "Form type",
+                      "description": "The HR form identifier",
+                      "default": "HR011",
+                      "minLength": 1
+                    },
+                    "Begda": {
+                      "type": "string",
+                      "title": "Start date",
+                      "description": "Effective start date in YYYYMMDD format",
+                      "x-ntx-sublabel": "Format: YYYYMMDD (e.g., 20251215)",
+                      "pattern": "^[0-9]{8}$",
+                      "minLength": 8,
+                      "maxLength": 8
+                    },
+                    "ActionReason": {
+                      "type": "string",
+                      "title": "Action reason",
+                      "description": "Reason code for the action",
+                      "x-ntx-sublabel": "Two-digit reason code",
+                      "minLength": 1
+                    },
+                    "Pernr": {
+                      "type": "string",
+                      "title": "Personnel number",
+                      "description": "Employee personnel number",
+                      "x-ntx-sublabel": "8-digit employee ID",
+                      "pattern": "^[0-9]{8}$",
+                      "minLength": 8,
+                      "maxLength": 8
+                    },
+                    "Operation": {
+                      "type": "string",
+                      "title": "Operation type",
+                      "description": "Type of operation to perform",
+                      "enum": [
+                        "1",
+                        "2",
+                        "3"
+                      ],
+                      "x-ntx-oneOf": [
+                        {
+                          "const": "1",
+                          "title": "Create"
+                        },
+                        {
+                          "const": "2",
+                          "title": "Update"
+                        },
+                        {
+                          "const": "3",
+                          "title": "Delete"
+                        }
+                      ]
+                    },
+                    "Email": {
+                      "type": "string",
+                      "title": "Email address",
+                      "description": "Employee email address",
+                      "format": "email",
+                      "minLength": 1
+                    },
+                    "EmailGebruiker": {
+                      "type": "string",
+                      "title": "Submitter email",
+                      "description": "Email address of the person submitting the form",
+                      "format": "email",
+                      "minLength": 1
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Form submitted successfully",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "d": {
+                  "type": "object",
+                  "title": "Response data",
+                  "properties": {
+                    "__metadata": {
+                      "type": "object",
+                      "title": "Metadata",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "title": "Record ID"
+                        },
+                        "uri": {
+                          "type": "string",
+                          "title": "Record URI"
+                        },
+                        "type": {
+                          "type": "string",
+                          "title": "Record type"
+                        }
+                      }
+                    },
+                    "Form": {
+                      "type": "string",
+                      "title": "Form type"
+                    },
+                    "Begda": {
+                      "type": "string",
+                      "title": "Start date"
+                    },
+                    "ActionReason": {
+                      "type": "string",
+                      "title": "Action reason"
+                    },
+                    "Pernr": {
+                      "type": "string",
+                      "title": "Personnel number"
+                    },
+                    "Operation": {
+                      "type": "string",
+                      "title": "Operation type"
+                    },
+                    "Email": {
+                      "type": "string",
+                      "title": "Email address"
+                    },
+                    "EmailGebruiker": {
+                      "type": "string",
+                      "title": "Submitter email"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input data"
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or expired token"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "get": {
+        "operationId": "getHR011Form",
+        "summary": "Get HR011 form details",
+        "description": "Retrieve HR011 form details for a specific personnel number",
+        "x-ntx-summary": "Get HR011 form",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sap-client",
+            "in": "query",
+            "description": "SAP client identifier",
+            "required": true,
+            "type": "string",
+            "default": "170"
+          },
+          {
+            "name": "Pernr",
+            "in": "query",
+            "description": "Employee personnel number to retrieve",
+            "required": true,
+            "type": "string",
+            "x-ntx-sublabel": "8-digit employee ID",
+            "pattern": "^[0-9]{8}$",
+            "minLength": 8,
+            "maxLength": 8
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Form data retrieved successfully",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "d": {
+                  "type": "object",
+                  "title": "Form details",
+                  "properties": {
+                    "__metadata": {
+                      "type": "object",
+                      "title": "Metadata",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "title": "Record ID"
+                        },
+                        "uri": {
+                          "type": "string",
+                          "title": "Record URI"
+                        },
+                        "type": {
+                          "type": "string",
+                          "title": "Record type"
+                        }
+                      }
+                    },
+                    "Form": {
+                      "type": "string",
+                      "title": "Form type"
+                    },
+                    "Begda": {
+                      "type": "string",
+                      "title": "Start date"
+                    },
+                    "ActionReason": {
+                      "type": "string",
+                      "title": "Action reason"
+                    },
+                    "Pernr": {
+                      "type": "string",
+                      "title": "Personnel number"
+                    },
+                    "Operation": {
+                      "type": "string",
+                      "title": "Operation type"
+                    },
+                    "Email": {
+                      "type": "string",
+                      "title": "Email address"
+                    },
+                    "EmailGebruiker": {
+                      "type": "string",
+                      "title": "Submitter email"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid personnel number"
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or expired token"
+          },
+          "404": {
+            "description": "Not found - Personnel number not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    }
+  }
+}

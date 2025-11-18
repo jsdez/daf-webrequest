@@ -397,6 +397,7 @@ export class DafWebRequestPlugin extends LitElement {
   @property({ type: String }) requestBody = '';
   @property({ type: String }) apiUrl = '';
   @property({ type: String }) requestHeaders = '';
+  @property({ type: String }) contentType = 'application/json';
   @property({ type: Boolean }) debugMode = false;
   @property({ type: String }) method: string = 'POST';
   @property({ type: String }) successMessage = 'API call completed successfully';
@@ -438,6 +439,7 @@ export class DafWebRequestPlugin extends LitElement {
     this.requestBody = '';
     this.apiUrl = '';
     this.requestHeaders = '';
+    this.contentType = 'application/json';
     this.debugMode = false;
     this.method = 'POST';
     this.successMessage = 'API call completed successfully';
@@ -482,8 +484,15 @@ export class DafWebRequestPlugin extends LitElement {
         requestBody: {
           type: 'string',
           title: 'Request Body',
-          description: 'Body to send in the API request, as a JSON object.',
+          description: 'Body to send in the API request. Format depends on Content Type.',
           defaultValue: '',
+        } as PropType,
+        contentType: {
+          type: 'string',
+          title: 'Content Type',
+          description: 'The Content-Type header for the request body.',
+          enum: ['application/json', 'application/x-www-form-urlencoded', 'text/plain'],
+          defaultValue: 'application/json',
         } as PropType,
         waitForResponse: {
           type: 'boolean',
@@ -1313,11 +1322,29 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
       }
     };
     
+    // Determine the actual body to use
+    let actualBody: any;
+    if (this.contentType === 'application/x-www-form-urlencoded') {
+      // For URL-encoded, use the raw requestBody string
+      actualBody = this.requestBody || '';
+    } else if (this.contentType === 'application/json') {
+      // For JSON, try to parse requestBody or use default
+      try {
+        actualBody = this.requestBody ? JSON.parse(this.requestBody) : body;
+      } catch {
+        actualBody = body;
+      }
+    } else {
+      // For other types, use raw string
+      actualBody = this.requestBody || '';
+    }
+    
     await callApi({
       url,
       method: this.method || 'POST',
       headers,
-      requestBody: body,
+      requestBody: actualBody,
+      contentType: this.contentType,
       setLoading: (loading: boolean) => { 
         this.isLoading = loading; 
         this.requestUpdate(); 
