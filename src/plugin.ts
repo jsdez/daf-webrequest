@@ -421,6 +421,7 @@ export class DafWebRequestPlugin extends LitElement {
   private showCooldownAlert = false;
   private lastCooldownAlertTime = 0;
   private apiCallStartTime = 0;
+  private cooldownTimerId: number | null = null; // Track the timer for cleanup
 
   constructor() {
     super();
@@ -1415,6 +1416,12 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
   }
 
   private startCooldownTimer() {
+    // Clear any existing timer first
+    if (this.cooldownTimerId !== null) {
+      clearTimeout(this.cooldownTimerId);
+      this.cooldownTimerId = null;
+    }
+    
     // Update the UI every second during cooldown to show remaining time
     const updateTimer = () => {
       const now = Date.now();
@@ -1424,15 +1431,25 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
       if (timeSinceLastCall < cooldownMs) {
         // Still in cooldown, update in another second
         this.requestUpdate();
-        setTimeout(updateTimer, 1000);
+        this.cooldownTimerId = window.setTimeout(updateTimer, 1000);
       } else {
         // Cooldown period ended, hide the alert
         this.showCooldownAlert = false;
+        this.cooldownTimerId = null;
         this.requestUpdate();
       }
     };
     
     // Start the timer
-    setTimeout(updateTimer, 1000);
+    this.cooldownTimerId = window.setTimeout(updateTimer, 1000);
+  }
+  
+  // Cleanup timer when component is destroyed
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this.cooldownTimerId !== null) {
+      clearTimeout(this.cooldownTimerId);
+      this.cooldownTimerId = null;
+    }
   }
 }
