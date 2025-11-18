@@ -47,6 +47,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.requestBody = '';
         this.apiUrl = '';
         this.requestHeaders = '';
+        this.outputValueKey = '';
         this.contentType = 'application/json';
         this.debugMode = false;
         this.method = 'POST';
@@ -92,6 +93,12 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                     type: 'string',
                     title: 'Request Body',
                     description: 'Body to send in the API request. Format depends on Content Type.',
+                    defaultValue: '',
+                },
+                outputValueKey: {
+                    type: 'string',
+                    title: 'Output Value Key',
+                    description: 'Optional: JSON key path to extract from response',
                     defaultValue: '',
                 },
                 contentType: {
@@ -147,6 +154,16 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                             type: 'integer',
                             title: 'Execution Time',
                             description: 'Time taken for the API call in milliseconds',
+                        },
+                        access_token: {
+                            type: 'string',
+                            title: 'Access Token',
+                            description: 'Automatically extracted access_token from response if present',
+                        },
+                        output: {
+                            type: 'string',
+                            title: 'Custom Output',
+                            description: 'Custom extracted value based on outputValueKey property',
                         }
                     },
                     defaultValue: {
@@ -918,16 +935,25 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
                     const timestamp = new Date().toISOString();
                     this.apiResponse = response;
                     this.responseType = success === false ? 'error' : this.determineResponseType(response);
+                    // Try to parse response and extract values
+                    let accessToken;
+                    let customOutput = undefined;
+                    try {
+                        const parsed = JSON.parse(response);
+                        // Extract access_token if present
+                        if (parsed.access_token) {
+                            accessToken = parsed.access_token;
+                        }
+                        // Extract custom output value if outputValueKey is specified
+                        if (this.outputValueKey && this.outputValueKey.trim()) {
+                            customOutput = this.extractNestedValue(parsed, this.outputValueKey);
+                        }
+                    }
+                    catch (_a) {
+                        // Response is not JSON, skip extraction
+                    }
                     // Create structured value object
-                    this.value = {
-                        success: success !== false && (this.responseType === 'success' || this.responseType === 'warning'),
-                        statusCode: statusCode || (this.responseType === 'success' ? 200 : 500),
-                        responseType: this.responseType,
-                        data: response,
-                        message: this.getCustomMessage(this.responseType),
-                        timestamp: timestamp,
-                        executionTime: executionTime
-                    };
+                    this.value = Object.assign(Object.assign({ success: success !== false && (this.responseType === 'success' || this.responseType === 'warning'), statusCode: statusCode || (this.responseType === 'success' ? 200 : 500), responseType: this.responseType, data: response, message: this.getCustomMessage(this.responseType), timestamp: timestamp, executionTime: executionTime }, (accessToken && { access_token: accessToken })), (customOutput !== undefined && { output: customOutput }));
                     // Mark as successful call if success or warning
                     if (this.responseType === 'success' || this.responseType === 'warning') {
                         this.hasSuccessfulCall = true;
@@ -965,6 +991,20 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
         }
         // Default to success for valid responses
         return 'success';
+    }
+    extractNestedValue(obj, path) {
+        // Support nested paths like "developer.email" or "data.user.name"
+        const keys = path.split('.');
+        let current = obj;
+        for (const key of keys) {
+            if (current && typeof current === 'object' && key in current) {
+                current = current[key];
+            }
+            else {
+                return undefined;
+            }
+        }
+        return current;
     }
     startCooldownTimer() {
         // Clear any existing timer first
@@ -1395,6 +1435,9 @@ __decorate([
 __decorate([
     property({ type: String })
 ], DafWebRequestPlugin.prototype, "requestHeaders", void 0);
+__decorate([
+    property({ type: String })
+], DafWebRequestPlugin.prototype, "outputValueKey", void 0);
 __decorate([
     property({ type: String })
 ], DafWebRequestPlugin.prototype, "contentType", void 0);
