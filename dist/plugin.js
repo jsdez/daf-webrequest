@@ -50,15 +50,15 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.btnText = 'Send API Request';
         this.btnAlignment = 'left';
         this.btnVisible = true;
-        // Instance-specific state (not static)
+        // Instance-specific state (not reactive properties - these are internal state only)
         this.isLoading = false;
         this.apiResponse = '';
         this.responseType = null;
         this.hasSuccessfulCall = false;
         this.lastApiCallTime = 0;
         this.showCooldownAlert = false;
-        this.lastCooldownAlertTime = 0; // Track when we last showed a cooldown alert
-        this.apiCallStartTime = 0; // Track API call execution time
+        this.lastCooldownAlertTime = 0;
+        this.apiCallStartTime = 0;
         // Initialize all properties with their default values
         this.label = '';
         this.description = '';
@@ -1451,30 +1451,6 @@ __decorate([
 __decorate([
     property({ type: Boolean })
 ], DafWebRequestPlugin.prototype, "btnVisible", void 0);
-__decorate([
-    property({ type: Boolean })
-], DafWebRequestPlugin.prototype, "isLoading", void 0);
-__decorate([
-    property({ type: String })
-], DafWebRequestPlugin.prototype, "apiResponse", void 0);
-__decorate([
-    property({ type: String })
-], DafWebRequestPlugin.prototype, "responseType", void 0);
-__decorate([
-    property({ type: Boolean })
-], DafWebRequestPlugin.prototype, "hasSuccessfulCall", void 0);
-__decorate([
-    property({ type: Number })
-], DafWebRequestPlugin.prototype, "lastApiCallTime", void 0);
-__decorate([
-    property({ type: Boolean })
-], DafWebRequestPlugin.prototype, "showCooldownAlert", void 0);
-__decorate([
-    property({ type: Number })
-], DafWebRequestPlugin.prototype, "lastCooldownAlertTime", void 0);
-__decorate([
-    property({ type: Number })
-], DafWebRequestPlugin.prototype, "apiCallStartTime", void 0);
 DafWebRequestPlugin = __decorate([
     customElement('daf-webrequest-plugin')
 ], DafWebRequestPlugin);

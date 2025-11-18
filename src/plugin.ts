@@ -412,15 +412,15 @@ export class DafWebRequestPlugin extends LitElement {
   @property({ type: String }) btnAlignment = 'left';
   @property({ type: Boolean }) btnVisible = true;
 
-  // Instance-specific state (not static)
-  @property({ type: Boolean }) private isLoading = false;
-  @property({ type: String }) private apiResponse: string = '';
-  @property({ type: String }) private responseType: 'success' | 'warning' | 'error' | null = null;
-  @property({ type: Boolean }) private hasSuccessfulCall = false;
-  @property({ type: Number }) private lastApiCallTime = 0;
-  @property({ type: Boolean }) private showCooldownAlert = false;
-  @property({ type: Number }) private lastCooldownAlertTime = 0; // Track when we last showed a cooldown alert
-  @property({ type: Number }) private apiCallStartTime = 0; // Track API call execution time
+  // Instance-specific state (not reactive properties - these are internal state only)
+  private isLoading = false;
+  private apiResponse: string = '';
+  private responseType: 'success' | 'warning' | 'error' | null = null;
+  private hasSuccessfulCall = false;
+  private lastApiCallTime = 0;
+  private showCooldownAlert = false;
+  private lastCooldownAlertTime = 0;
+  private apiCallStartTime = 0;
 
   constructor() {
     super();
