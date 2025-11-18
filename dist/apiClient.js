@@ -17,28 +17,31 @@ export function callApi(_a) {
             let body;
             const requestHeaders = Object.assign({ Accept: 'application/json' }, headers);
             if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase())) {
-                if (contentType === 'application/json') {
-                    // JSON body - stringify the object
-                    requestHeaders['Content-Type'] = 'application/json';
-                    body = typeof requestBody === 'string' ? requestBody : JSON.stringify(requestBody);
-                }
-                else if (contentType === 'application/x-www-form-urlencoded') {
-                    // URL-encoded body - expect a string or convert object to URL params
-                    requestHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
-                    if (typeof requestBody === 'string') {
-                        body = requestBody;
+                // Only add body and Content-Type if requestBody is actually provided
+                if (requestBody !== undefined && requestBody !== null && requestBody !== '') {
+                    if (contentType === 'application/json') {
+                        // JSON body - stringify the object
+                        requestHeaders['Content-Type'] = 'application/json';
+                        body = typeof requestBody === 'string' ? requestBody : JSON.stringify(requestBody);
                     }
-                    else if (typeof requestBody === 'object' && requestBody !== null) {
-                        // Convert object to URL-encoded string
-                        body = Object.keys(requestBody)
-                            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(requestBody[key])}`)
-                            .join('&');
+                    else if (contentType === 'application/x-www-form-urlencoded') {
+                        // URL-encoded body - expect a string or convert object to URL params
+                        requestHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
+                        if (typeof requestBody === 'string') {
+                            body = requestBody;
+                        }
+                        else if (typeof requestBody === 'object' && requestBody !== null) {
+                            // Convert object to URL-encoded string
+                            body = Object.keys(requestBody)
+                                .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(requestBody[key])}`)
+                                .join('&');
+                        }
                     }
-                }
-                else {
-                    // Plain text or other
-                    requestHeaders['Content-Type'] = contentType;
-                    body = typeof requestBody === 'string' ? requestBody : JSON.stringify(requestBody);
+                    else {
+                        // Plain text or other
+                        requestHeaders['Content-Type'] = contentType;
+                        body = typeof requestBody === 'string' ? requestBody : JSON.stringify(requestBody);
+                    }
                 }
             }
             const res = yield fetch(url, {

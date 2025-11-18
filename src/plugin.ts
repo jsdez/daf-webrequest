@@ -1315,27 +1315,26 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
         });
       }
     }
-    // For now, still use the hardcoded body for testing
-    const body = {
-      startData: {
-        se_input: "This is a test"
-      }
-    };
     
-    // Determine the actual body to use
+    // Determine the actual body to use based on contentType
     let actualBody: any;
     if (this.contentType === 'application/x-www-form-urlencoded') {
-      // For URL-encoded, use the raw requestBody string
+      // For URL-encoded, use the raw requestBody string as-is
       actualBody = this.requestBody || '';
     } else if (this.contentType === 'application/json') {
-      // For JSON, try to parse requestBody or use default
-      try {
-        actualBody = this.requestBody ? JSON.parse(this.requestBody) : body;
-      } catch {
-        actualBody = body;
+      // For JSON, parse requestBody if provided, otherwise send nothing
+      if (this.requestBody && this.requestBody.trim()) {
+        try {
+          actualBody = JSON.parse(this.requestBody);
+        } catch (e) {
+          // If parsing fails, treat as empty
+          actualBody = undefined;
+        }
+      } else {
+        actualBody = undefined;
       }
     } else {
-      // For other types, use raw string
+      // For other types (text/plain, etc.), use raw string
       actualBody = this.requestBody || '';
     }
     
