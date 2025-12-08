@@ -47,6 +47,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.requestBody = '';
         this.apiUrl = '';
         this.requestHeaders = '';
+        this.bearerToken = '';
         this.outputValueKey = '';
         this.contentType = 'application/json';
         this.debugMode = false;
@@ -87,6 +88,12 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                     type: 'string',
                     title: 'Request Headers',
                     description: 'Headers to include in the API request, as a JSON object.',
+                    defaultValue: '',
+                },
+                bearerToken: {
+                    type: 'string',
+                    title: 'Bearer Token',
+                    description: 'Optional: Bearer token value for Authorization header',
                     defaultValue: '',
                 },
                 requestBody: {
@@ -488,6 +495,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
             { name: 'countdownTimer', default: 5, current: this.countdownTimer },
             { name: 'allowMultipleAPICalls', default: false, current: this.allowMultipleAPICalls },
             { name: 'sendAPICall', default: false, current: this.sendAPICall },
+            { name: 'bearerToken', default: '', current: this.bearerToken ? '***' + this.bearerToken.slice(-4) : '' },
             { name: 'successMessage', default: 'API call completed successfully', current: this.successMessage },
             { name: 'warningMessage', default: 'API call completed with warnings', current: this.warningMessage },
             { name: 'errorMessage', default: 'API call failed', current: this.errorMessage }
@@ -894,6 +902,10 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
                         }
                     });
                 }
+            }
+            // Add Bearer token to Authorization header if provided
+            if (this.bearerToken && this.bearerToken.trim()) {
+                headers['Authorization'] = `Bearer ${this.bearerToken.trim()}`;
             }
             // Determine the actual body to use based on contentType
             let actualBody;
@@ -1439,6 +1451,9 @@ __decorate([
 __decorate([
     property({ type: String })
 ], DafWebRequestPlugin.prototype, "requestHeaders", void 0);
+__decorate([
+    property({ type: String })
+], DafWebRequestPlugin.prototype, "bearerToken", void 0);
 __decorate([
     property({ type: String })
 ], DafWebRequestPlugin.prototype, "outputValueKey", void 0);

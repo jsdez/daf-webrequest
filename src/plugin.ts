@@ -399,6 +399,7 @@ export class DafWebRequestPlugin extends LitElement {
   @property({ type: String }) requestBody!: string;
   @property({ type: String }) apiUrl!: string;
   @property({ type: String }) requestHeaders!: string;
+  @property({ type: String }) bearerToken!: string;
   @property({ type: String }) outputValueKey!: string;
   @property({ type: String }) contentType!: string;
   @property({ type: Boolean }) debugMode!: boolean;
@@ -444,6 +445,7 @@ export class DafWebRequestPlugin extends LitElement {
     this.requestBody = '';
     this.apiUrl = '';
     this.requestHeaders = '';
+    this.bearerToken = '';
     this.outputValueKey = '';
     this.contentType = 'application/json';
     this.debugMode = false;
@@ -485,6 +487,12 @@ export class DafWebRequestPlugin extends LitElement {
           type: 'string',
           title: 'Request Headers',
           description: 'Headers to include in the API request, as a JSON object.',
+          defaultValue: '',
+        } as PropType,
+        bearerToken: {
+          type: 'string',
+          title: 'Bearer Token',
+          description: 'Optional: Bearer token value for Authorization header',
           defaultValue: '',
         } as PropType,
         requestBody: {
@@ -912,6 +920,7 @@ export class DafWebRequestPlugin extends LitElement {
       { name: 'countdownTimer', default: 5, current: this.countdownTimer },
       { name: 'allowMultipleAPICalls', default: false, current: this.allowMultipleAPICalls },
       { name: 'sendAPICall', default: false, current: this.sendAPICall },
+      { name: 'bearerToken', default: '', current: this.bearerToken ? '***' + this.bearerToken.slice(-4) : '' },
       { name: 'successMessage', default: 'API call completed successfully', current: this.successMessage },
       { name: 'warningMessage', default: 'API call completed with warnings', current: this.warningMessage },
       { name: 'errorMessage', default: 'API call failed', current: this.errorMessage }
@@ -1341,6 +1350,11 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
           }
         });
       }
+    }
+    
+    // Add Bearer token to Authorization header if provided
+    if (this.bearerToken && this.bearerToken.trim()) {
+      headers['Authorization'] = `Bearer ${this.bearerToken.trim()}`;
     }
     
     // Determine the actual body to use based on contentType
