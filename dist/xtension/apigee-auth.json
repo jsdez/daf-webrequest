@@ -1,0 +1,109 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "DAF Apigee OAuth2 Token",
+    "description": "Nintex Xtension for retrieving OAuth2 access tokens from DAF Apigee using Client Credentials flow",
+    "version": "1.0.0"
+  },
+  "host": "api-qa.digital.paccar.cloud",
+  "basePath": "/",
+  "schemes": [
+    "https"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "x-ntx-render-version": 2,
+  "securityDefinitions": {
+    "oauth2": {
+      "type": "oauth2",
+      "flow": "application",
+      "tokenUrl": "https://api-qa.digital.paccar.cloud/security/oauth2/v1/token",
+      "description": "OAuth2 Client Credentials flow for machine-to-machine authentication"
+    }
+  },
+  "security": [
+    {
+      "oauth2": []
+    }
+  ],
+  "paths": {
+    "/security/oauth2/v1/token": {
+      "post": {
+        "operationId": "getAccessToken",
+        "summary": "Get OAuth2 Access Token",
+        "description": "Retrieve an OAuth2 access token using Client Credentials flow",
+        "x-ntx-summary": "Get Access Token",
+        "tags": ["Authentication"],
+        "security": [],
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "parameters": [
+          {
+            "name": "grant_type",
+            "in": "formData",
+            "description": "OAuth2 grant type",
+            "required": true,
+            "type": "string",
+            "default": "client_credentials",
+            "enum": ["client_credentials"],
+            "x-ntx-visibility": "internal"
+          },
+          {
+            "name": "client_id",
+            "in": "formData",
+            "description": "OAuth2 Client ID",
+            "required": true,
+            "type": "string",
+            "x-ntx-summary": "Client ID"
+          },
+          {
+            "name": "client_secret",
+            "in": "formData",
+            "description": "OAuth2 Client Secret",
+            "required": true,
+            "type": "string",
+            "x-ntx-summary": "Client Secret"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success - Access token retrieved",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "access_token": {
+                  "type": "string",
+                  "description": "The OAuth2 access token to use in Authorization header",
+                  "x-ntx-summary": "Access Token"
+                },
+                "token_type": {
+                  "type": "string",
+                  "description": "Token type (usually 'Bearer')",
+                  "x-ntx-summary": "Token Type"
+                },
+                "expires_in": {
+                  "type": "integer",
+                  "description": "Token expiration time in seconds",
+                  "x-ntx-summary": "Expires In (seconds)"
+                },
+                "scope": {
+                  "type": "string",
+                  "description": "Token scope",
+                  "x-ntx-summary": "Scope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid client credentials"
+          },
+          "401": {
+            "description": "Unauthorized - Authentication failed"
+          }
+        }
+      }
+    }
+  }
+}

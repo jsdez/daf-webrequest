@@ -1,0 +1,351 @@
+{
+	"info": {
+		"_postman_id": "43bfb96c-27a7-48a8-b41e-af2245702d62",
+		"name": "Apigee",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "47815260",
+		"_collection_link": "https://fs0000-8272.postman.co/workspace/F%26S-Workspace~846f50fb-cb4f-4e5b-a8a2-770b2ed41d77/collection/47815260-43bfb96c-27a7-48a8-b41e-af2245702d62?action=share&source=collection_link&creator=47815260"
+	},
+	"item": [
+		{
+			"name": "POST-HR011",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "{{API_KEY_NAME}}",
+						"value": "{{APIGEE_CLIENT_ID}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"d\" : {\r\n    \"__metadata\" : {\r\n      \"id\" : \"https://ehvt021ib.eu.paccar.com:1443/sap/opu/odata/sap/Z_HR_NINTEX_SRV/NAW_DETAILS_UPDSet\",\r\n      \"uri\" : \"https://ehvt021ib.eu.paccar.com:1443/sap/opu/odata/sap/Z_HR_NINTEX_SRV/NAW_DETAILS_UPDSet\",\r\n      \"type\" : \"Z_HR_NINTEX_SRV.NAW_DETAILS_UPD\"\r\n    },\r\n    \"Form\" : \"HR011\",\r\n    \"Begda\" : \"20250815\",\r\n    \"ActionReason\" : \"07\",\r\n    \"Pernr\" : \"00260090\",\r\n    \"Operation\" : \"1\",\r\n    \"Email\" : \"skmooib@mooi.be\",\r\n    \"EmailGebruiker\" : \"ronald.hulskamp@daftrucks.com\"\r\n \r\n  }\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://{{APIGEE_ENV_NAME}}.digital.paccar.cloud/sap/api/v1/hr/hr011?sap-client=170",
+					"protocol": "https",
+					"host": [
+						"{{APIGEE_ENV_NAME}}",
+						"digital",
+						"paccar",
+						"cloud"
+					],
+					"path": [
+						"sap",
+						"api",
+						"v1",
+						"hr",
+						"hr011"
+					],
+					"query": [
+						{
+							"key": "sap-client",
+							"value": "170"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "POST-HR011 non-existing action",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "{{API_KEY_NAME}}",
+						"value": "{{APIGEE_CLIENT_ID}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"d\" : {\r\n    \"__metadata\" : {\r\n      \"id\" : \"https://ehvt021ib.eu.paccar.com:1443/sap/opu/odata/sap/Z_HR_NINTEX_SRV/NAW_DETAILS_UPDSet\",\r\n      \"uri\" : \"https://ehvt021ib.eu.paccar.com:1443/sap/opu/odata/sap/Z_HR_NINTEX_SRV/NAW_DETAILS_UPDSet\",\r\n      \"type\" : \"Z_HR_NINTEX_SRV.NAW_DETAILS_UPD\"\r\n    },\r\n    \"Form\" : \"HR011\",\r\n    \"Begda\" : \"20250815\",\r\n    \"ActionReason\" : \"07\",\r\n    \"Pernr\" : \"00260090\",\r\n    \"Operation\" : \"1\",\r\n    \"Email\" : \"skmooib@mooi.be\",\r\n    \"EmailGebruiker\" : \"ronald.hulskamp@daftrucks.com\"\r\n \r\n  }\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://{{APIGEE_ENV_NAME}}.digital.paccar.cloud/sap/api/v1/hr/hr011?sap-client=170",
+					"protocol": "https",
+					"host": [
+						"{{APIGEE_ENV_NAME}}",
+						"digital",
+						"paccar",
+						"cloud"
+					],
+					"path": [
+						"sap",
+						"api",
+						"v1",
+						"hr",
+						"hr011"
+					],
+					"query": [
+						{
+							"key": "sap-client",
+							"value": "170"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "POST-HR011 no Email",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "{{API_KEY_NAME}}",
+						"value": "{{APIGEE_CLIENT_ID}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"d\" : {\r\n    \"__metadata\" : {\r\n      \"id\" : \"https://ehvt021ib.eu.paccar.com:1443/sap/opu/odata/sap/Z_HR_NINTEX_SRV/NAW_DETAILS_UPDSet\",\r\n      \"uri\" : \"https://ehvt021ib.eu.paccar.com:1443/sap/opu/odata/sap/Z_HR_NINTEX_SRV/NAW_DETAILS_UPDSet\",\r\n      \"type\" : \"Z_HR_NINTEX_SRV.NAW_DETAILS_UPD\"\r\n    },\r\n    \"Form\" : \"HR011\",\r\n    \"Begda\" : \"20250815\",\r\n    \"ActionReason\" : \"07\",\r\n    \"Pernr\" : \"00260090\",\r\n    \"Operation\" : \"1\",\r\n    \"Email\" : \"skmooib@mooi.be\",\r\n    \"EmailGebruiker\" : \"ronald.hulskamp@daftrucks.com\"\r\n \r\n  }\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://{{APIGEE_ENV_NAME}}.digital.paccar.cloud/sap/api/v1/hr/hr011?sap-client=170",
+					"protocol": "https",
+					"host": [
+						"{{APIGEE_ENV_NAME}}",
+						"digital",
+						"paccar",
+						"cloud"
+					],
+					"path": [
+						"sap",
+						"api",
+						"v1",
+						"hr",
+						"hr011"
+					],
+					"query": [
+						{
+							"key": "sap-client",
+							"value": "170"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "POST-HR011 not authorized",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "{{API_KEY_NAME}}",
+						"value": "{{APIGEE_CLIENT_ID}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"d\" : {\r\n    \"__metadata\" : {\r\n      \"id\" : \"https://ehvt021ib.eu.paccar.com:1443/sap/opu/odata/sap/Z_HR_NINTEX_SRV/NAW_DETAILS_UPDSet\",\r\n      \"uri\" : \"https://ehvt021ib.eu.paccar.com:1443/sap/opu/odata/sap/Z_HR_NINTEX_SRV/NAW_DETAILS_UPDSet\",\r\n      \"type\" : \"Z_HR_NINTEX_SRV.NAW_DETAILS_UPD\"\r\n    },\r\n    \"Form\" : \"HR011\",\r\n    \"Begda\" : \"20250815\",\r\n    \"ActionReason\" : \"07\",\r\n    \"Pernr\" : \"00260090\",\r\n    \"Operation\" : \"1\",\r\n    \"Email\" : \"skmooib@mooi.be\",\r\n    \"EmailGebruiker\" : \"ronald.hulskamp@daftrucks.com\"\r\n \r\n  }\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://{{APIGEE_ENV_NAME}}.digital.paccar.cloud/sap/api/v1/hr/hr011?sap-client=170",
+					"protocol": "https",
+					"host": [
+						"{{APIGEE_ENV_NAME}}",
+						"digital",
+						"paccar",
+						"cloud"
+					],
+					"path": [
+						"sap",
+						"api",
+						"v1",
+						"hr",
+						"hr011"
+					],
+					"query": [
+						{
+							"key": "sap-client",
+							"value": "170"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "POST-HR020",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "{{API_KEY_NAME}}",
+						"value": "{{APIGEE_CLIENT_ID}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"d\" : {\r\n    \"__metadata\" : {\r\n      \"id\" : \"https://ehvt021ib.eu.paccar.com:1443/sap/opu/odata/sap/Z_HR_NINTEX_SRV/NAW_DETAILS_UPDSet\",\r\n      \"uri\" : \"https://ehvt021ib.eu.paccar.com:1443/sap/opu/odata/sap/Z_HR_NINTEX_SRV/NAW_DETAILS_UPDSet\",\r\n      \"type\" : \"Z_HR_NINTEX_SRV.NAW_DETAILS_UPD\"\r\n    },\r\n    \"Form\" : \"HR011\",\r\n    \"Begda\" : \"20250815\",\r\n    \"ActionReason\" : \"07\",\r\n    \"Pernr\" : \"00260090\",\r\n    \"Operation\" : \"1\",\r\n    \"Email\" : \"skmooib@mooi.be\",\r\n    \"EmailGebruiker\" : \"ronald.hulskamp@daftrucks.com\"\r\n \r\n  }\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://{{APIGEE_ENV_NAME}}.digital.paccar.cloud/sap/api/v1/hr/hr011?sap-client=170",
+					"protocol": "https",
+					"host": [
+						"{{APIGEE_ENV_NAME}}",
+						"digital",
+						"paccar",
+						"cloud"
+					],
+					"path": [
+						"sap",
+						"api",
+						"v1",
+						"hr",
+						"hr011"
+					],
+					"query": [
+						{
+							"key": "sap-client",
+							"value": "170"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "POST-HR003",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "{{API_KEY_NAME}}",
+						"value": "{{APIGEE_CLIENT_ID}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"d\" : {\r\n    \"__metadata\" : {\r\n      \"id\" : \"https://ehvt021ib.eu.paccar.com:1443/sap/opu/odata/sap/Z_HR_NINTEX_SRV/NAW_DETAILS_UPDSet\",\r\n      \"uri\" : \"https://ehvt021ib.eu.paccar.com:1443/sap/opu/odata/sap/Z_HR_NINTEX_SRV/NAW_DETAILS_UPDSet\",\r\n      \"type\" : \"Z_HR_NINTEX_SRV.NAW_DETAILS_UPD\"\r\n    },\r\n    \"Form\" : \"HR011\",\r\n    \"Begda\" : \"20250815\",\r\n    \"ActionReason\" : \"07\",\r\n    \"Pernr\" : \"00260090\",\r\n    \"Operation\" : \"1\",\r\n    \"Email\" : \"skmooib@mooi.be\",\r\n    \"EmailGebruiker\" : \"ronald.hulskamp@daftrucks.com\"\r\n \r\n  }\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://{{APIGEE_ENV_NAME}}.digital.paccar.cloud/sap/api/v1/hr/hr011?sap-client=170",
+					"protocol": "https",
+					"host": [
+						"{{APIGEE_ENV_NAME}}",
+						"digital",
+						"paccar",
+						"cloud"
+					],
+					"path": [
+						"sap",
+						"api",
+						"v1",
+						"hr",
+						"hr011"
+					],
+					"query": [
+						{
+							"key": "sap-client",
+							"value": "170"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"auth": {
+		"type": "oauth2",
+		"oauth2": [
+			{
+				"key": "grant_type",
+				"value": "client_credentials",
+				"type": "string"
+			},
+			{
+				"key": "accessTokenUrl",
+				"value": "https://{{APIGEE_ENV_NAME}}.digital.paccar.cloud/security/oauth2/v1/token",
+				"type": "string"
+			},
+			{
+				"key": "authUrl",
+				"value": "",
+				"type": "string"
+			},
+			{
+				"key": "clientSecret",
+				"value": "{{APIGEE_CLIENT_SECRET}}",
+				"type": "string"
+			},
+			{
+				"key": "clientId",
+				"value": "{{APIGEE_CLIENT_ID}}",
+				"type": "string"
+			},
+			{
+				"key": "client_authentication",
+				"value": "body",
+				"type": "string"
+			},
+			{
+				"key": "addTokenTo",
+				"value": "header",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	]
+}

@@ -478,7 +478,7 @@ export class DafWebRequestPlugin extends LitElement {
           type: 'string',
           title: 'HTTP Method',
           description: 'The HTTP method to use for the API call.',
-          enum: ['POST', 'GET', 'PUT', 'DELETE', 'PATCH'],
+          enum: ['POST', 'GET', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
           defaultValue: 'POST',
         } as PropType,
         requestHeaders: {
