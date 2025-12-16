@@ -21,6 +21,8 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         super();
         // Add private property to track active debug tab
         this.activeDebugTab = 'properties';
+        this.formatterJsonInput = '';
+        this.formatterSelectedFields = new Map();
         // Instance-specific state (not reactive properties - these are internal state only)
         this.isLoading = false;
         this.apiResponse = '';
@@ -49,6 +51,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.requestHeaders = '';
         this.bearerToken = '';
         this.outputValueKey = '';
+        this.responseConfig = '';
         this.contentType = 'application/json';
         this.debugMode = false;
         this.method = 'POST';
@@ -106,6 +109,12 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                     type: 'string',
                     title: 'Output Value Key',
                     description: 'Optional: JSON key path to extract from response',
+                    defaultValue: '',
+                },
+                responseConfig: {
+                    type: 'string',
+                    title: 'Response Format Configuration',
+                    description: 'JSON configuration for formatting API response display',
                     defaultValue: '',
                 },
                 contentType: {
@@ -307,6 +316,12 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
               >
                 API Tools
               </button>
+              <button 
+                class="debug-tab-button ${this.activeDebugTab === 'formatter' ? 'active' : ''}"
+                @click=${() => this.setActiveTab('formatter')}
+              >
+                Response Formatter
+              </button>
             </div>
 
             <div class="debug-tab-content ${this.activeDebugTab === 'properties' ? 'active' : ''}">
@@ -319,6 +334,10 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
 
             <div class="debug-tab-content ${this.activeDebugTab === 'tools' ? 'active' : ''}">
               ${this.renderAPIToolsTab()}
+            </div>
+
+            <div class="debug-tab-content ${this.activeDebugTab === 'formatter' ? 'active' : ''}">
+              ${this.renderResponseFormatterTab()}
             </div>
           </div>
         </div>
@@ -348,6 +367,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
     `;
     }
     renderResponseAlert() {
+        var _a;
         const now = Date.now();
         const timeSinceLastCall = now - this.lastApiCallTime;
         const cooldownMs = this.countdownTimer * 1000;
@@ -374,12 +394,29 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         const icon = this.getAlertIcon(this.responseType);
         const typeLabel = this.responseType.charAt(0).toUpperCase() + this.responseType.slice(1);
         const customMessage = this.getCustomMessage(this.responseType);
+        // For success responses, show only the custom message
+        if (this.responseType === 'success') {
+            return html `
+        <div class="alert ${alertClass}" part="response-alert">
+          <div>
+            <span class="alert-icon">${icon}</span>
+            <strong>${typeLabel}:</strong> ${customMessage}
+          </div>
+        </div>
+      `;
+        }
+        // For warnings and errors, show custom message + actual response message
         return html `
       <div class="alert ${alertClass}" part="response-alert">
         <div>
           <span class="alert-icon">${icon}</span>
           <strong>${typeLabel}:</strong> ${customMessage}
         </div>
+        ${((_a = this.value) === null || _a === void 0 ? void 0 : _a.message) ? html `
+          <div class="alert-response">
+            ${this.value.message}
+          </div>
+        ` : ''}
       </div>
     `;
     }
@@ -632,6 +669,168 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         ${this.renderJsonPreview()}
       </div>
     `;
+    }
+    renderResponseFormatterTab() {
+        const hasJsonInput = this.formatterJsonInput.trim().length > 0;
+        const isValidJson = hasJsonInput && this.isValidJson(this.formatterJsonInput);
+        let parsedJson = null;
+        let jsonError = '';
+        if (hasJsonInput) {
+            try {
+                parsedJson = JSON.parse(this.formatterJsonInput);
+            }
+            catch (e) {
+                jsonError = e.message;
+            }
+        }
+        return html `
+      <div class="debug-tools">
+        <div class="form-group">
+          <label class="control-label">Paste Response JSON</label>
+          <textarea 
+            class="form-control" 
+            rows="8"
+            .value=${this.formatterJsonInput}
+            @input=${(e) => {
+            const target = e.target;
+            this.formatterJsonInput = target.value;
+            this.formatterSelectedFields.clear();
+            this.requestUpdate();
+        }}
+            placeholder="Paste your API response JSON here..."
+            style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 13px;"
+          ></textarea>
+          ${jsonError ? html `<div class="text-danger" style="margin-top: 8px;">${jsonError}</div>` : ''}
+        </div>
+
+        ${isValidJson && parsedJson ? html `
+          <div class="form-group">
+            <label class="control-label">Select Fields to Display</label>
+            <div style="max-height: 400px; overflow-y: auto; border: 1px solid var(--ntx-form-theme-color-border); border-radius: 4px; padding: 12px;">
+              ${this.renderFieldSelector(parsedJson, '')}
+            </div>
+          </div>
+
+          ${this.formatterSelectedFields.size > 0 ? html `
+            <div class="form-group">
+              <label class="control-label">Preview</label>
+              <div style="border: 1px solid var(--ntx-form-theme-color-border); border-radius: 4px; padding: 16px; background: var(--ntx-form-theme-color-background-alt);">
+                ${this.renderFormattedPreview(parsedJson)}
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="control-label">Configuration JSON</label>
+              <textarea 
+                class="form-control" 
+                readonly
+                rows="6"
+                .value=${this.generateResponseConfig()}
+                style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 12px;"
+              ></textarea>
+              <button 
+                class="btn btn-primary" 
+                style="margin-top: 8px;"
+                @click=${() => {
+            this.responseConfig = this.generateResponseConfig();
+            this.requestUpdate();
+            alert('Configuration saved to responseConfig property!');
+        }}
+              >
+                Save Configuration
+              </button>
+            </div>
+          ` : ''}
+        ` : ''}
+      </div>
+    `;
+    }
+    renderFieldSelector(obj, path) {
+        const fields = [];
+        const processObject = (current, currentPath) => {
+            if (current && typeof current === 'object' && !Array.isArray(current)) {
+                Object.keys(current).forEach(key => {
+                    var _a, _b;
+                    const fullPath = currentPath ? `${currentPath}.${key}` : key;
+                    const value = current[key];
+                    // Skip nested objects and arrays for now, only show leaf values
+                    if (value !== null && typeof value !== 'object') {
+                        const fieldKey = fullPath;
+                        const isChecked = ((_a = this.formatterSelectedFields.get(fieldKey)) === null || _a === void 0 ? void 0 : _a.checked) || false;
+                        const customTitle = ((_b = this.formatterSelectedFields.get(fieldKey)) === null || _b === void 0 ? void 0 : _b.title) || '';
+                        fields.push(html `
+              <div style="display: flex; align-items: center; margin-bottom: 12px; gap: 12px;">
+                <input 
+                  type="checkbox" 
+                  .checked=${isChecked}
+                  @change=${(e) => {
+                            const target = e.target;
+                            const existing = this.formatterSelectedFields.get(fieldKey) || { title: '', checked: false };
+                            this.formatterSelectedFields.set(fieldKey, Object.assign(Object.assign({}, existing), { checked: target.checked }));
+                            this.requestUpdate();
+                        }}
+                  style="width: 18px; height: 18px; cursor: pointer;"
+                />
+                <div style="flex: 1;">
+                  <div style="font-weight: 500; margin-bottom: 4px;">
+                    <code style="background: var(--ntx-form-theme-color-background-alt); padding: 2px 6px; border-radius: 3px;">${fieldKey}</code>
+                  </div>
+                  <div style="font-size: 12px; color: var(--ntx-form-theme-color-secondary);">Value: ${String(value)}</div>
+                </div>
+                ${isChecked ? html `
+                  <input 
+                    type="text" 
+                    class="form-control"
+                    placeholder="Custom title (optional)"
+                    .value=${customTitle}
+                    @input=${(e) => {
+                            const target = e.target;
+                            const existing = this.formatterSelectedFields.get(fieldKey) || { title: '', checked: false };
+                            this.formatterSelectedFields.set(fieldKey, Object.assign(Object.assign({}, existing), { title: target.value }));
+                            this.requestUpdate();
+                        }}
+                    style="max-width: 250px; font-size: 13px;"
+                  />
+                ` : ''}
+              </div>
+            `);
+                    }
+                    else if (value && typeof value === 'object' && !Array.isArray(value)) {
+                        // Recursively process nested objects
+                        processObject(value, fullPath);
+                    }
+                });
+            }
+        };
+        processObject(obj, path);
+        return fields;
+    }
+    renderFormattedPreview(obj) {
+        const items = [];
+        this.formatterSelectedFields.forEach((config, key) => {
+            if (config.checked) {
+                const value = this.extractNestedValue(obj, key);
+                const displayTitle = config.title || key;
+                items.push(html `
+          <div style="margin-bottom: 8px;">
+            <strong>${displayTitle}:</strong> ${value !== undefined ? String(value) : 'N/A'}
+          </div>
+        `);
+            }
+        });
+        return items.length > 0 ? items : html `<div style="color: var(--ntx-form-theme-color-secondary); font-style: italic;">No fields selected</div>`;
+    }
+    generateResponseConfig() {
+        const config = { fields: [] };
+        this.formatterSelectedFields.forEach((fieldConfig, key) => {
+            if (fieldConfig.checked) {
+                config.fields.push({
+                    path: key,
+                    title: fieldConfig.title || key
+                });
+            }
+        });
+        return JSON.stringify(config, null, 2);
     }
     formatValue(value) {
         if (typeof value === 'boolean')
@@ -1460,6 +1659,9 @@ __decorate([
 __decorate([
     property({ type: String })
 ], DafWebRequestPlugin.prototype, "outputValueKey", void 0);
+__decorate([
+    property({ type: String })
+], DafWebRequestPlugin.prototype, "responseConfig", void 0);
 __decorate([
     property({ type: String })
 ], DafWebRequestPlugin.prototype, "contentType", void 0);
