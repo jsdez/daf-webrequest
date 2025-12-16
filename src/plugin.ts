@@ -787,11 +787,6 @@ export class DafWebRequestPlugin extends LitElement {
           <span class="alert-icon">${icon}</span>
           <strong>${typeLabel}:</strong> ${customMessage}
         </div>
-        ${this.debugMode ? html`
-          <div class="alert-response">
-            <strong>Response:</strong> ${this.apiResponse}
-          </div>
-        ` : ''}
       </div>
     `;
   }
@@ -990,6 +985,14 @@ export class DafWebRequestPlugin extends LitElement {
               <strong>Button Disabled:</strong> ${this.isButtonDisabled()}
             </td>
           </tr>
+          ${this.apiResponse ? html`
+            <tr>
+              <td><code>Response</code></td>
+              <td>
+                <pre class="debug-json">${this.formatJsonForDisplay(this.apiResponse)}</pre>
+              </td>
+            </tr>
+          ` : ''}
         </tbody>
       </table>
     `;
