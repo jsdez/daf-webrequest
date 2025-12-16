@@ -280,6 +280,41 @@ export class DafWebRequestPlugin extends LitElement {
       overflow-y: auto;
       border: 1px solid var(--ntx-form-theme-color-border, #dee2e6);
       margin: 0;
+      user-select: text;
+      -webkit-user-select: text;
+      -moz-user-select: text;
+      -ms-user-select: text;
+    }
+
+    .debug-json-container {
+      position: relative;
+    }
+
+    .debug-json-copy-btn {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      padding: 4px 8px;
+      font-size: 11px;
+      background: var(--ntx-form-theme-color-primary, #0078d4);
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .debug-json-container:hover .debug-json-copy-btn {
+      opacity: 1;
+    }
+
+    .debug-json-copy-btn:hover {
+      filter: brightness(1.1);
+    }
+
+    .debug-json-copy-btn:active {
+      transform: scale(0.95);
     }
 
     .debug-table td {
@@ -1003,7 +1038,16 @@ export class DafWebRequestPlugin extends LitElement {
             <td><code>requestHeaders</code></td>
             <td>
               ${this.requestHeaders ? html`
-                <pre class="debug-json">${this.formatJsonForDisplay(this.requestHeaders)}</pre>
+                <div class="debug-json-container">
+                  <button 
+                    class="debug-json-copy-btn"
+                    @click=${() => this.copyToClipboard(this.formatJsonForDisplay(this.requestHeaders))}
+                    title="Copy to clipboard"
+                  >
+                    📋 Copy
+                  </button>
+                  <pre class="debug-json">${this.formatJsonForDisplay(this.requestHeaders)}</pre>
+                </div>
               ` : '<not set>'}
             </td>
           </tr>
@@ -1011,7 +1055,16 @@ export class DafWebRequestPlugin extends LitElement {
             <td><code>requestBody</code></td>
             <td>
               ${this.requestBody ? html`
-                <pre class="debug-json">${this.formatJsonForDisplay(this.requestBody)}</pre>
+                <div class="debug-json-container">
+                  <button 
+                    class="debug-json-copy-btn"
+                    @click=${() => this.copyToClipboard(this.formatJsonForDisplay(this.requestBody))}
+                    title="Copy to clipboard"
+                  >
+                    📋 Copy
+                  </button>
+                  <pre class="debug-json">${this.formatJsonForDisplay(this.requestBody)}</pre>
+                </div>
               ` : '<not set>'}
             </td>
           </tr>
@@ -1027,7 +1080,16 @@ export class DafWebRequestPlugin extends LitElement {
             <tr>
               <td><code>Response</code></td>
               <td>
-                <pre class="debug-json">${this.formatJsonForDisplay(this.apiResponse)}</pre>
+                <div class="debug-json-container">
+                  <button 
+                    class="debug-json-copy-btn"
+                    @click=${() => this.copyToClipboard(this.formatJsonForDisplay(this.apiResponse))}
+                    title="Copy to clipboard"
+                  >
+                    📋 Copy
+                  </button>
+                  <pre class="debug-json">${this.formatJsonForDisplay(this.apiResponse)}</pre>
+                </div>
               </td>
             </tr>
           ` : ''}
@@ -1706,6 +1768,15 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
     }
     
     return current;
+  }
+
+  private async copyToClipboard(text: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(text);
+      // Could add a toast notification here if desired
+    } catch (err) {
+      console.error('Failed to copy text:', err);
+    }
   }
 
   private startCooldownTimer() {
