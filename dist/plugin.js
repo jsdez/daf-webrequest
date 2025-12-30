@@ -50,6 +50,9 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.apiUrl = '';
         this.requestHeaders = '';
         this.bearerToken = '';
+        this.tokenUrl = '';
+        this.clientId = '';
+        this.clientSecret = '';
         this.outputValueKey = '';
         this.responseConfig = '';
         this.contentType = 'application/json';
@@ -76,8 +79,8 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
             properties: {
                 apiUrl: {
                     type: 'string',
-                    title: 'API URL with Token',
-                    description: 'The endpoint URL to call, including any required token as a query parameter.',
+                    title: 'API URL',
+                    description: 'The endpoint URL to call',
                     defaultValue: '',
                 },
                 method: {
@@ -96,7 +99,25 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                 bearerToken: {
                     type: 'string',
                     title: 'Bearer Token',
-                    description: 'Optional: Bearer token value for Authorization header',
+                    description: 'Optional: Bearer token value for Authorization header (used if Token URL is not provided)',
+                    defaultValue: '',
+                },
+                tokenUrl: {
+                    type: 'string',
+                    title: 'Token URL',
+                    description: 'Optional: OAuth token endpoint URL e.g. https://api.example.com/oauth2/v1/token',
+                    defaultValue: '',
+                },
+                clientId: {
+                    type: 'string',
+                    title: 'Client ID',
+                    description: 'OAuth Client ID required if Token URL is provided',
+                    defaultValue: '',
+                },
+                clientSecret: {
+                    type: 'string',
+                    title: 'Client Secret',
+                    description: 'OAuth Client Secret required if Token URL is provided',
                     defaultValue: '',
                 },
                 requestBody: {
@@ -1104,6 +1125,29 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
         }
         return obj;
     }
+    fetchOAuthToken() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const response = yield fetch(this.tokenUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    grant_type: 'client_credentials',
+                    client_id: this.clientId,
+                    client_secret: this.clientSecret,
+                }),
+            });
+            if (!response.ok) {
+                throw new Error(`Token request failed with status ${response.status}`);
+            }
+            const data = yield response.json();
+            if (!data.access_token) {
+                throw new Error('No access_token in response');
+            }
+            return data.access_token;
+        });
+    }
     handleApiCall() {
         return __awaiter(this, void 0, void 0, function* () {
             if (this.isLoading)
@@ -1113,6 +1157,37 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
             this.apiCallStartTime = Date.now();
             this.responseType = null;
             this.apiResponse = '';
+            // If OAuth credentials are provided, fetch token first
+            let accessToken = this.bearerToken;
+            if (this.tokenUrl && this.clientId && this.clientSecret) {
+                try {
+                    accessToken = yield this.fetchOAuthToken();
+                }
+                catch (error) {
+                    // Token fetch failed, set error response
+                    const executionTime = Date.now() - this.apiCallStartTime;
+                    const timestamp = new Date().toISOString();
+                    this.responseType = 'error';
+                    this.apiResponse = `OAuth token fetch failed: ${error instanceof Error ? error.message : String(error)}`;
+                    this.value = {
+                        success: false,
+                        statusCode: 401,
+                        responseType: 'error',
+                        data: this.apiResponse,
+                        message: this.errorMessage,
+                        timestamp: timestamp,
+                        executionTime: executionTime
+                    };
+                    this.dispatchEvent(new CustomEvent('ntx-value-change', {
+                        detail: this.value,
+                        bubbles: true,
+                        composed: true,
+                    }));
+                    this.isLoading = false;
+                    this.requestUpdate();
+                    return;
+                }
+            }
             let url = this.apiUrl || '';
             let headers = {};
             if (this.requestHeaders) {
@@ -1133,8 +1208,8 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
                 }
             }
             // Add Bearer token to Authorization header if provided
-            if (this.bearerToken && this.bearerToken.trim()) {
-                headers['Authorization'] = `Bearer ${this.bearerToken.trim()}`;
+            if (accessToken && accessToken.trim()) {
+                headers['Authorization'] = `Bearer ${accessToken.trim()}`;
             }
             // Determine the actual body to use based on contentType
             let actualBody;
@@ -1729,6 +1804,15 @@ __decorate([
 __decorate([
     property({ type: String })
 ], DafWebRequestPlugin.prototype, "bearerToken", void 0);
+__decorate([
+    property({ type: String })
+], DafWebRequestPlugin.prototype, "tokenUrl", void 0);
+__decorate([
+    property({ type: String })
+], DafWebRequestPlugin.prototype, "clientId", void 0);
+__decorate([
+    property({ type: String })
+], DafWebRequestPlugin.prototype, "clientSecret", void 0);
 __decorate([
     property({ type: String })
 ], DafWebRequestPlugin.prototype, "outputValueKey", void 0);
