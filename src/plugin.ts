@@ -944,17 +944,20 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   private async validateNintexForm(): Promise<boolean> {
+    console.log('[Validation] Starting form validation...');
     const form = document.querySelector('form');
     if (!form) {
-      console.warn('No form found for validation');
+      console.warn('[Validation] No form found for validation');
       return true; // If no form found, proceed anyway
     }
     
     // First, trigger validation by clicking submit button
     const submitBtn = form.querySelector('button[type="submit"]');
     if (submitBtn instanceof HTMLElement) {
+      console.log('[Validation] Clicking submit button to trigger validation');
       // Prevent actual form submission
       const submitHandler = (e: Event) => {
+        console.log('[Validation] Submit event caught and prevented');
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
@@ -966,21 +969,28 @@ export class DafWebRequestPlugin extends LitElement {
     }
     
     // Wait for DOM to update with validation states
+    console.log('[Validation] Waiting 100ms for DOM to update...');
     await new Promise(resolve => setTimeout(resolve, 100));
     
     // Now check for invalid fields using Nintex's aria-invalid attribute
     const invalidFields = form.querySelectorAll('[aria-invalid="true"]');
     const isValid = invalidFields.length === 0;
     
-    if (!isValid && this.debugMode) {
-      console.log('Form validation failed. Invalid fields:', invalidFields.length);
-      invalidFields.forEach(field => console.log(field));
+    console.log('[Validation] Invalid fields found:', invalidFields.length);
+    console.log('[Validation] Form is valid:', isValid);
+    
+    if (!isValid) {
+      console.log('[Validation] Form validation FAILED. Invalid fields:');
+      invalidFields.forEach((field, index) => {
+        console.log(`  [${index + 1}]`, field);
+      });
     }
     
     return isValid;
   }
 
   private async handleAPICallTrigger() {
+    console.log('[API Call] handleAPICallTrigger started');
     // Immediately set sendAPICall to false to prevent multiple calls
     this.sendAPICall = false;
     
@@ -989,16 +999,24 @@ export class DafWebRequestPlugin extends LitElement {
     
     // Check if form validation is required
     if (this.formValidation) {
+      console.log('[API Call] Form validation is ENABLED, checking form...');
       const isFormValid = await this.validateNintexForm();
+      console.log('[API Call] Validation result:', isFormValid);
+      
       if (!isFormValid) {
+        console.log('[API Call] Form validation FAILED - BLOCKING API call');
         this.formValidationError = 'Please fill in all required fields correctly before submitting.';
         this.requestUpdate();
         return;
       }
+      console.log('[API Call] Form validation PASSED - proceeding with API call');
+    } else {
+      console.log('[API Call] Form validation is DISABLED');
     }
     
     // Check if multiple API calls are allowed
     if (!this.allowMultipleAPICalls && this.hasSuccessfulCall) {
+      console.log('[API Call] Multiple API calls not allowed and already had successful call - BLOCKING');
       // Multiple calls not allowed and we've already had a successful call - prevent execution
       return;
     }
@@ -1011,6 +1029,7 @@ export class DafWebRequestPlugin extends LitElement {
       const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < cooldownMs;
       
       if (inCooldown) {
+        console.log('[API Call] In cooldown period - BLOCKING');
         // Show cooldown alert and don't proceed
         this.showCooldownAlert = true;
         this.lastCooldownAlertTime = Date.now(); // Record when we showed the cooldown alert
@@ -1020,6 +1039,7 @@ export class DafWebRequestPlugin extends LitElement {
     }
     
     // Proceed with API call
+    console.log('[API Call] All checks passed - calling handleApiCall()');
     this.handleApiCall();
   }
 
