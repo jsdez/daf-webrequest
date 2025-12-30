@@ -491,68 +491,74 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         }
     }
     validateNintexForm() {
-        const form = document.querySelector('form');
-        if (!form) {
-            console.warn('No form found for validation');
-            return true; // If no form found, proceed anyway
-        }
-        // First, trigger validation by clicking submit button
-        const submitBtn = form.querySelector('button[type="submit"]');
-        if (submitBtn instanceof HTMLElement) {
-            // Prevent actual form submission
-            const submitHandler = (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-            };
-            form.addEventListener('submit', submitHandler, { capture: true, once: true });
-            submitBtn.click();
-            form.removeEventListener('submit', submitHandler, { capture: true });
-        }
-        // Now check for invalid fields using Nintex's aria-invalid attribute
-        const invalidFields = form.querySelectorAll('[aria-invalid="true"]');
-        const isValid = invalidFields.length === 0;
-        if (!isValid && this.debugMode) {
-            console.log('Form validation failed. Invalid fields:', invalidFields.length);
-            invalidFields.forEach(field => console.log(field));
-        }
-        return isValid;
+        return __awaiter(this, void 0, void 0, function* () {
+            const form = document.querySelector('form');
+            if (!form) {
+                console.warn('No form found for validation');
+                return true; // If no form found, proceed anyway
+            }
+            // First, trigger validation by clicking submit button
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn instanceof HTMLElement) {
+                // Prevent actual form submission
+                const submitHandler = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                };
+                form.addEventListener('submit', submitHandler, { capture: true, once: true });
+                submitBtn.click();
+                form.removeEventListener('submit', submitHandler, { capture: true });
+            }
+            // Wait for DOM to update with validation states
+            yield new Promise(resolve => setTimeout(resolve, 100));
+            // Now check for invalid fields using Nintex's aria-invalid attribute
+            const invalidFields = form.querySelectorAll('[aria-invalid="true"]');
+            const isValid = invalidFields.length === 0;
+            if (!isValid && this.debugMode) {
+                console.log('Form validation failed. Invalid fields:', invalidFields.length);
+                invalidFields.forEach(field => console.log(field));
+            }
+            return isValid;
+        });
     }
     handleAPICallTrigger() {
-        // Immediately set sendAPICall to false to prevent multiple calls
-        this.sendAPICall = false;
-        // Clear any previous validation error
-        this.formValidationError = '';
-        // Check if form validation is required
-        if (this.formValidation) {
-            const isFormValid = this.validateNintexForm();
-            if (!isFormValid) {
-                this.formValidationError = 'Please fill in all required fields correctly before submitting.';
-                this.requestUpdate();
+        return __awaiter(this, void 0, void 0, function* () {
+            // Immediately set sendAPICall to false to prevent multiple calls
+            this.sendAPICall = false;
+            // Clear any previous validation error
+            this.formValidationError = '';
+            // Check if form validation is required
+            if (this.formValidation) {
+                const isFormValid = yield this.validateNintexForm();
+                if (!isFormValid) {
+                    this.formValidationError = 'Please fill in all required fields correctly before submitting.';
+                    this.requestUpdate();
+                    return;
+                }
+            }
+            // Check if multiple API calls are allowed
+            if (!this.allowMultipleAPICalls && this.hasSuccessfulCall) {
+                // Multiple calls not allowed and we've already had a successful call - prevent execution
                 return;
             }
-        }
-        // Check if multiple API calls are allowed
-        if (!this.allowMultipleAPICalls && this.hasSuccessfulCall) {
-            // Multiple calls not allowed and we've already had a successful call - prevent execution
-            return;
-        }
-        // Check cooldown timer - prevent API call if still in cooldown (only if countdown is enabled)
-        if (this.countdownEnabled) {
-            const now = Date.now();
-            const timeSinceLastCall = now - this.lastApiCallTime;
-            const cooldownMs = this.countdownTimer * 1000;
-            const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < cooldownMs;
-            if (inCooldown) {
-                // Show cooldown alert and don't proceed
-                this.showCooldownAlert = true;
-                this.lastCooldownAlertTime = Date.now(); // Record when we showed the cooldown alert
-                this.startCooldownTimer();
-                return;
+            // Check cooldown timer - prevent API call if still in cooldown (only if countdown is enabled)
+            if (this.countdownEnabled) {
+                const now = Date.now();
+                const timeSinceLastCall = now - this.lastApiCallTime;
+                const cooldownMs = this.countdownTimer * 1000;
+                const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < cooldownMs;
+                if (inCooldown) {
+                    // Show cooldown alert and don't proceed
+                    this.showCooldownAlert = true;
+                    this.lastCooldownAlertTime = Date.now(); // Record when we showed the cooldown alert
+                    this.startCooldownTimer();
+                    return;
+                }
             }
-        }
-        // Proceed with API call
-        this.handleApiCall();
+            // Proceed with API call
+            this.handleApiCall();
+        });
     }
     triggerAPICall() {
         // Set sendAPICall to true when button is clicked

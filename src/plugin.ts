@@ -943,7 +943,7 @@ export class DafWebRequestPlugin extends LitElement {
     }
   }
 
-  private validateNintexForm(): boolean {
+  private async validateNintexForm(): Promise<boolean> {
     const form = document.querySelector('form');
     if (!form) {
       console.warn('No form found for validation');
@@ -965,6 +965,9 @@ export class DafWebRequestPlugin extends LitElement {
       form.removeEventListener('submit', submitHandler, { capture: true });
     }
     
+    // Wait for DOM to update with validation states
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     // Now check for invalid fields using Nintex's aria-invalid attribute
     const invalidFields = form.querySelectorAll('[aria-invalid="true"]');
     const isValid = invalidFields.length === 0;
@@ -977,7 +980,7 @@ export class DafWebRequestPlugin extends LitElement {
     return isValid;
   }
 
-  private handleAPICallTrigger() {
+  private async handleAPICallTrigger() {
     // Immediately set sendAPICall to false to prevent multiple calls
     this.sendAPICall = false;
     
@@ -986,7 +989,7 @@ export class DafWebRequestPlugin extends LitElement {
     
     // Check if form validation is required
     if (this.formValidation) {
-      const isFormValid = this.validateNintexForm();
+      const isFormValid = await this.validateNintexForm();
       if (!isFormValid) {
         this.formValidationError = 'Please fill in all required fields correctly before submitting.';
         this.requestUpdate();
