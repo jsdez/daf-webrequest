@@ -950,24 +950,13 @@ export class DafWebRequestPlugin extends LitElement {
       return true; // If no form found, proceed anyway
     }
     
-    let isValid = false;
+    // Use native HTML5 validation
+    const isValid = form.checkValidity();
     
-    // Add submit listener to capture validation result
-    const submitHandler = (e: Event) => {
-      e.preventDefault();
-      isValid = true;
-    };
-    
-    form.addEventListener('submit', submitHandler, { once: true, capture: true });
-    
-    // Trigger validation by clicking submit button
-    const submitBtn = form.querySelector('button[type="submit"]');
-    if (submitBtn instanceof HTMLElement) {
-      submitBtn.click();
+    // If invalid, trigger the visual validation messages
+    if (!isValid) {
+      form.reportValidity();
     }
-    
-    // Remove listener if it wasn't triggered
-    form.removeEventListener('submit', submitHandler, { capture: true });
     
     return isValid;
   }

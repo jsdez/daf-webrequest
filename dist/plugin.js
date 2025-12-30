@@ -496,20 +496,12 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
             console.warn('No form found for validation');
             return true; // If no form found, proceed anyway
         }
-        let isValid = false;
-        // Add submit listener to capture validation result
-        const submitHandler = (e) => {
-            e.preventDefault();
-            isValid = true;
-        };
-        form.addEventListener('submit', submitHandler, { once: true, capture: true });
-        // Trigger validation by clicking submit button
-        const submitBtn = form.querySelector('button[type="submit"]');
-        if (submitBtn instanceof HTMLElement) {
-            submitBtn.click();
+        // Use native HTML5 validation
+        const isValid = form.checkValidity();
+        // If invalid, trigger the visual validation messages
+        if (!isValid) {
+            form.reportValidity();
         }
-        // Remove listener if it wasn't triggered
-        form.removeEventListener('submit', submitHandler, { capture: true });
         return isValid;
     }
     handleAPICallTrigger() {
