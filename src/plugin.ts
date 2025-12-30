@@ -950,12 +950,28 @@ export class DafWebRequestPlugin extends LitElement {
       return true; // If no form found, proceed anyway
     }
     
-    // Use native HTML5 validation
-    const isValid = form.checkValidity();
+    // First, trigger validation by clicking submit button
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn instanceof HTMLElement) {
+      // Prevent actual form submission
+      const submitHandler = (e: Event) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+      };
+      
+      form.addEventListener('submit', submitHandler, { capture: true, once: true });
+      submitBtn.click();
+      form.removeEventListener('submit', submitHandler, { capture: true });
+    }
     
-    // If invalid, trigger the visual validation messages
-    if (!isValid) {
-      form.reportValidity();
+    // Now check for invalid fields using Nintex's aria-invalid attribute
+    const invalidFields = form.querySelectorAll('[aria-invalid="true"]');
+    const isValid = invalidFields.length === 0;
+    
+    if (!isValid && this.debugMode) {
+      console.log('Form validation failed. Invalid fields:', invalidFields.length);
+      invalidFields.forEach(field => console.log(field));
     }
     
     return isValid;
