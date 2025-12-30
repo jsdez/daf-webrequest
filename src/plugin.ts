@@ -456,6 +456,7 @@ export class DafWebRequestPlugin extends LitElement {
   @property({ type: String }) btnText!: string;
   @property({ type: String }) btnAlignment!: string;
   @property({ type: Boolean }) btnVisible!: boolean;
+  @property({ type: Boolean }) formValidation!: boolean;
 
   // Instance-specific state (not reactive properties - these are internal state only)
   private isLoading = false;
@@ -467,6 +468,7 @@ export class DafWebRequestPlugin extends LitElement {
   private lastCooldownAlertTime = 0;
   private apiCallStartTime = 0;
   private cooldownTimerId: number | null = null; // Track the timer for cleanup
+  private formValidationError: string = '';
 
   constructor() {
     super();
@@ -506,6 +508,7 @@ export class DafWebRequestPlugin extends LitElement {
     this.btnText = 'Send API Request';
     this.btnAlignment = 'left';
     this.btnVisible = true;
+    this.formValidation = false;
   }
 
   static getMetaConfig(): PluginContract {
@@ -724,6 +727,12 @@ export class DafWebRequestPlugin extends LitElement {
           enum: ['left', 'center', 'right'],
           defaultValue: 'left',
         } as PropType,
+        formValidation: {
+          type: 'boolean',
+          title: 'Validate Form Before API Call',
+          description: 'If true, validates the entire Nintex form before making the API call. Only proceeds if all required fields are valid.',
+          defaultValue: false,
+        } as PropType,
       },
       standardProperties: {
         fieldLabel: true,
@@ -836,6 +845,18 @@ export class DafWebRequestPlugin extends LitElement {
     const cooldownMs = this.countdownTimer * 1000;
     const inCooldown = this.countdownEnabled && this.lastApiCallTime > 0 && timeSinceLastCall < cooldownMs;
     
+    // Show form validation error if present
+    if (this.formValidationError) {
+      return html`
+        <div class="alert alert-error" part="validation-alert">
+          <div>
+            <span class="alert-icon">✗</span>
+            <strong>Validation Error:</strong> ${this.formValidationError}
+          </div>
+        </div>
+      `;
+    }
+    
     // Show cooldown message only if someone attempted to trigger during cooldown
     if (inCooldown && this.showCooldownAlert) {
       const remainingSeconds = Math.ceil((cooldownMs - timeSinceLastCall) / 1000);
@@ -922,9 +943,51 @@ export class DafWebRequestPlugin extends LitElement {
     }
   }
 
+  private validateNintexForm(): boolean {
+    const form = document.querySelector('form');
+    if (!form) {
+      console.warn('No form found for validation');
+      return true; // If no form found, proceed anyway
+    }
+    
+    let isValid = false;
+    
+    // Add submit listener to capture validation result
+    const submitHandler = (e: Event) => {
+      e.preventDefault();
+      isValid = true;
+    };
+    
+    form.addEventListener('submit', submitHandler, { once: true, capture: true });
+    
+    // Trigger validation by clicking submit button
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn instanceof HTMLElement) {
+      submitBtn.click();
+    }
+    
+    // Remove listener if it wasn't triggered
+    form.removeEventListener('submit', submitHandler, { capture: true });
+    
+    return isValid;
+  }
+
   private handleAPICallTrigger() {
     // Immediately set sendAPICall to false to prevent multiple calls
     this.sendAPICall = false;
+    
+    // Clear any previous validation error
+    this.formValidationError = '';
+    
+    // Check if form validation is required
+    if (this.formValidation) {
+      const isFormValid = this.validateNintexForm();
+      if (!isFormValid) {
+        this.formValidationError = 'Please fill in all required fields correctly before submitting.';
+        this.requestUpdate();
+        return;
+      }
+    }
     
     // Check if multiple API calls are allowed
     if (!this.allowMultipleAPICalls && this.hasSuccessfulCall) {

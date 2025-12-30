@@ -33,6 +33,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.lastCooldownAlertTime = 0;
         this.apiCallStartTime = 0;
         this.cooldownTimerId = null; // Track the timer for cleanup
+        this.formValidationError = '';
         // Initialize all properties with their default values
         this.label = '';
         this.description = '';
@@ -69,6 +70,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.btnText = 'Send API Request';
         this.btnAlignment = 'left';
         this.btnVisible = true;
+        this.formValidation = false;
     }
     static getMetaConfig() {
         return {
@@ -286,6 +288,12 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                     enum: ['left', 'center', 'right'],
                     defaultValue: 'left',
                 },
+                formValidation: {
+                    type: 'boolean',
+                    title: 'Validate Form Before API Call',
+                    description: 'If true, validates the entire Nintex form before making the API call. Only proceeds if all required fields are valid.',
+                    defaultValue: false,
+                },
             },
             standardProperties: {
                 fieldLabel: true,
@@ -393,6 +401,17 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         const timeSinceLastCall = now - this.lastApiCallTime;
         const cooldownMs = this.countdownTimer * 1000;
         const inCooldown = this.countdownEnabled && this.lastApiCallTime > 0 && timeSinceLastCall < cooldownMs;
+        // Show form validation error if present
+        if (this.formValidationError) {
+            return html `
+        <div class="alert alert-error" part="validation-alert">
+          <div>
+            <span class="alert-icon">✗</span>
+            <strong>Validation Error:</strong> ${this.formValidationError}
+          </div>
+        </div>
+      `;
+        }
         // Show cooldown message only if someone attempted to trigger during cooldown
         if (inCooldown && this.showCooldownAlert) {
             const remainingSeconds = Math.ceil((cooldownMs - timeSinceLastCall) / 1000);
@@ -471,9 +490,42 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
             this.handleAPICallTrigger();
         }
     }
+    validateNintexForm() {
+        const form = document.querySelector('form');
+        if (!form) {
+            console.warn('No form found for validation');
+            return true; // If no form found, proceed anyway
+        }
+        let isValid = false;
+        // Add submit listener to capture validation result
+        const submitHandler = (e) => {
+            e.preventDefault();
+            isValid = true;
+        };
+        form.addEventListener('submit', submitHandler, { once: true, capture: true });
+        // Trigger validation by clicking submit button
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn instanceof HTMLElement) {
+            submitBtn.click();
+        }
+        // Remove listener if it wasn't triggered
+        form.removeEventListener('submit', submitHandler, { capture: true });
+        return isValid;
+    }
     handleAPICallTrigger() {
         // Immediately set sendAPICall to false to prevent multiple calls
         this.sendAPICall = false;
+        // Clear any previous validation error
+        this.formValidationError = '';
+        // Check if form validation is required
+        if (this.formValidation) {
+            const isFormValid = this.validateNintexForm();
+            if (!isFormValid) {
+                this.formValidationError = 'Please fill in all required fields correctly before submitting.';
+                this.requestUpdate();
+                return;
+            }
+        }
         // Check if multiple API calls are allowed
         if (!this.allowMultipleAPICalls && this.hasSuccessfulCall) {
             // Multiple calls not allowed and we've already had a successful call - prevent execution
@@ -1861,6 +1913,9 @@ __decorate([
 __decorate([
     property({ type: Boolean })
 ], DafWebRequestPlugin.prototype, "btnVisible", void 0);
+__decorate([
+    property({ type: Boolean })
+], DafWebRequestPlugin.prototype, "formValidation", void 0);
 DafWebRequestPlugin = __decorate([
     customElement('daf-webrequest-plugin')
 ], DafWebRequestPlugin);
