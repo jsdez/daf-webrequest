@@ -514,8 +514,8 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                 form.removeEventListener('submit', submitHandler, { capture: true });
             }
             // Wait for DOM to update with validation states
-            console.log('[Validation] Waiting 100ms for DOM to update...');
-            yield new Promise(resolve => setTimeout(resolve, 100));
+            console.log('[Validation] Waiting 300ms for DOM to update...');
+            yield new Promise(resolve => setTimeout(resolve, 300));
             // Now check for invalid fields using Nintex's aria-invalid attribute
             const invalidFields = form.querySelectorAll('[aria-invalid="true"]');
             const isValid = invalidFields.length === 0;
