@@ -469,6 +469,7 @@ export class DafWebRequestPlugin extends LitElement {
   private apiCallStartTime = 0;
   private cooldownTimerId: number | null = null; // Track the timer for cleanup
   private formValidationError: string = '';
+  private oauthTokenResponse: any = null;
 
   constructor() {
     super();
@@ -1149,6 +1150,23 @@ export class DafWebRequestPlugin extends LitElement {
             <td><code>method</code></td>
             <td>${this.method}</td>
           </tr>
+          ${this.oauthTokenResponse ? html`
+            <tr>
+              <td><code>OAuth Token</code></td>
+              <td>
+                <div class="debug-json-container">
+                  <button 
+                    class="debug-json-copy-btn"
+                    @click=${() => this.copyToClipboard(JSON.stringify(this.oauthTokenResponse, null, 2))}
+                    title="Copy to clipboard"
+                  >
+                    📋 Copy
+                  </button>
+                  <pre class="debug-json">${JSON.stringify(this.oauthTokenResponse, null, 2)}</pre>
+                </div>
+              </td>
+            </tr>
+          ` : ''}
           <tr>
             <td><code>requestHeaders</code></td>
             <td>
@@ -1738,6 +1756,16 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
     if (!data.access_token) {
       throw new Error('No access_token in response');
     }
+
+    // Store the full token response for debugging
+    this.oauthTokenResponse = {
+      access_token: data.access_token,
+      token_type: data.token_type || 'Bearer',
+      expires_in: data.expires_in,
+      scope: data.scope,
+      fetched_at: new Date().toISOString(),
+      expires_at: data.expires_in ? new Date(Date.now() + (data.expires_in * 1000)).toISOString() : null
+    };
 
     return data.access_token;
   }
