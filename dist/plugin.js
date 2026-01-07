@@ -13,10 +13,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var DafWebRequestPlugin_1;
 import { html, LitElement, css } from 'lit';
 import { callApi } from './apiClient.js';
 import { customElement, property } from 'lit/decorators.js';
-let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
+let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin extends LitElement {
     constructor() {
         super();
         // Add private property to track active debug tab
@@ -627,21 +628,31 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.requestUpdate();
     }
     renderPropertiesTab() {
-        const properties = [
-            { name: 'btnText', default: 'Send API Call', current: this.btnText },
-            { name: 'btnAlignment', default: 'left', current: this.btnAlignment },
-            { name: 'btnVisible', default: true, current: this.btnVisible },
-            { name: 'btnEnabled', default: true, current: this.btnEnabled },
-            { name: 'debugMode', default: false, current: this.debugMode },
-            { name: 'countdownEnabled', default: true, current: this.countdownEnabled },
-            { name: 'countdownTimer', default: 5, current: this.countdownTimer },
-            { name: 'allowMultipleAPICalls', default: false, current: this.allowMultipleAPICalls },
-            { name: 'sendAPICall', default: false, current: this.sendAPICall },
-            { name: 'bearerToken', default: '', current: this.bearerToken ? '***' + this.bearerToken.slice(-4) : '' },
-            { name: 'successMessage', default: 'API call completed successfully', current: this.successMessage },
-            { name: 'warningMessage', default: 'API call completed with warnings', current: this.warningMessage },
-            { name: 'errorMessage', default: 'API call failed', current: this.errorMessage }
-        ];
+        // Get all properties dynamically from the metadata
+        const metadata = this.constructor.getMetaConfig();
+        const properties = [];
+        // Iterate through all properties defined in the metadata
+        if (metadata.properties) {
+            for (const [propName, propConfig] of Object.entries(metadata.properties)) {
+                // Skip the value property as it's output-only and complex
+                if (propName === 'value')
+                    continue;
+                let currentValue = this[propName];
+                // Mask sensitive properties
+                if (propName === 'bearerToken' || propName === 'clientSecret') {
+                    currentValue = currentValue && currentValue.length > 0
+                        ? '***' + currentValue.slice(-4)
+                        : '';
+                }
+                properties.push({
+                    name: propName,
+                    default: propConfig.defaultValue,
+                    current: currentValue
+                });
+            }
+        }
+        // Sort properties alphabetically for consistency
+        properties.sort((a, b) => a.name.localeCompare(b.name));
         return html `
       <table class="debug-table">
         <thead>
@@ -654,9 +665,9 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         <tbody>
           ${properties.map(prop => html `
             <tr>
-              <td><code>${prop.name}</code></td>
-              <td>${this.formatValue(prop.default)}</td>
-              <td>${this.formatValue(prop.current)}</td>
+              <td><code class="property-name">${prop.name}</code></td>
+              <td class="value-default">${this.formatValue(prop.default)}</td>
+              <td class="value-current">${this.formatValue(prop.current)}</td>
             </tr>
           `)}
         </tbody>
@@ -2054,7 +2065,7 @@ __decorate([
 __decorate([
     property({ type: String })
 ], DafWebRequestPlugin.prototype, "submissionAction", void 0);
-DafWebRequestPlugin = __decorate([
+DafWebRequestPlugin = DafWebRequestPlugin_1 = __decorate([
     customElement('daf-webrequest-plugin')
 ], DafWebRequestPlugin);
 export { DafWebRequestPlugin };

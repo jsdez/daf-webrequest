@@ -1098,21 +1098,35 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   private renderPropertiesTab() {
-    const properties = [
-      { name: 'btnText', default: 'Send API Call', current: this.btnText },
-      { name: 'btnAlignment', default: 'left', current: this.btnAlignment },
-      { name: 'btnVisible', default: true, current: this.btnVisible },
-      { name: 'btnEnabled', default: true, current: this.btnEnabled },
-      { name: 'debugMode', default: false, current: this.debugMode },
-      { name: 'countdownEnabled', default: true, current: this.countdownEnabled },
-      { name: 'countdownTimer', default: 5, current: this.countdownTimer },
-      { name: 'allowMultipleAPICalls', default: false, current: this.allowMultipleAPICalls },
-      { name: 'sendAPICall', default: false, current: this.sendAPICall },
-      { name: 'bearerToken', default: '', current: this.bearerToken ? '***' + this.bearerToken.slice(-4) : '' },
-      { name: 'successMessage', default: 'API call completed successfully', current: this.successMessage },
-      { name: 'warningMessage', default: 'API call completed with warnings', current: this.warningMessage },
-      { name: 'errorMessage', default: 'API call failed', current: this.errorMessage }
-    ];
+    // Get all properties dynamically from the metadata
+    const metadata = (this.constructor as typeof DafWebRequestPlugin).getMetaConfig();
+    const properties: Array<{ name: string; default: any; current: any }> = [];
+    
+    // Iterate through all properties defined in the metadata
+    if (metadata.properties) {
+      for (const [propName, propConfig] of Object.entries(metadata.properties)) {
+        // Skip the value property as it's output-only and complex
+        if (propName === 'value') continue;
+        
+        let currentValue = (this as any)[propName];
+        
+        // Mask sensitive properties
+        if (propName === 'bearerToken' || propName === 'clientSecret') {
+          currentValue = currentValue && currentValue.length > 0 
+            ? '***' + currentValue.slice(-4) 
+            : '';
+        }
+        
+        properties.push({
+          name: propName,
+          default: (propConfig as any).defaultValue,
+          current: currentValue
+        });
+      }
+    }
+    
+    // Sort properties alphabetically for consistency
+    properties.sort((a, b) => a.name.localeCompare(b.name));
 
     return html`
       <table class="debug-table">
@@ -1126,9 +1140,9 @@ export class DafWebRequestPlugin extends LitElement {
         <tbody>
           ${properties.map(prop => html`
             <tr>
-              <td><code>${prop.name}</code></td>
-              <td>${this.formatValue(prop.default)}</td>
-              <td>${this.formatValue(prop.current)}</td>
+              <td><code class="property-name">${prop.name}</code></td>
+              <td class="value-default">${this.formatValue(prop.default)}</td>
+              <td class="value-current">${this.formatValue(prop.current)}</td>
             </tr>
           `)}
         </tbody>
