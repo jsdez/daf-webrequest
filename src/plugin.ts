@@ -1903,12 +1903,6 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
         this.apiResponse = response;
         this.responseType = success === false ? 'error' : this.determineResponseType(response);
         
-        // Check if we should trigger form submission after successful API call
-        const isSuccessResponse = this.responseType === 'success' || this.responseType === 'warning';
-        if (isSuccessResponse) {
-          this.handlePostSubmissionAction();
-        }
-        
         // Try to parse response and extract values
         let accessToken: string | undefined;
         let customOutput: any = undefined;
@@ -1954,7 +1948,17 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
           composed: true,
         }));
         
-        this.requestUpdate(); 
+        this.requestUpdate();
+        
+        // After dispatching the value change event, wait for Nintex to process it
+        // then trigger post-submission action if needed
+        const isSuccessResponse = this.responseType === 'success' || this.responseType === 'warning';
+        if (isSuccessResponse) {
+          // Wait 300ms to ensure ntx-value-change event is fully processed
+          setTimeout(() => {
+            this.handlePostSubmissionAction();
+          }, 300);
+        }
       }
     });
   }
