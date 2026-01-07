@@ -11,22 +11,10 @@
     "https"
   ],
   "produces": [
-    "application/json"
+    "application/json",
+    "text/plain"
   ],
   "x-ntx-render-version": 2,
-  "securityDefinitions": {
-    "oauth2": {
-      "type": "oauth2",
-      "flow": "application",
-      "tokenUrl": "https://api-qa.digital.paccar.cloud/security/oauth2/v1/token",
-      "description": "OAuth2 Client Credentials flow for machine-to-machine authentication"
-    }
-  },
-  "security": [
-    {
-      "oauth2": []
-    }
-  ],
   "paths": {
     "/security/oauth2/v1/token": {
       "post": {
@@ -35,7 +23,6 @@
         "description": "Retrieve an OAuth2 access token using Client Credentials flow",
         "x-ntx-summary": "Get Access Token",
         "tags": ["Authentication"],
-        "security": [],
         "consumes": [
           "application/x-www-form-urlencoded"
         ],
@@ -71,29 +58,8 @@
           "200": {
             "description": "Success - Access token retrieved",
             "schema": {
-              "type": "object",
-              "properties": {
-                "access_token": {
-                  "type": "string",
-                  "description": "The OAuth2 access token to use in Authorization header",
-                  "x-ntx-summary": "Access Token"
-                },
-                "token_type": {
-                  "type": "string",
-                  "description": "Token type (usually 'Bearer')",
-                  "x-ntx-summary": "Token Type"
-                },
-                "expires_in": {
-                  "type": "integer",
-                  "description": "Token expiration time in seconds",
-                  "x-ntx-summary": "Expires In (seconds)"
-                },
-                "scope": {
-                  "type": "string",
-                  "description": "Token scope",
-                  "x-ntx-summary": "Scope"
-                }
-              }
+              "type": "string",
+              "description": "The OAuth2 access token (extracted from access_token field)"
             }
           },
           "400": {

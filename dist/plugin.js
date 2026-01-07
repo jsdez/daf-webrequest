@@ -72,6 +72,7 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         this.btnAlignment = 'left';
         this.btnVisible = true;
         this.formValidation = false;
+        this.submissionAction = 'none';
     }
     static getMetaConfig() {
         return {
@@ -295,6 +296,13 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
                     description: 'If true, validates the entire Nintex form before making the API call. Only proceeds if all required fields are valid.',
                     defaultValue: false,
                 },
+                submissionAction: {
+                    type: 'string',
+                    title: 'Submission Action',
+                    description: 'Action to take after a successful API call.',
+                    enum: ['none', 'quick-submit', 'delayed-submit'],
+                    defaultValue: 'none',
+                },
             },
             standardProperties: {
                 fieldLabel: true,
@@ -402,6 +410,10 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         const timeSinceLastCall = now - this.lastApiCallTime;
         const cooldownMs = this.countdownTimer * 1000;
         const inCooldown = this.countdownEnabled && this.lastApiCallTime > 0 && timeSinceLastCall < cooldownMs;
+        // Check if we're in delayed submission countdown
+        const isDelayedSubmission = this.submissionAction === 'delayed-submit' &&
+            this.cooldownTimerId !== null &&
+            (this.responseType === 'success' || this.responseType === 'warning');
         // Show form validation error if present
         if (this.formValidationError) {
             return html `
@@ -435,6 +447,11 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         const icon = this.getAlertIcon(this.responseType);
         const typeLabel = this.responseType.charAt(0).toUpperCase() + this.responseType.slice(1);
         const customMessage = this.getCustomMessage(this.responseType);
+        // Calculate remaining seconds for delayed submission
+        let submissionCountdown = 0;
+        if (isDelayedSubmission) {
+            submissionCountdown = Math.ceil((cooldownMs - timeSinceLastCall) / 1000);
+        }
         // For success responses, show only the custom message
         if (this.responseType === 'success') {
             return html `
@@ -443,6 +460,11 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
             <span class="alert-icon">${icon}</span>
             <strong>${typeLabel}:</strong> ${customMessage}
           </div>
+          ${isDelayedSubmission ? html `
+            <div class="alert-response">
+              Submitting form in ${submissionCountdown} seconds...
+            </div>
+          ` : ''}
         </div>
       `;
         }
@@ -456,6 +478,11 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         ${((_a = this.value) === null || _a === void 0 ? void 0 : _a.message) ? html `
           <div class="alert-response">
             ${this.value.message}
+          </div>
+        ` : ''}
+        ${isDelayedSubmission ? html `
+          <div class="alert-response">
+            Submitting form in ${submissionCountdown} seconds...
           </div>
         ` : ''}
       </div>
@@ -1361,6 +1388,11 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
                     const timestamp = new Date().toISOString();
                     this.apiResponse = response;
                     this.responseType = success === false ? 'error' : this.determineResponseType(response);
+                    // Check if we should trigger form submission after successful API call
+                    const isSuccessResponse = this.responseType === 'success' || this.responseType === 'warning';
+                    if (isSuccessResponse) {
+                        this.handlePostSubmissionAction();
+                    }
                     // Try to parse response and extract values
                     let accessToken;
                     let customOutput = undefined;
@@ -1446,6 +1478,69 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
                 console.error('Failed to copy text:', err);
             }
         });
+    }
+    handlePostSubmissionAction() {
+        console.log('[Submission Action] Checking submission action:', this.submissionAction);
+        if (this.submissionAction === 'none') {
+            console.log('[Submission Action] No action configured');
+            return;
+        }
+        if (this.submissionAction === 'quick-submit') {
+            console.log('[Submission Action] Quick submit - triggering after 500ms');
+            setTimeout(() => {
+                this.submitNintexForm();
+            }, 500);
+            return;
+        }
+        if (this.submissionAction === 'delayed-submit') {
+            console.log('[Submission Action] Delayed submit - starting countdown timer');
+            // Start the countdown timer, and submit when it expires
+            this.startDelayedSubmission();
+            return;
+        }
+    }
+    submitNintexForm() {
+        console.log('[Submission Action] Attempting to submit Nintex form');
+        const form = document.querySelector('form');
+        if (!form) {
+            console.error('[Submission Action] No form found');
+            return;
+        }
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn instanceof HTMLElement) {
+            console.log('[Submission Action] Clicking submit button');
+            submitBtn.click();
+        }
+        else {
+            console.error('[Submission Action] No submit button found');
+        }
+    }
+    startDelayedSubmission() {
+        // Clear any existing timer first
+        if (this.cooldownTimerId !== null) {
+            clearTimeout(this.cooldownTimerId);
+            this.cooldownTimerId = null;
+        }
+        const countdownMs = this.countdownTimer * 1000;
+        const startTime = Date.now();
+        // Update the UI to show countdown
+        const updateCountdown = () => {
+            const elapsed = Date.now() - startTime;
+            const remaining = countdownMs - elapsed;
+            if (remaining <= 0) {
+                // Countdown finished, submit the form
+                console.log('[Submission Action] Countdown complete - submitting form');
+                this.submitNintexForm();
+                this.cooldownTimerId = null;
+            }
+            else {
+                // Still counting down, update UI
+                this.requestUpdate();
+                this.cooldownTimerId = window.setTimeout(updateCountdown, 100);
+            }
+        };
+        console.log('[Submission Action] Starting delayed submission countdown for', this.countdownTimer, 'seconds');
+        updateCountdown();
     }
     startCooldownTimer() {
         // Clear any existing timer first
@@ -1974,6 +2069,9 @@ __decorate([
 __decorate([
     property({ type: Boolean })
 ], DafWebRequestPlugin.prototype, "formValidation", void 0);
+__decorate([
+    property({ type: String })
+], DafWebRequestPlugin.prototype, "submissionAction", void 0);
 DafWebRequestPlugin = __decorate([
     customElement('daf-webrequest-plugin')
 ], DafWebRequestPlugin);
