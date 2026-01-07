@@ -637,17 +637,10 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                 // Skip the value property as it's output-only and complex
                 if (propName === 'value')
                     continue;
-                let currentValue = this[propName];
-                // Mask sensitive properties
-                if (propName === 'bearerToken' || propName === 'clientSecret') {
-                    currentValue = currentValue && currentValue.length > 0
-                        ? '***' + currentValue.slice(-4)
-                        : '';
-                }
                 properties.push({
                     name: propName,
                     default: propConfig.defaultValue,
-                    current: currentValue
+                    config: propConfig
                 });
             }
         }
@@ -667,12 +660,87 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
             <tr>
               <td><code class="property-name">${prop.name}</code></td>
               <td class="value-default">${this.formatValue(prop.default)}</td>
-              <td class="value-current">${this.formatValue(prop.current)}</td>
+              <td class="value-current">${this.renderPropertyInput(prop.name, prop.config)}</td>
             </tr>
           `)}
         </tbody>
       </table>
     `;
+    }
+    renderPropertyInput(propName, propConfig) {
+        const currentValue = this[propName];
+        const propType = propConfig.type;
+        const enumValues = propConfig.enum;
+        // Boolean type - render checkbox/toggle
+        if (propType === 'boolean') {
+            return html `
+        <input 
+          type="checkbox" 
+          .checked=${currentValue}
+          @change=${(e) => {
+                this[propName] = e.target.checked;
+                this.requestUpdate();
+            }}
+          style="width: auto; height: auto; cursor: pointer;"
+        />
+      `;
+        }
+        // Enum type - render dropdown
+        if (enumValues && Array.isArray(enumValues)) {
+            return html `
+        <select
+          class="form-control"
+          .value=${currentValue}
+          @change=${(e) => {
+                this[propName] = e.target.value;
+                this.requestUpdate();
+            }}
+          style="width: auto; min-width: 150px; height: auto; padding: 4px 8px;"
+        >
+          ${enumValues.map((val) => html `
+            <option value=${val} ?selected=${val === currentValue}>${val}</option>
+          `)}
+        </select>
+      `;
+        }
+        // Number type - render number input
+        if (propType === 'number' || propType === 'integer') {
+            return html `
+        <input 
+          type="number"
+          class="form-control"
+          .value=${currentValue}
+          @input=${(e) => {
+                const value = e.target.value;
+                this[propName] = value === '' ? 0 : Number(value);
+                this.requestUpdate();
+            }}
+          style="width: auto; min-width: 100px; height: auto; padding: 4px 8px;"
+        />
+      `;
+        }
+        // String type - render textarea
+        if (propType === 'string') {
+            // Mask sensitive properties
+            const displayValue = (propName === 'bearerToken' || propName === 'clientSecret') && currentValue && currentValue.length > 0
+                ? '***' + currentValue.slice(-4)
+                : currentValue;
+            return html `
+        <textarea
+          class="form-control"
+          .value=${displayValue}
+          @input=${(e) => {
+                this[propName] = e.target.value;
+                this.requestUpdate();
+            }}
+          rows="1"
+          style="width: 100%; min-width: 200px; resize: vertical; font-family: 'Courier New', monospace; font-size: 12px; padding: 4px 8px;"
+          ?readonly=${propName === 'bearerToken' || propName === 'clientSecret'}
+        ></textarea>
+      `;
+        }
+        // Default fallback - just display the value
+        return html `<span>${this.formatValue(currentValue)}</span>`;
     }
     renderRequestDetailsTab() {
         return html `

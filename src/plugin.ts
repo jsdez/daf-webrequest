@@ -1100,7 +1100,7 @@ export class DafWebRequestPlugin extends LitElement {
   private renderPropertiesTab() {
     // Get all properties dynamically from the metadata
     const metadata = (this.constructor as typeof DafWebRequestPlugin).getMetaConfig();
-    const properties: Array<{ name: string; default: any; current: any }> = [];
+    const properties: Array<{ name: string; default: any; config: any }> = [];
     
     // Iterate through all properties defined in the metadata
     if (metadata.properties) {
@@ -1108,19 +1108,10 @@ export class DafWebRequestPlugin extends LitElement {
         // Skip the value property as it's output-only and complex
         if (propName === 'value') continue;
         
-        let currentValue = (this as any)[propName];
-        
-        // Mask sensitive properties
-        if (propName === 'bearerToken' || propName === 'clientSecret') {
-          currentValue = currentValue && currentValue.length > 0 
-            ? '***' + currentValue.slice(-4) 
-            : '';
-        }
-        
         properties.push({
           name: propName,
           default: (propConfig as any).defaultValue,
-          current: currentValue
+          config: propConfig
         });
       }
     }
@@ -1142,12 +1133,94 @@ export class DafWebRequestPlugin extends LitElement {
             <tr>
               <td><code class="property-name">${prop.name}</code></td>
               <td class="value-default">${this.formatValue(prop.default)}</td>
-              <td class="value-current">${this.formatValue(prop.current)}</td>
+              <td class="value-current">${this.renderPropertyInput(prop.name, prop.config)}</td>
             </tr>
           `)}
         </tbody>
       </table>
     `;
+  }
+
+  private renderPropertyInput(propName: string, propConfig: any) {
+    const currentValue = (this as any)[propName];
+    const propType = propConfig.type;
+    const enumValues = propConfig.enum;
+
+    // Boolean type - render checkbox/toggle
+    if (propType === 'boolean') {
+      return html`
+        <input 
+          type="checkbox" 
+          .checked=${currentValue}
+          @change=${(e: Event) => {
+            (this as any)[propName] = (e.target as HTMLInputElement).checked;
+            this.requestUpdate();
+          }}
+          style="width: auto; height: auto; cursor: pointer;"
+        />
+      `;
+    }
+
+    // Enum type - render dropdown
+    if (enumValues && Array.isArray(enumValues)) {
+      return html`
+        <select
+          class="form-control"
+          .value=${currentValue}
+          @change=${(e: Event) => {
+            (this as any)[propName] = (e.target as HTMLSelectElement).value;
+            this.requestUpdate();
+          }}
+          style="width: auto; min-width: 150px; height: auto; padding: 4px 8px;"
+        >
+          ${enumValues.map((val: string) => html`
+            <option value=${val} ?selected=${val === currentValue}>${val}</option>
+          `)}
+        </select>
+      `;
+    }
+
+    // Number type - render number input
+    if (propType === 'number' || propType === 'integer') {
+      return html`
+        <input 
+          type="number"
+          class="form-control"
+          .value=${currentValue}
+          @input=${(e: Event) => {
+            const value = (e.target as HTMLInputElement).value;
+            (this as any)[propName] = value === '' ? 0 : Number(value);
+            this.requestUpdate();
+          }}
+          style="width: auto; min-width: 100px; height: auto; padding: 4px 8px;"
+        />
+      `;
+    }
+
+    // String type - render textarea
+    if (propType === 'string') {
+      // Mask sensitive properties
+      const displayValue = (propName === 'bearerToken' || propName === 'clientSecret') && currentValue && currentValue.length > 0
+        ? '***' + currentValue.slice(-4)
+        : currentValue;
+
+      return html`
+        <textarea
+          class="form-control"
+          .value=${displayValue}
+          @input=${(e: Event) => {
+            (this as any)[propName] = (e.target as HTMLTextAreaElement).value;
+            this.requestUpdate();
+          }}
+          rows="1"
+          style="width: 100%; min-width: 200px; resize: vertical; font-family: 'Courier New', monospace; font-size: 12px; padding: 4px 8px;"
+          ?readonly=${propName === 'bearerToken' || propName === 'clientSecret'}
+        ></textarea>
+      `;
+    }
+
+    // Default fallback - just display the value
+    return html`<span>${this.formatValue(currentValue)}</span>`;
   }
 
   private renderRequestDetailsTab() {
