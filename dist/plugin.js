@@ -615,34 +615,12 @@ let DafWebRequestPlugin = class DafWebRequestPlugin extends LitElement {
         // If allowMultipleAPICalls is true, NEVER disable the button permanently
         // Only disable during loading - ignore btnEnabled and hasSuccessfulCall
         if (this.allowMultipleAPICalls) {
-            const result = this.isLoading;
-            // Debug logging to console
-            if (this.debugMode) {
-                console.log('Button disabled check - multiple calls allowed:', {
-                    isLoading: this.isLoading,
-                    btnEnabled: this.btnEnabled,
-                    result,
-                    note: 'btnEnabled is ignored when allowMultipleAPICalls=true'
-                });
-            }
-            return result;
+            return this.isLoading;
         }
         // If allowMultipleAPICalls is false, disable for loading, btnEnabled, OR after successful/warning call
         // Note: Errors (this.responseType === 'error') still allow retry
         const permanentlyDisabled = this.hasSuccessfulCall && (this.responseType === 'success' || this.responseType === 'warning');
-        const result = this.isLoading || !this.btnEnabled || permanentlyDisabled;
-        // Debug logging to console
-        if (this.debugMode) {
-            console.log('Button disabled check - single call only:', {
-                isLoading: this.isLoading,
-                btnEnabled: this.btnEnabled,
-                permanentlyDisabled,
-                hasSuccessfulCall: this.hasSuccessfulCall,
-                responseType: this.responseType,
-                result
-            });
-        }
-        return result;
+        return this.isLoading || !this.btnEnabled || permanentlyDisabled;
     }
     setActiveTab(tabName) {
         this.activeDebugTab = tabName;
