@@ -72,7 +72,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         this.btnAlignment = 'left';
         this.btnVisible = true;
         this.formValidation = false;
-        this.submissionAction = 'none';
+        this.submissionAction = 'no-submit';
         this.submitHidden = false;
     }
     // Called when the element is added to the DOM
@@ -300,9 +300,9 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                 submissionAction: {
                     type: 'string',
                     title: 'Submission Action',
-                    description: 'Action to take after a successful API call. Set to "submit-only" to skip API call and directly submit the form.',
-                    enum: ['none', 'quick-submit', 'delayed-submit', 'submit-only'],
-                    defaultValue: 'none',
+                    description: 'Action to take after a successful API call. Set to "only-submit" to skip API call and directly submit the form.',
+                    enum: ['no-submit', 'quick-submit', 'delayed-submit', 'only-submit'],
+                    defaultValue: 'no-submit',
                 },
                 submitHidden: {
                     type: 'boolean',
@@ -688,9 +688,9 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
             this.sendAPICall = false;
             // Clear any previous validation error
             this.formValidationError = '';
-            // Check if submission action is set to submit-only
-            if (this.submissionAction === 'submit-only') {
-                console.log('[API Call] Submission action is submit-only - skipping API call and validation, submitting form directly');
+            // Check if submission action is set to only-submit
+            if (this.submissionAction === 'only-submit') {
+                console.log('[API Call] Submission action is only-submit - skipping API call and validation, submitting form directly');
                 this.submitNintexForm();
                 return;
             }
@@ -1826,7 +1826,7 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
     }
     handlePostSubmissionAction() {
         console.log('[Submission Action] Checking submission action:', this.submissionAction);
-        if (this.submissionAction === 'none') {
+        if (this.submissionAction === 'no-submit') {
             console.log('[Submission Action] No action configured');
             return;
         }
