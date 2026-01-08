@@ -527,33 +527,42 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                 console.warn('[Validation] No form found for validation');
                 return true; // If no form found, proceed anyway
             }
-            // First, trigger validation by clicking submit button
-            const submitBtn = form.querySelector('button[type="submit"]');
-            if (submitBtn instanceof HTMLElement) {
-                console.log('[Validation] Clicking submit button to trigger validation');
-                // Prevent actual form submission
-                const submitHandler = (e) => {
-                    console.log('[Validation] Submit event caught and prevented');
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.stopImmediatePropagation();
-                };
-                form.addEventListener('submit', submitHandler, { capture: true, once: true });
-                submitBtn.click();
-                form.removeEventListener('submit', submitHandler, { capture: true });
-            }
-            // Wait for DOM to update with validation states
-            console.log('[Validation] Waiting 300ms for DOM to update...');
-            yield new Promise(resolve => setTimeout(resolve, 300));
-            // Now check for invalid fields using Nintex's aria-invalid attribute
-            const invalidFields = form.querySelectorAll('[aria-invalid="true"]');
-            const isValid = invalidFields.length === 0;
-            console.log('[Validation] Invalid fields found:', invalidFields.length);
+            // Trigger validation by programmatically calling reportValidity on form elements
+            // This validates without submitting the form
+            console.log('[Validation] Triggering validation on form inputs');
+            const formElements = form.querySelectorAll('input, textarea, select');
+            formElements.forEach((element) => {
+                if (element instanceof HTMLInputElement ||
+                    element instanceof HTMLTextAreaElement ||
+                    element instanceof HTMLSelectElement) {
+                    // Call reportValidity to trigger native HTML5 validation
+                    element.reportValidity();
+                }
+            });
+            // Wait briefly for Nintex's custom validation to update
+            console.log('[Validation] Waiting 200ms for validation state to update...');
+            yield new Promise(resolve => setTimeout(resolve, 200));
+            // Check for invalid fields using multiple methods
+            // Method 1: Nintex's aria-invalid attribute
+            const ariaInvalidFields = form.querySelectorAll('[aria-invalid="true"]');
+            // Method 2: HTML5 validation state
+            const html5InvalidFields = form.querySelectorAll(':invalid');
+            // Method 3: Nintex error messages
+            const nintexErrorMessages = form.querySelectorAll('.ntx-form-error, [class*="error-message"]');
+            const totalInvalidCount = ariaInvalidFields.length + html5InvalidFields.length;
+            const isValid = totalInvalidCount === 0 && nintexErrorMessages.length === 0;
+            console.log('[Validation] Invalid fields found:');
+            console.log('  - aria-invalid:', ariaInvalidFields.length);
+            console.log('  - HTML5 invalid:', html5InvalidFields.length);
+            console.log('  - Error messages:', nintexErrorMessages.length);
             console.log('[Validation] Form is valid:', isValid);
             if (!isValid) {
                 console.log('[Validation] Form validation FAILED. Invalid fields:');
-                invalidFields.forEach((field, index) => {
-                    console.log(`  [${index + 1}]`, field);
+                ariaInvalidFields.forEach((field, index) => {
+                    console.log(`  [aria-invalid ${index + 1}]`, field);
+                });
+                html5InvalidFields.forEach((field, index) => {
+                    console.log(`  [HTML5 invalid ${index + 1}]`, field);
                 });
             }
             return isValid;
