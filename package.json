@@ -10,8 +10,8 @@
     "deploy": "npm run build && npm run bundle"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "DAF Trucks N.V.",
+  "license": "MIT",
   "type": "module",
   "devDependencies": {
     "@types/node": "^24.0.1",
