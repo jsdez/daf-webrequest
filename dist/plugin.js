@@ -18,12 +18,34 @@ import { html, LitElement, css } from 'lit';
 import { callApi } from './apiClient.js';
 import { customElement, property } from 'lit/decorators.js';
 let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin extends LitElement {
+    get btnEnabled() {
+        return this._btnEnabled;
+    }
+    set btnEnabled(value) {
+        const oldValue = this._btnEnabled;
+        this._btnEnabled = value;
+        console.log(`[Property Setter] btnEnabled changed from ${oldValue} to ${value}`);
+        this.requestUpdate('btnEnabled', oldValue);
+    }
+    get btnVisible() {
+        return this._btnVisible;
+    }
+    set btnVisible(value) {
+        const oldValue = this._btnVisible;
+        this._btnVisible = value;
+        console.log(`[Property Setter] btnVisible changed from ${oldValue} to ${value}`);
+        this.requestUpdate('btnVisible', oldValue);
+    }
     constructor() {
         super();
         // Add private property to track active debug tab
         this.activeDebugTab = 'properties';
         this.formatterJsonInput = '';
         this.formatterSelectedFields = new Map();
+        // Custom accessors for btnEnabled with explicit change detection
+        this._btnEnabled = true;
+        // Custom accessors for btnVisible with explicit change detection
+        this._btnVisible = true;
         // Instance-specific state (not reactive properties - these are internal state only)
         this.isLoading = false;
         this.apiResponse = '';
@@ -67,10 +89,10 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         this.allowMultipleAPICalls = false;
         this.countdownEnabled = false;
         this.countdownTimer = 5;
-        this.btnEnabled = true;
+        this._btnEnabled = true;
         this.btnText = 'Send API Request';
         this.btnAlignment = 'left';
-        this.btnVisible = true;
+        this._btnVisible = true;
         this.formValidation = false;
         this.submissionAction = 'no-submit';
         this.submitHidden = false;
@@ -606,6 +628,27 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         if (changedProperties.has('submitHidden')) {
             this.toggleSubmitButtonVisibility();
         }
+        // Log UI property changes for debugging
+        if (changedProperties.has('btnVisible')) {
+            console.log(`[UI Property Change] btnVisible changed to: ${this.btnVisible}`);
+            this.requestUpdate();
+        }
+        if (changedProperties.has('btnEnabled')) {
+            console.log(`[UI Property Change] btnEnabled changed to: ${this.btnEnabled}`);
+            this.requestUpdate();
+        }
+        if (changedProperties.has('btnText')) {
+            console.log(`[UI Property Change] btnText changed to: ${this.btnText}`);
+            this.requestUpdate();
+        }
+        if (changedProperties.has('btnAlignment')) {
+            console.log(`[UI Property Change] btnAlignment changed to: ${this.btnAlignment}`);
+            this.requestUpdate();
+        }
+        if (changedProperties.has('debugMode')) {
+            console.log(`[UI Property Change] debugMode changed to: ${this.debugMode}`);
+            this.requestUpdate();
+        }
     }
     toggleSubmitButtonVisibility() {
         const styleId = 'ntx-submit-button-hidden-style';
@@ -798,80 +841,35 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
     renderPropertyInput(propName, propConfig) {
         const currentValue = this[propName];
         const propType = propConfig.type;
-        const enumValues = propConfig.enum;
-        // Boolean type - render checkbox/toggle
+        // Boolean type - display as Yes/No
         if (propType === 'boolean') {
             return html `
-        <input 
-          type="checkbox" 
-          .checked=${currentValue}
-          @change=${(e) => {
-                const newValue = e.target.checked;
-                this[propName] = newValue;
-                console.log(`[Property Change] ${propName} updated to:`, newValue);
-                this.requestUpdate();
-            }}
-          style="width: auto; height: auto; cursor: pointer;"
-        />
+        <span style="font-weight: 500; color: ${currentValue ? '#28a745' : '#dc3545'};">
+          ${currentValue ? '✓ Yes' : '✗ No'}
+        </span>
       `;
         }
-        // Enum type - render dropdown
-        if (enumValues && Array.isArray(enumValues)) {
-            return html `
-        <select
-          class="form-control"
-          @change=${(e) => {
-                const newValue = e.target.value;
-                this[propName] = newValue;
-                console.log(`[Property Change] ${propName} updated to:`, newValue);
-                this.requestUpdate();
-            }}
-          style="width: auto; min-width: 150px; height: auto; padding: 4px 8px;"
-        >
-          ${enumValues.map((val) => html `
-            <option value=${val} ?selected=${val === currentValue}>${val}</option>
-          `)}
-        </select>
-      `;
-        }
-        // Number type - render number input
-        if (propType === 'number' || propType === 'integer') {
-            return html `
-        <input 
-          type="number"
-          class="form-control"
-          .value=${currentValue}
-          @input=${(e) => {
-                const value = e.target.value;
-                const newValue = value === '' ? 0 : Number(value);
-                this[propName] = newValue;
-                console.log(`[Property Change] ${propName} updated to:`, newValue);
-                this.requestUpdate();
-            }}
-          style="width: auto; min-width: 100px; height: auto; padding: 4px 8px;"
-        />
-      `;
-        }
-        // String type - render textarea
+        // String type - mask sensitive properties and display
         if (propType === 'string') {
-            // Mask sensitive properties
             const displayValue = (propName === 'bearerToken' || propName === 'clientSecret') && currentValue && currentValue.length > 0
                 ? '***' + currentValue.slice(-4)
                 : currentValue;
+            // Truncate long strings
+            const truncated = displayValue && displayValue.length > 100
+                ? displayValue.substring(0, 100) + '...'
+                : displayValue;
             return html `
-        <textarea
-          class="form-control"
-          .value=${displayValue}
-          @input=${(e) => {
-                const newValue = e.target.value;
-                this[propName] = newValue;
-                console.log(`[Property Change] ${propName} updated to:`, newValue.substring(0, 50) + (newValue.length > 50 ? '...' : ''));
-                this.requestUpdate();
-            }}
-          rows="1"
-          style="width: 100%; min-width: 200px; resize: vertical; font-family: 'Courier New', monospace; font-size: 12px; padding: 4px 8px;"
-          ?readonly=${propName === 'bearerToken' || propName === 'clientSecret'}
-        ></textarea>
+        <span style="font-family: 'Courier New', monospace; font-size: 12px; word-break: break-all;">
+          ${truncated || '<empty>'}
+        </span>
+      `;
+        }
+        // Number type - display as number
+        if (propType === 'number' || propType === 'integer') {
+            return html `
+        <span style="font-weight: 500;">
+          ${currentValue}
+        </span>
       `;
         }
         // Default fallback - just display the value
@@ -2385,37 +2383,37 @@ __decorate([
     property({ type: String })
 ], DafWebRequestPlugin.prototype, "errorMessage", void 0);
 __decorate([
-    property({ type: Boolean, reflect: true })
+    property({ type: Boolean, reflect: true, attribute: 'send-api-call' })
 ], DafWebRequestPlugin.prototype, "sendAPICall", void 0);
 __decorate([
-    property({ type: Boolean, reflect: true })
+    property({ type: Boolean, reflect: true, attribute: 'allow-multiple-api-calls' })
 ], DafWebRequestPlugin.prototype, "allowMultipleAPICalls", void 0);
 __decorate([
-    property({ type: Boolean, reflect: true })
+    property({ type: Boolean, reflect: true, attribute: 'countdown-enabled' })
 ], DafWebRequestPlugin.prototype, "countdownEnabled", void 0);
 __decorate([
     property({ type: Number })
 ], DafWebRequestPlugin.prototype, "countdownTimer", void 0);
 __decorate([
-    property({ type: Boolean, reflect: true })
-], DafWebRequestPlugin.prototype, "btnEnabled", void 0);
+    property({ type: Boolean, reflect: true, attribute: 'btn-enabled' })
+], DafWebRequestPlugin.prototype, "btnEnabled", null);
 __decorate([
-    property({ type: String, reflect: true })
+    property({ type: String, reflect: true, attribute: 'btn-text' })
 ], DafWebRequestPlugin.prototype, "btnText", void 0);
 __decorate([
-    property({ type: String, reflect: true })
+    property({ type: String, reflect: true, attribute: 'btn-alignment' })
 ], DafWebRequestPlugin.prototype, "btnAlignment", void 0);
 __decorate([
-    property({ type: Boolean, reflect: true })
-], DafWebRequestPlugin.prototype, "btnVisible", void 0);
+    property({ type: Boolean, reflect: true, attribute: 'btn-visible' })
+], DafWebRequestPlugin.prototype, "btnVisible", null);
 __decorate([
-    property({ type: Boolean, reflect: true })
+    property({ type: Boolean, reflect: true, attribute: 'form-validation' })
 ], DafWebRequestPlugin.prototype, "formValidation", void 0);
 __decorate([
-    property({ type: String, reflect: true })
+    property({ type: String, reflect: true, attribute: 'submission-action' })
 ], DafWebRequestPlugin.prototype, "submissionAction", void 0);
 __decorate([
-    property({ type: Boolean, reflect: true })
+    property({ type: Boolean, reflect: true, attribute: 'submit-hidden' })
 ], DafWebRequestPlugin.prototype, "submitHidden", void 0);
 DafWebRequestPlugin = DafWebRequestPlugin_1 = __decorate([
     customElement('daf-webrequest-plugin')

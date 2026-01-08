@@ -447,17 +447,43 @@ export class DafWebRequestPlugin extends LitElement {
   @property({ type: String }) successMessage!: string;
   @property({ type: String }) warningMessage!: string;
   @property({ type: String }) errorMessage!: string;
-  @property({ type: Boolean, reflect: true }) sendAPICall!: boolean;
-  @property({ type: Boolean, reflect: true }) allowMultipleAPICalls!: boolean;
-  @property({ type: Boolean, reflect: true }) countdownEnabled!: boolean;
+  @property({ type: Boolean, reflect: true, attribute: 'send-api-call' }) sendAPICall!: boolean;
+  @property({ type: Boolean, reflect: true, attribute: 'allow-multiple-api-calls' }) allowMultipleAPICalls!: boolean;
+  @property({ type: Boolean, reflect: true, attribute: 'countdown-enabled' }) countdownEnabled!: boolean;
   @property({ type: Number }) countdownTimer!: number;
-  @property({ type: Boolean, reflect: true }) btnEnabled!: boolean;
-  @property({ type: String, reflect: true }) btnText!: string;
-  @property({ type: String, reflect: true }) btnAlignment!: string;
-  @property({ type: Boolean, reflect: true }) btnVisible!: boolean;
-  @property({ type: Boolean, reflect: true }) formValidation!: boolean;
-  @property({ type: String, reflect: true }) submissionAction!: string;
-  @property({ type: Boolean, reflect: true }) submitHidden!: boolean;
+  
+  // Custom accessors for btnEnabled with explicit change detection
+  private _btnEnabled: boolean = true;
+  @property({ type: Boolean, reflect: true, attribute: 'btn-enabled' })
+  get btnEnabled(): boolean {
+    return this._btnEnabled;
+  }
+  set btnEnabled(value: boolean) {
+    const oldValue = this._btnEnabled;
+    this._btnEnabled = value;
+    console.log(`[Property Setter] btnEnabled changed from ${oldValue} to ${value}`);
+    this.requestUpdate('btnEnabled', oldValue);
+  }
+  
+  @property({ type: String, reflect: true, attribute: 'btn-text' }) btnText!: string;
+  @property({ type: String, reflect: true, attribute: 'btn-alignment' }) btnAlignment!: string;
+  
+  // Custom accessors for btnVisible with explicit change detection
+  private _btnVisible: boolean = true;
+  @property({ type: Boolean, reflect: true, attribute: 'btn-visible' })
+  get btnVisible(): boolean {
+    return this._btnVisible;
+  }
+  set btnVisible(value: boolean) {
+    const oldValue = this._btnVisible;
+    this._btnVisible = value;
+    console.log(`[Property Setter] btnVisible changed from ${oldValue} to ${value}`);
+    this.requestUpdate('btnVisible', oldValue);
+  }
+  
+  @property({ type: Boolean, reflect: true, attribute: 'form-validation' }) formValidation!: boolean;
+  @property({ type: String, reflect: true, attribute: 'submission-action' }) submissionAction!: string;
+  @property({ type: Boolean, reflect: true, attribute: 'submit-hidden' }) submitHidden!: boolean;
 
   // Instance-specific state (not reactive properties - these are internal state only)
   private isLoading = false;
@@ -505,10 +531,10 @@ export class DafWebRequestPlugin extends LitElement {
     this.allowMultipleAPICalls = false;
     this.countdownEnabled = false;
     this.countdownTimer = 5;
-    this.btnEnabled = true;
+    this._btnEnabled = true;
     this.btnText = 'Send API Request';
     this.btnAlignment = 'left';
-    this.btnVisible = true;
+    this._btnVisible = true;
     this.formValidation = false;
     this.submissionAction = 'no-submit';
     this.submitHidden = false;
@@ -1063,6 +1089,32 @@ export class DafWebRequestPlugin extends LitElement {
     if (changedProperties.has('submitHidden')) {
       this.toggleSubmitButtonVisibility();
     }
+
+    // Log UI property changes for debugging
+    if (changedProperties.has('btnVisible')) {
+      console.log(`[UI Property Change] btnVisible changed to: ${this.btnVisible}`);
+      this.requestUpdate();
+    }
+    
+    if (changedProperties.has('btnEnabled')) {
+      console.log(`[UI Property Change] btnEnabled changed to: ${this.btnEnabled}`);
+      this.requestUpdate();
+    }
+    
+    if (changedProperties.has('btnText')) {
+      console.log(`[UI Property Change] btnText changed to: ${this.btnText}`);
+      this.requestUpdate();
+    }
+    
+    if (changedProperties.has('btnAlignment')) {
+      console.log(`[UI Property Change] btnAlignment changed to: ${this.btnAlignment}`);
+      this.requestUpdate();
+    }
+    
+    if (changedProperties.has('debugMode')) {
+      console.log(`[UI Property Change] debugMode changed to: ${this.debugMode}`);
+      this.requestUpdate();
+    }
   }
 
   private toggleSubmitButtonVisibility(): void {
@@ -1279,85 +1331,40 @@ export class DafWebRequestPlugin extends LitElement {
   private renderPropertyInput(propName: string, propConfig: any) {
     const currentValue = (this as any)[propName];
     const propType = propConfig.type;
-    const enumValues = propConfig.enum;
 
-    // Boolean type - render checkbox/toggle
+    // Boolean type - display as Yes/No
     if (propType === 'boolean') {
       return html`
-        <input 
-          type="checkbox" 
-          .checked=${currentValue}
-          @change=${(e: Event) => {
-            const newValue = (e.target as HTMLInputElement).checked;
-            (this as any)[propName] = newValue;
-            console.log(`[Property Change] ${propName} updated to:`, newValue);
-            this.requestUpdate();
-          }}
-          style="width: auto; height: auto; cursor: pointer;"
-        />
+        <span style="font-weight: 500; color: ${currentValue ? '#28a745' : '#dc3545'};">
+          ${currentValue ? '✓ Yes' : '✗ No'}
+        </span>
       `;
     }
 
-    // Enum type - render dropdown
-    if (enumValues && Array.isArray(enumValues)) {
-      return html`
-        <select
-          class="form-control"
-          @change=${(e: Event) => {
-            const newValue = (e.target as HTMLSelectElement).value;
-            (this as any)[propName] = newValue;
-            console.log(`[Property Change] ${propName} updated to:`, newValue);
-            this.requestUpdate();
-          }}
-          style="width: auto; min-width: 150px; height: auto; padding: 4px 8px;"
-        >
-          ${enumValues.map((val: string) => html`
-            <option value=${val} ?selected=${val === currentValue}>${val}</option>
-          `)}
-        </select>
-      `;
-    }
-
-    // Number type - render number input
-    if (propType === 'number' || propType === 'integer') {
-      return html`
-        <input 
-          type="number"
-          class="form-control"
-          .value=${currentValue}
-          @input=${(e: Event) => {
-            const value = (e.target as HTMLInputElement).value;
-            const newValue = value === '' ? 0 : Number(value);
-            (this as any)[propName] = newValue;
-            console.log(`[Property Change] ${propName} updated to:`, newValue);
-            this.requestUpdate();
-          }}
-          style="width: auto; min-width: 100px; height: auto; padding: 4px 8px;"
-        />
-      `;
-    }
-
-    // String type - render textarea
+    // String type - mask sensitive properties and display
     if (propType === 'string') {
-      // Mask sensitive properties
       const displayValue = (propName === 'bearerToken' || propName === 'clientSecret') && currentValue && currentValue.length > 0
         ? '***' + currentValue.slice(-4)
         : currentValue;
 
+      // Truncate long strings
+      const truncated = displayValue && displayValue.length > 100 
+        ? displayValue.substring(0, 100) + '...' 
+        : displayValue;
+
       return html`
-        <textarea
-          class="form-control"
-          .value=${displayValue}
-          @input=${(e: Event) => {
-            const newValue = (e.target as HTMLTextAreaElement).value;
-            (this as any)[propName] = newValue;
-            console.log(`[Property Change] ${propName} updated to:`, newValue.substring(0, 50) + (newValue.length > 50 ? '...' : ''));
-            this.requestUpdate();
-          }}
-          rows="1"
-          style="width: 100%; min-width: 200px; resize: vertical; font-family: 'Courier New', monospace; font-size: 12px; padding: 4px 8px;"
-          ?readonly=${propName === 'bearerToken' || propName === 'clientSecret'}
-        ></textarea>
+        <span style="font-family: 'Courier New', monospace; font-size: 12px; word-break: break-all;">
+          ${truncated || '<empty>'}
+        </span>
+      `;
+    }
+
+    // Number type - display as number
+    if (propType === 'number' || propType === 'integer') {
+      return html`
+        <span style="font-weight: 500;">
+          ${currentValue}
+        </span>
       `;
     }
 
