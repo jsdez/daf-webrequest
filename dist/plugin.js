@@ -521,6 +521,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
     // Handle property changes from the host application
     updated(changedProperties) {
         if (changedProperties.has('value')) {
+            console.log('[Updated Lifecycle] Value property changed, dispatching ntx-value-change event');
             this.dispatchEvent(new CustomEvent('ntx-value-change', {
                 detail: this.value,
                 bubbles: true,
@@ -1527,20 +1528,25 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
                         this.hasSuccessfulCall = true;
                     }
                     // Dispatch value change event
+                    console.log('[Value Change] Dispatching ntx-value-change event with value:', this.value);
                     this.dispatchEvent(new CustomEvent('ntx-value-change', {
                         detail: this.value,
                         bubbles: true,
                         composed: true,
                     }));
+                    console.log('[Value Change] Event dispatched at:', new Date().toISOString());
                     this.requestUpdate();
                     // After dispatching the value change event, wait for Nintex to process it
                     // then trigger post-submission action if needed
                     const isSuccessResponse = this.responseType === 'success' || this.responseType === 'warning';
                     if (isSuccessResponse) {
-                        // Wait 300ms to ensure ntx-value-change event is fully processed
+                        // Wait 800ms to ensure ntx-value-change event is fully processed by Nintex
+                        // This gives Nintex adequate time to update form values before submission
+                        console.log('[Value Change] Waiting 800ms for Nintex to process value change...');
                         setTimeout(() => {
+                            console.log('[Value Change] Wait complete at:', new Date().toISOString(), '- proceeding with submission action');
                             this.handlePostSubmissionAction();
-                        }, 300);
+                        }, 800);
                     }
                 }
             });
