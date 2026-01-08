@@ -2370,7 +2370,7 @@ __decorate([
     property({ type: String })
 ], DafWebRequestPlugin.prototype, "contentType", void 0);
 __decorate([
-    property({ type: Boolean })
+    property({ type: Boolean, reflect: true })
 ], DafWebRequestPlugin.prototype, "debugMode", void 0);
 __decorate([
     property({ type: String })
@@ -2385,37 +2385,37 @@ __decorate([
     property({ type: String })
 ], DafWebRequestPlugin.prototype, "errorMessage", void 0);
 __decorate([
-    property({ type: Boolean })
+    property({ type: Boolean, reflect: true })
 ], DafWebRequestPlugin.prototype, "sendAPICall", void 0);
 __decorate([
-    property({ type: Boolean })
+    property({ type: Boolean, reflect: true })
 ], DafWebRequestPlugin.prototype, "allowMultipleAPICalls", void 0);
 __decorate([
-    property({ type: Boolean })
+    property({ type: Boolean, reflect: true })
 ], DafWebRequestPlugin.prototype, "countdownEnabled", void 0);
 __decorate([
     property({ type: Number })
 ], DafWebRequestPlugin.prototype, "countdownTimer", void 0);
 __decorate([
-    property({ type: Boolean })
+    property({ type: Boolean, reflect: true })
 ], DafWebRequestPlugin.prototype, "btnEnabled", void 0);
 __decorate([
-    property({ type: String })
+    property({ type: String, reflect: true })
 ], DafWebRequestPlugin.prototype, "btnText", void 0);
 __decorate([
-    property({ type: String })
+    property({ type: String, reflect: true })
 ], DafWebRequestPlugin.prototype, "btnAlignment", void 0);
 __decorate([
-    property({ type: Boolean })
+    property({ type: Boolean, reflect: true })
 ], DafWebRequestPlugin.prototype, "btnVisible", void 0);
 __decorate([
-    property({ type: Boolean })
+    property({ type: Boolean, reflect: true })
 ], DafWebRequestPlugin.prototype, "formValidation", void 0);
 __decorate([
-    property({ type: String })
+    property({ type: String, reflect: true })
 ], DafWebRequestPlugin.prototype, "submissionAction", void 0);
 __decorate([
-    property({ type: Boolean })
+    property({ type: Boolean, reflect: true })
 ], DafWebRequestPlugin.prototype, "submitHidden", void 0);
 DafWebRequestPlugin = DafWebRequestPlugin_1 = __decorate([
     customElement('daf-webrequest-plugin')

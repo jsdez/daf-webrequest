@@ -442,22 +442,22 @@ export class DafWebRequestPlugin extends LitElement {
   @property({ type: String }) clientSecret!: string;
   @property({ type: String }) outputValueKey!: string;
   @property({ type: String }) contentType!: string;
-  @property({ type: Boolean }) debugMode!: boolean;
+  @property({ type: Boolean, reflect: true }) debugMode!: boolean;
   @property({ type: String }) method!: string;
   @property({ type: String }) successMessage!: string;
   @property({ type: String }) warningMessage!: string;
   @property({ type: String }) errorMessage!: string;
-  @property({ type: Boolean }) sendAPICall!: boolean;
-  @property({ type: Boolean }) allowMultipleAPICalls!: boolean;
-  @property({ type: Boolean }) countdownEnabled!: boolean;
+  @property({ type: Boolean, reflect: true }) sendAPICall!: boolean;
+  @property({ type: Boolean, reflect: true }) allowMultipleAPICalls!: boolean;
+  @property({ type: Boolean, reflect: true }) countdownEnabled!: boolean;
   @property({ type: Number }) countdownTimer!: number;
-  @property({ type: Boolean }) btnEnabled!: boolean;
-  @property({ type: String }) btnText!: string;
-  @property({ type: String }) btnAlignment!: string;
-  @property({ type: Boolean }) btnVisible!: boolean;
-  @property({ type: Boolean }) formValidation!: boolean;
-  @property({ type: String }) submissionAction!: string;
-  @property({ type: Boolean }) submitHidden!: boolean;
+  @property({ type: Boolean, reflect: true }) btnEnabled!: boolean;
+  @property({ type: String, reflect: true }) btnText!: string;
+  @property({ type: String, reflect: true }) btnAlignment!: string;
+  @property({ type: Boolean, reflect: true }) btnVisible!: boolean;
+  @property({ type: Boolean, reflect: true }) formValidation!: boolean;
+  @property({ type: String, reflect: true }) submissionAction!: string;
+  @property({ type: Boolean, reflect: true }) submitHidden!: boolean;
 
   // Instance-specific state (not reactive properties - these are internal state only)
   private isLoading = false;
