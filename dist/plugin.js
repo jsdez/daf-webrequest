@@ -1694,6 +1694,9 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
                     const timestamp = new Date().toISOString();
                     this.apiResponse = response;
                     this.responseType = success === false ? 'error' : this.determineResponseType(response);
+                    // Auto-populate Response Formatter with the API response
+                    this.formatterJsonInput = response;
+                    this.formatterSelectedFields.clear(); // Clear previous selections
                     // Try to parse response and extract values
                     let accessToken;
                     let customOutput = undefined;
