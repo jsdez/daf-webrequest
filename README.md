@@ -1,11 +1,25 @@
 # DAF Web Request Plugin
 
-A Nintex Form Plugin for making API calls with advanced features including authentication, debug mode, response formatting, and configurable UI controls.
+A comprehensive Nintex Form Plugin for making API calls with advanced features including OAuth 2.0 authentication, form validation, automated submission, response formatting, and comprehensive debugging tools.
+
+## Table of Contents
+- [Features](#features)
+- [Installation](#installation)
+- [Setup in Nintex Forms](#setup-in-nintex-forms)
+- [Configuration Reference](#configuration-reference)
+- [Debug Mode Guide](#debug-mode-guide)
+- [Usage Examples](#usage-examples)
+- [Response Object](#response-object)
+- [Troubleshooting](#troubleshooting)
 
 ## Features
 
 - **Multiple HTTP Methods**: Support for POST, GET, PUT, DELETE, PATCH, and OPTIONS
-- **Flexible Authentication**: Bearer token and custom header support
+- **OAuth 2.0 Authentication**: Automatic token fetching with client credentials flow
+- **Bearer Token Support**: Use pre-obtained tokens for authentication
+- **Form Validation**: Validate Nintex form before API execution
+- **Automated Submission**: Submit form automatically after successful API calls
+- **Response Formatting**: Visual tool to format and display API response fields
 - **Debug Mode**: Interactive tabs for properties, request details, API tools, and response formatting
 - **Customizable UI**: Configurable button text, alignment, visibility, and messages
 - **Rate Limiting**: Optional countdown timer between API calls
@@ -47,156 +61,649 @@ https://cdn.jsdelivr.net/npm/<your-package-name>@<version>/dist/plugin.js
 2. Go to **Form Settings** > **Custom Plugins**
 3. Add a new plugin with the following details:
    - **Name**: `daf-webrequest-plugin`
-   - **URL**: Your CDN or hosted URL (e.g., `https://cdn.jsdelivr.net/npm/...`)
+   - **URL**: Your CDN or hosted URL
 
 ### 2. Add the Control to Your Form
 
 1. Drag the **Web Request Plugin** control onto your form
-2. Configure the control properties (see Configuration section below)
+2. Configure the control properties (see Configuration Reference below)
 
-## Configuration
+## Configuration Reference
 
-### Basic Properties
+### API Configuration
 
-| Property | Type | Description | Default |
-|----------|------|-------------|---------|
-| **API URL** | String | The endpoint URL to call | `''` |
-| **HTTP Method** | Dropdown | POST, GET, PUT, DELETE, PATCH, OPTIONS | `'POST'` |
-| **Content Type** | Dropdown | application/json, application/x-www-form-urlencoded, text/plain | `'application/json'` |
-| **Request Headers** | String (JSON) | Custom headers as JSON object | `''` |
-| **Request Body** | String | Body content (format depends on Content Type) | `''` |
+#### API URL
+- **Type**: String | **Default**: `''`
+- **Description**: The endpoint URL for your API call
+- **Example**: `https://api.example.com/v1/users`
+- **Supports Nintex Variables**: `{Variable:BaseURL}/endpoint`
+
+#### HTTP Method
+- **Type**: Dropdown | **Default**: `POST`
+- **Options**: `POST`, `GET`, `PUT`, `DELETE`, `PATCH`, `OPTIONS`
+- **When to use**:
+  - **GET**: Retrieve data
+  - **POST**: Create new resources or submit data
+  - **PUT**: Update existing resources (full replacement)
+  - **PATCH**: Update existing resources (partial update)
+  - **DELETE**: Remove resources
+  - **OPTIONS**: Check server capabilities
+
+#### Content Type
+- **Type**: Dropdown | **Default**: `application/json`
+- **Options**: `application/json`, `application/x-www-form-urlencoded`, `text/plain`
+- **When to use**:
+  - `application/json`: Most modern REST APIs (recommended)
+  - `application/x-www-form-urlencoded`: Traditional form submissions
+  - `text/plain`: Raw text data
+
+#### Request Headers
+- **Type**: String (JSON format) | **Default**: `''`
+- **Format**: `{"Header-Name": "value"}`
+- **Example**:
+```json
+{
+  "X-Custom-Header": "CustomValue",
+  "X-API-Version": "2.0",
+  "X-Request-ID": "{Variable:RequestID}"
+}
+```
+- **Note**: Authorization headers are automatically added if authentication is configured
+
+#### Request Body
+- **Type**: String | **Default**: `''`
+- **Format**: Depends on Content Type setting
+- **Example** (JSON):
+```json
+{
+  "firstName": "{Variable:FirstName}",
+  "lastName": "{Variable:LastName}",
+  "email": "{Variable:Email}",
+  "department": "Engineering"
+}
+```
+- **Tip**: Use Debug Mode > API Tools tab for JSON editing with validation
+
+---
 
 ### Authentication
 
-The plugin supports two authentication methods:
+#### OAuth 2.0 Client Credentials (Recommended)
 
-#### Option 1: OAuth 2.0 Client Credentials Flow (Recommended)
+##### Token URL
+- **Type**: String | **Default**: `''`
+- **Description**: OAuth 2.0 token endpoint URL
+- **Example**: `https://api.example.com/oauth2/v1/token`
+- **When provided**: Plugin automatically fetches access token before API call
 
-| Property | Type | Description | Default |
-|----------|------|-------------|---------|
-| **Token URL** | String | OAuth token endpoint URL | `''` |
-| **Client ID** | String | OAuth client identifier | `''` |
-| **Client Secret** | String | OAuth client secret | `''` |
+##### Client ID
+- **Type**: String | **Default**: `''`
+- **Description**: OAuth 2.0 client identifier
+- **Required**: Yes, if Token URL is provided
+- **Example**: `my-client-id` or `{Variable:ClientID}`
 
-When Token URL, Client ID, and Client Secret are provided, the plugin automatically:
-1. Fetches an access token from the token endpoint using client credentials flow
-2. Uses the token in the `Authorization: Bearer <token>` header for the API call
-3. Handles token fetch failures with appropriate error messages
+##### Client Secret
+- **Type**: String | **Default**: `''`
+- **Description**: OAuth 2.0 client secret
+- **Required**: Yes, if Token URL is provided
+- **Security**: Store in Nintex variables, never hardcode
+- **Example**: `{Variable:ClientSecret}`
 
-**Example:**
-```javascript
-Token URL: https://api-qa.digital.paccar.cloud/security/oauth2/v1/token
-Client ID: {Variable:MyClientID}
-Client Secret: {Variable:MyClientSecret}
-API URL: https://api-qa.digital.paccar.cloud/sap/api/v1/hr/HR011
-```
+**How OAuth 2.0 works**:
+1. Plugin sends POST to Token URL with client credentials
+2. Token endpoint returns `access_token`
+3. Plugin uses token in `Authorization: Bearer <token>` header for API call
+4. Token is automatically included in response object for reuse
 
-#### Option 2: Manual Bearer Token
+#### Manual Bearer Token
 
-| Property | Type | Description | Default |
-|----------|------|-------------|---------|
-| **Bearer Token** | String | Pre-obtained OAuth/JWT token | `''` |
+##### Bearer Token
+- **Type**: String | **Default**: `''`
+- **Description**: Pre-obtained OAuth/JWT token
+- **When to use**: If you already have a valid token
+- **Example**: `{Variable:AuthToken}`
+- **Note**: If Token URL is provided, it takes precedence over Bearer Token
 
-If you already have an access token, you can provide it directly. The plugin adds `Authorization: Bearer <token>` header when provided.
-
-**Note:** If Token URL is provided, it takes precedence over Bearer Token.
+---
 
 ### Response Configuration
 
-| Property | Type | Description | Default |
-|----------|------|-------------|---------|
-### Example 1: OAuth 2.0 with GET Request
+#### Output Value Key
+- **Type**: String | **Default**: `''`
+- **Description**: JSON path to extract specific value from API response
+- **Format**: Use dot notation for nested values (e.g., `data.user.id`)
+- **Example**: If response is `{"data":{"user":{"id":"12345"}}}`, set to `data.user.id` to extract `"12345"` into `value.output`
 
-```javascript
-// Single control handles authentication and API call
-Token URL: https://api-qa.digital.paccar.cloud/security/oauth2/v1/token
-Client ID: your-client-id
-Client Secret: {Variable:ClientSecret}
-API URL: https://api-qa.digital.paccar.cloud/sap/api/v1/hr/HR011
-HTTP Method: GET
-### Example 3: POST with JSON Body
+#### Success Message
+- **Type**: String | **Default**: `API call completed successfully`
+- **Description**: Message displayed when API call succeeds (HTTP 200-299)
+- **Formats**:
+  - **Plain text**: `Registration successful!`
+  - **Response Format Config**: JSON from Response Formatter tool
+- **Example** (formatted):
+```json
+{"fields":[{"path":"d.Message","title":"Message"},{"path":"d.Pernr","title":"Personnel Number"}]}
+```
+- **Result**: Multi-line formatted display with custom titles
 
-### Example 2: Simple GET Request with Pre-obtained Token
+#### Warning Message
+- **Type**: String | **Default**: `API call completed with warnings`
+- **Description**: Message for warning status (HTTP 300-399)
+- **Supports**: Plain text or Response Format Configuration
 
-```javascript
-// Configure in Nintex Form
-API URL: https://api.example.com/users/123
-HTTP Method: GET
-Bearer Token: {Variable:AuthToken}
-```*Button Text** | String | Text displayed on the button | `'Send API Request'` |
-| **Button Alignment** | Dropdown | left, center, right | `'left'` |
-| **Button Visible** | Boolean | Show/hide the button | `true` |
-| **Button Enabled** | Boolean | Enable/disable the button | `true` |
-| **Success Message** | String | Custom message for successful calls | `'API call completed successfully'` |
-| **Warning Message** | String | Custom message for warnings | `'API call completed with warnings'` |
-| **Error Message** | String | Custom message for errors | `'API call failed'` |
+#### Error Message
+- **Type**: String | **Default**: `API call failed`
+- **Description**: Message when API call fails (HTTP 400+)
+- **Supports**: Plain text or Response Format Configuration
+
+---
+
+### Button Configuration
+
+#### Button Text
+- **Type**: String | **Default**: `Send API Request`
+- **Example**: `Submit Registration`, `Check Status`, `Send to SAP`
+
+#### Button Alignment
+- **Type**: Dropdown | **Default**: `left`
+- **Options**: `left`, `center`, `right`
+
+#### Button Visible
+- **Type**: Boolean | **Default**: `true`
+- **When false**: Button hidden, but API still executes when `Send API Call` is triggered
+- **Use case**: Background API calls triggered by form rules
+
+#### Button Enabled
+- **Type**: Boolean | **Default**: `true`
+- **When false**: Button visible but disabled (grayed out)
+
+---
 
 ### Behavior Controls
 
-| Property | Type | Description | Default |
-|----------|------|-------------|---------|
-| **Send API Call** | Boolean | Trigger API call (resets to false after execution) | `false` |
-| **Allow Multiple API Calls** | Boolean | Allow repeated calls vs. single execution | `false` |
-| **Enable Countdown Timer** | Boolean | Enforce delay between calls | `false` |
-| **Countdown Timer** | Number | Seconds to wait between calls | `5` |
-| **Debug Mode** | Boolean | Enable advanced debug interface | `false` |
+#### Send API Call
+- **Type**: Boolean | **Default**: `false`
+- **Description**: Trigger for API execution
+- **How it works**:
+  1. Set to `true` via button click, Nintex rule, or workflow
+  2. Plugin executes API call
+  3. Automatically resets to `false` after execution
+
+#### Allow Multiple API Calls
+- **Type**: Boolean | **Default**: `false`
+- **When false**: Button permanently disabled after first successful/warning response
+- **When true**: Button re-enables after each call (respects countdown timer if enabled)
+
+#### Form Validation
+- **Type**: Boolean | **Default**: `false`
+- **When true**: Validates entire Nintex form before API execution
+- **Validation includes**:
+  - Required fields
+  - HTML5 validation rules
+  - Nintex custom validation
+  - ARIA invalid states
+- **On failure**: Shows error message with invalid field count, blocks API call
+
+#### Enable Countdown Timer
+- **Type**: Boolean | **Default**: `false`
+- **When true**: Enforces delay between API calls
+- **When false**: Allows unlimited rapid calls
+
+#### Countdown Timer
+- **Type**: Number (seconds) | **Default**: `5`
+- **Description**: Seconds to wait between API calls when countdown is enabled
+
+---
+
+### Submission Actions
+
+#### Submission Action
+- **Type**: Dropdown | **Default**: `none`
+- **Options**:
+  - **none**: No automatic submission
+  - **quick-submit**: Immediately submit Nintex form after successful API call
+  - **delayed-submit**: Show countdown, then submit form (respects Countdown Timer value)
+- **Triggers on**: Success (200-299) and Warning (300-399) responses only
+
+#### Hide Submit Button
+- **Type**: Boolean | **Default**: `false`
+- **When true**: Hides the standard Nintex form submit button
+- **How**: Injects global CSS to hide `button[data-e2e="btn-submit"]`
+- **Use case**: Force users to submit via API call button
+- **Note**: Submit button remains functional when hidden (for `Submission Action` use)
+
+---
+
+### Advanced Configuration
+
+#### Wait for Callback Response
+- **Type**: Boolean | **Default**: `false`
+- **Description**: Wait for callback POST body after workflow completion
+- **Use case**: Long-running workflows that send results asynchronously
+
+#### Debug Mode
+- **Type**: Boolean | **Default**: `false`
+- **When true**: Replaces button with tabbed debugging interface
+- **When false**: Shows only the API call button
+- **Use case**: Development, testing, and troubleshooting
+
+---
+
+## Debug Mode Guide
+
+Enable comprehensive debugging by setting **Debug Mode** to `true`. This reveals four interactive tabs.
+
+### Tab 1: Plugin Properties
+
+**Purpose**: View and modify all plugin properties in real-time.
+
+**Features**:
+- Properties table showing name, default value, and current value
+- Interactive controls for immediate editing:
+  - Booleans: Toggle checkbox
+  - Strings: Edit textarea
+  - Numbers: Number input
+  - Enums: Dropdown select
+- Sensitive data masked (Bearer Token, Client Secret show last 4 chars)
+- Live updates without leaving the form
+
+**How to Use**:
+1. Click "Plugin Properties" tab
+2. Edit any property directly
+3. Changes apply immediately
+4. Test API call with new configuration
+
+---
+
+### Tab 2: Request Details
+
+**Purpose**: Inspect actual HTTP request and response data.
+
+**Features**:
+- API configuration display (URL, method)
+- OAuth Token Response (if using OAuth)
+- Request Headers (with Authorization)
+- Request Body (complete payload)
+- Response Data (complete API response)
+- State information (loading, success, button state)
+- Copy buttons for all JSON sections
+
+**How to Use**:
+1. Make an API call
+2. Open "Request Details" tab
+3. Review sections:
+   - Verify OAuth Token was fetched
+   - Check Authorization header
+   - Inspect Request Body format
+   - Review Response structure
+4. Click 📋 Copy to copy any JSON
+
+**Example Output**:
+```json
+// OAuth Token Response
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIsInR5...",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}
+
+// Request Headers
+{
+  "Authorization": "Bearer eyJhbGciOiJSUzI1NiIsInR5...",
+  "Content-Type": "application/json"
+}
+```
+
+---
+
+### Tab 3: API Tools
+
+**Purpose**: Build, validate, and format JSON request bodies.
+
+**Features**:
+
+#### JSON Editor
+- Large textarea for complex JSON
+- Real-time validation with status indicator
+- Syntax checking with error messages
+- Character/line/key/size statistics
+
+#### Editor Actions
+- **✨ Format**: Beautify with proper indentation
+- **🗜️ Minify**: Compress to single line
+- **🗑️ Clear**: Remove all content
+- **📝 Sample**: Insert example structure
+
+#### Output Formats
+- **Minified**: Single-line JSON
+- **Escaped**: Minified with escaped quotes
+- **URI Encoded**: URL-safe encoded
+- Copy buttons for each format
+
+**How to Use**:
+1. Open "API Tools" tab
+2. Type or paste JSON
+3. Watch validation status (✓ Valid or ✗ Error)
+4. Use action buttons (Format, Minify, Sample)
+5. Copy desired output format
+6. Click "Copy to Request Body" to use in API call
+
+---
+
+### Tab 4: Response Formatter
+
+**Purpose**: Create formatted response displays visually.
+
+**Features**:
+
+#### JSON Input
+- Large textarea for API response
+- Auto-validation with error display
+
+#### Two-Column Field Configuration
+
+**Left Panel - Available Fields**:
+- Auto-extracted list of all response fields
+- Shows field path and sample value
+- Checkbox to select fields
+- Selected fields highlighted blue
+- Auto-assigns order numbers
+
+**Right Panel - Selected Fields**:
+- Draggable cards showing selected fields
+- **⋮⋮ Handle**: Drag to reorder
+- **Number**: Current position (1, 2, 3...)
+- **Field Path**: Original JSON path
+- **Title Input**: Custom display label
+- **✕ Button**: Remove field
+
+#### Preview Section
+- Shows exact formatted output
+- Uses custom titles
+- Format: `Title: Value` on separate lines
+
+#### Configuration Output
+- Generated JSON config
+- Format: `{"fields":[{"path":"...","title":"..."}]}`
+- **📋 Copy Button**: Copy to clipboard
+- Auto-minified and ready to paste
+
+**Complete Workflow**:
+
+1. **Paste Response JSON**
+   - Make test API call
+   - Copy response from Request Details tab
+   - Paste into "Paste Response JSON" textarea
+   - Verify JSON is valid
+
+2. **Select Fields**
+   - Browse "Available Fields" panel
+   - Check boxes next to desired fields
+   - Fields appear in "Selected Fields" panel
+
+3. **Customize Display**
+   - Edit "Display title" inputs
+   - Drag ⋮⋮ handles to reorder
+   - Click ✕ to remove fields
+   - Watch Preview update in real-time
+
+4. **Generate Configuration**
+   - Review Preview section
+   - Scroll to "Response Format Configuration"
+   - Click 📋 Copy button
+
+5. **Apply to Form**
+   - Paste into Success/Warning/Error Message property
+   - Disable Debug Mode
+   - Make API call
+   - View formatted response
+
+**Example**:
+```json
+// Configuration
+{"fields":[
+  {"path":"d.Message","title":"Message"},
+  {"path":"d.Pernr","title":"Personnel Number"},
+  {"path":"d.EmployeeName","title":"Employee Name"}
+]}
+
+// Result Displayed
+✓ Success
+Message: Registration successful
+Personnel Number: 12345
+Employee Name: John Doe
+```
+
+---
+
+### Debug Mode Best Practices
+
+**During Development**:
+- Keep Debug Mode enabled
+- Use Plugin Properties to test configurations
+- Use API Tools to build request bodies
+- Use Response Formatter to design output
+
+**Before Deployment**:
+- Test all scenarios with actual data
+- Verify Response Formatter output displays correctly
+- Check Request Details for security issues
+- **Disable Debug Mode**
+
+**Security Notes**:
+- Debug Mode shows sensitive data (tokens, secrets)
+- Only enable in development/test environments
+- **Never enable Debug Mode in production**
+
+---
 
 ## Usage Examples
 
-### Example 1: Simple GET Request
+### Example 1: OAuth 2.0 with GET Request
 
 ```javascript
-// Configure in Nintex Form
-API URL: https://api.example.com/users/123
+// Configuration
+Token URL: https://api-qa.example.com/oauth2/v1/token
+Client ID: {Variable:ClientID}
+Client Secret: {Variable:ClientSecret}
+API URL: https://api-qa.example.com/sap/api/v1/hr/HR011
 HTTP Method: GET
-Bearer Token: {Variable:AuthToken}
+Button Text: Fetch Employee Data
+
+// Workflow:
+// 1. Plugin fetches OAuth token from Token URL
+// 2. Makes GET request with Authorization header
+// 3. Returns employee data in response
 ```
 
 ### Example 2: POST with JSON Body
 
 ```javascript
-// Request Body (use Debug Mode > API Tools tab for JSON editing)
+// Configuration
+API URL: https://api.example.com/users
+HTTP Method: POST
+Content Type: application/json
+Bearer Token: {Variable:AuthToken}
+Button Text: Create User
+
+// Request Body (built in API Tools tab):
 {
-  "name": "{Variable:UserName}",
-### Example 4: Extract Specific Response Value
+  "firstName": "{Variable:FirstName}",
+  "lastName": "{Variable:LastName}",
+  "email": "{Variable:Email}",
   "department": "Engineering"
 }
 
-// Request Headers
+// Request Headers:
 {
-  "Content-Type": "application/json",
-  "X-Custom-Header": "value"
+  "X-Request-ID": "{Variable:RequestID}",
+  "X-API-Version": "2.0"
 }
 ```
 
-### Example 3: Extract Specific Response Value
+### Example 3: Form Validation + Auto Submit
 
 ```javascript
-// If API returns:
+// Configuration
+API URL: https://api.example.com/registrations
+HTTP Method: POST
+Token URL: https://auth.example.com/oauth2/token
+Client ID: {Variable:ClientID}
+Client Secret: {Variable:ClientSecret}
+
+// Behavior Settings
+Form Validation: true               // Validate before API call
+Submission Action: delayed-submit   // Auto-submit after success
+Countdown Timer: 5                  // 5-second countdown
+Hide Submit Button: true            // Hide standard submit
+
+Button Text: Submit Registration
+
+// Workflow:
+// 1. User fills form
+// 2. User clicks "Submit Registration"
+// 3. Plugin validates all form fields
+// 4. If invalid: Shows error count, blocks API
+// 5. If valid: Fetches OAuth token
+// 6. Sends data to API
+// 7. If success: Shows formatted response
+// 8. Shows "Submitting form in 5 seconds..."
+// 9. Auto-submits Nintex form
+```
+
+### Example 4: Extract Specific Value
+
+```javascript
+// Configuration
+API URL: https://api.example.com/orders
+HTTP Method: POST
+Output Value Key: data.order.id
+
+// API Response:
 {
+  "success": true,
   "data": {
-### Example 5: Automated Workflow Trigger
-      "id": "12345",
-      "name": "John Doe"
+    "order": {
+      "id": "ORD-12345",
+      "status": "pending"
     }
   }
 }
 
-// Set Output Value Key to: data.user.id
-// The plugin will automatically extract "12345" into value.output
+// Result:
+// value.output = "ORD-12345"
+// Use {Control:WebRequest.output} in workflows
 ```
 
-### Example 4: Automated Workflow Trigger
+### Example 5: Formatted Response Messages
 
 ```javascript
-// Use workflow to set:
-Send API Call: true  // This triggers the API call automatically
+// Step 1: Use Response Formatter (Debug Mode)
+// Paste API response:
+{
+  "d": {
+    "Message": "Registration in SAP successful",
+    "Pernr": "12345",
+    "EmployeeName": "John Doe",
+    "Department": "Engineering"
+  }
+}
 
-// The plugin will:
-// 1. Execute the API call
-// 2. Automatically reset Send API Call to false
-// 3. Update the value object with response data
+// Step 2: Select fields and customize titles
+// - d.Message → "Message"
+// - d.Pernr → "Personnel Number"
+// - d.EmployeeName → "Employee Name"
+// - d.Department → "Department"
+
+// Step 3: Copy configuration, paste into Success Message:
+{"fields":[{"path":"d.Message","title":"Message"},{"path":"d.Pernr","title":"Personnel Number"},{"path":"d.EmployeeName","title":"Employee Name"},{"path":"d.Department","title":"Department"}]}
+
+// Step 4: Disable Debug Mode and test
+
+// User sees:
+✓ Success
+Message: Registration in SAP successful
+Personnel Number: 12345
+Employee Name: John Doe
+Department: Engineering
 ```
+
+### Example 6: Background API Call (Hidden Button)
+
+```javascript
+// Configuration
+API URL: https://api.example.com/audit-log
+HTTP Method: POST
+Button Visible: false
+Send API Call: false
+
+// Request Body:
+{
+  "userId": "{Control:UserID.value}",
+  "action": "form_opened",
+  "timestamp": "{Function:Now()}"
+}
+
+// Nintex Form Rule:
+// When: Form loads
+// Then: Set WebRequestPlugin.sendAPICall = true
+
+// Result:
+// - Button hidden from users
+// - API call triggers automatically on form load
+// - Logs form access without user interaction
+```
+
+### Example 7: Rate Limiting
+
+```javascript
+// Configuration
+API URL: https://api.example.com/status-check
+HTTP Method: GET
+Bearer Token: {Variable:AuthToken}
+
+// Behavior Settings
+Allow Multiple API Calls: true
+Enable Countdown Timer: true
+Countdown Timer: 10
+
+Button Text: Check Status
+
+// Workflow:
+// 1. User clicks "Check Status"
+// 2. API call executes
+// 3. Button disables for 10 seconds
+// 4. Shows "Wait 10 seconds..."
+// 5. Button re-enables
+// 6. User can check status again
+```
+
+### Example 8: Conditional Authentication
+
+```javascript
+// Scenario: Different auth per environment
+
+// Dev Environment Rule:
+// When: {Variable:Environment} = "dev"
+// Then: Set WebRequestPlugin.bearerToken = {Variable:DevToken}
+
+// Prod Environment Rule:
+// When: {Variable:Environment} = "prod"
+// Then:
+//   Set WebRequestPlugin.tokenUrl = {Variable:ProdTokenURL}
+//   Set WebRequestPlugin.clientId = {Variable:ProdClientID}
+//   Set WebRequestPlugin.clientSecret = {Variable:ProdClientSecret}
+
+// Configuration
+API URL: {Variable:BaseURL}/api/endpoint
+HTTP Method: POST
+
+// Result:
+// - Dev: Simple bearer token
+// - Prod: OAuth 2.0 with client credentials
+```
+
+---
 
 ## Response Object
 
@@ -204,135 +711,136 @@ The plugin returns a structured response object in the `value` property:
 
 ```typescript
 {
-  success: boolean,           // true if call succeeded
-  statusCode: number,         // HTTP status code
+  success: boolean,           // true if HTTP 200-299
+  statusCode: number,         // HTTP status code (200, 404, 500, etc.)
   responseType: string,       // 'success', 'warning', or 'error'
-  data: string,              // Raw response data
+  data: string,              // Raw response data (stringified JSON)
   message: string,           // User-friendly message
-  timestamp: string,         // ISO timestamp
+  timestamp: string,         // ISO timestamp of API call
   executionTime: number,     // Milliseconds taken
   access_token?: string,     // Auto-extracted if present in response
   output?: any              // Custom extracted value (if outputValueKey set)
 }
 ```
 
-## Debug Mode
+**Accessing in Nintex**:
+- `{Control:WebRequest.success}` - Boolean success flag
+- `{Control:WebRequest.statusCode}` - HTTP status code
+- `{Control:WebRequest.data}` - Raw response data
+- `{Control:WebRequest.message}` - Response message
+- `{Control:WebRequest.output}` - Extracted value (from outputValueKey)
+- `{Control:WebRequest.access_token}` - OAuth token (for reuse)
 
-Enable **Debug Mode** for development and troubleshooting. This provides four interactive tabs:
+---
 
-### 1. Plugin Properties
-View all current property values vs. defaults
+## Troubleshooting
 
-### 2. Request Details
-- View formatted request configuration
-- Copy request headers, body, and response
-- Monitor button state and API call status
+### CORS Issues
+**Symptoms**: Error message mentioning "CORS" or "Cross-Origin"
 
-### 3. API Tools
-- **JSON Editor** with syntax highlighting
-- Format, minify, clear, and sample JSON
-- Real-time validation and statistics
-- Generate minified and escaped output
+**Solutions**:
+- Ensure API server returns proper CORS headers
+- Check `Access-Control-Allow-Origin` header is present
+- Verify API handles OPTIONS preflight requests
+- Contact API administrator if you don't control the server
 
-### 4. Response Formatter
-- Paste API response JSON
-- Select fields to display with custom titles
-- Preview formatted output
-- Generate and save response configuration
+### OAuth Token Fetch Failures
+**Symptoms**: Error about token endpoint, 401 unauthorized
 
-## Advanced Features
+**Check**:
+- Token URL is correct and accessible
+- Client ID and Client Secret are valid
+- Token endpoint supports `client_credentials` grant type
+- Use Debug Mode > Request Details to inspect error
+- Verify OAuth Token Response section shows access_token
 
-### Rate Limiting
+### Authentication Failures
+**Symptoms**: 401 or 403 errors from API
 
-Prevent rapid API calls by enabling the countdown timer:
+**Check**:
+- Bearer Token is valid and not expired
+- OAuth flow succeeded (check Debug Mode > Request Details)
+- Required headers are included (check Request Headers section)
+- API endpoint expects the authentication method you're using
 
-```javascript
-Enable Countdown Timer: true
-Countdown Timer: 5  // Wait 5 seconds between calls
-```
+### Response Not Updating
+**Symptoms**: Form shows old data or no response
 
-### Silent Mode
+**Check**:
+- `Send API Call` is being set to `true`
+- `Allow Multiple API Calls` is `true` if you need repeated execution
+- API URL is correct and accessible
+- Check Debug Mode > Request Details for actual response
+- Verify no JavaScript errors in browser console
 
-Hide UI completely for background API calls:
+### Form Validation Not Working
+**Symptoms**: API calls with invalid form data
 
-```javascript
-Button Visible: false
-// API still executes when Send API Call is set to true
-```
+**Check**:
+- `Form Validation` property is set to `true`
+- Form fields have proper validation rules
+- Required fields are marked as required
+- Check browser console for validation errors
 
-### Response Formatting
+### Formatted Responses Not Displaying
+**Symptoms**: Shows JSON config instead of formatted output
 
-Use the Response Formatter tool (Debug Mode) to:
-1. Paste a sample API response
-2. Select which fields to display
-3. Add custom titles for each field
-4. Generate configuration JSON
-5. Save to Response Format Configuration property
+**Check**:
+- Configuration JSON is valid (test in API Tools tab)
+- Field paths match actual response structure
+- Response Format Configuration is pasted into Success/Warning/Error Message
+- Debug Mode is disabled (formatted display only works in normal mode)
+
+### Button Remains Disabled
+**Symptoms**: Button grayed out, can't click
+
+**Check**:
+- `Button Enabled` is `true`
+- `Allow Multiple API Calls` is `true` (if you need repeated calls)
+- Not in cooldown period (if countdown enabled)
+- Previous call was not successful (if multiple calls disabled)
+- Check Debug Mode > Request Details > State section
+
+---
 
 ## Development
 
 ### Project Structure
-
 ```
 src/
-  plugin.ts       # Main plugin component
+  plugin.ts       # Main plugin component (2,486 lines)
   apiClient.ts    # API call handler
   nintex.css      # Styles
 dist/             # Build output
 ```
 
 ### Build Commands
-
 ```sh
-npm run build    # Build for production
-npm run deploy   # Build and copy to dist/
-npm run dev      # Development mode with watch
+npm run build    # TypeScript compilation
+npm run bundle   # esbuild bundling
+npm run deploy   # Build + bundle
 ```
 
-### Publishing
-## Troubleshooting
+### Key Technologies
+- **LitElement**: Web component framework
+- **TypeScript**: Type-safe development
+- **esbuild**: Fast bundling
+- **Nintex Form Plugin Contract**: Form integration
 
-### CORS Issues
-
-If you encounter CORS errors, ensure your API server:
-- Returns proper CORS headers for OPTIONS requests
-- Handles preflight requests before authentication
-- Includes `Access-Control-Allow-Origin` header
-
-### OAuth Token Fetch Failures
-
-- Verify Token URL is correct and accessible
-- Check Client ID and Client Secret are valid
-- Ensure the token endpoint supports `client_credentials` grant type
-- Review error messages in the plugin response
-- Use Debug Mode > Request Details to inspect the error
-
-### Authentication Failures
-
-- If using OAuth flow: Verify Token URL, Client ID, and Client Secret
-- If using Bearer Token: Verify token is valid and not expired
-- Check that required headers are included
-- Use Debug Mode > Request Details to inspect actual request
-
-If you encounter CORS errors, ensure your API server:
-- Returns proper CORS headers for OPTIONS requests
-- Handles preflight requests before authentication
-- Includes `Access-Control-Allow-Origin` header
-
-### Authentication Failures
-
-- Verify Bearer Token is valid and not expired
-- Check that required headers are included
-- Use Debug Mode > Request Details to inspect actual request
-
-### Response Not Updating
-
-- Ensure `Send API Call` is being set to `true`
-- Check `Allow Multiple API Calls` if you need repeated execution
-- Verify API URL is correct and accessible
+---
 
 ## References
 
 - [Nintex Form Plugin Documentation](https://help.nintex.com/en-US/formplugins/Reference/Create.htm)
 - [LitElement Documentation](https://lit.dev/)
-- [Nintex Automation Cloud](https://www.nintex.com/)
+- [OAuth 2.0 Client Credentials Flow](https://oauth.net/2/grant-types/client-credentials/)
+
+---
+
+## License
+
+[Your License Here]
+
+## Support
+
+For issues, questions, or contributions, please [open an issue](https://github.com/your-repo/issues) on GitHub.
