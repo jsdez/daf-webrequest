@@ -537,7 +537,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                 break;
             default: message = 'Unknown response type';
         }
-        // Check if message is a Response Format Configuration JSON
+        // Check if message is a Response Format Configuration JSON (quoted format: "{...}")
         if (message.startsWith('"{') && message.endsWith('}"')) {
             try {
                 // Remove outer quotes and unescape
@@ -547,7 +547,19 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                 return this.formatResponseWithConfig(config);
             }
             catch (e) {
-                console.error('[Message Formatting] Failed to parse config:', e);
+                console.error('[Message Formatting] Failed to parse quoted config:', e);
+                return message; // Fall back to showing the raw message
+            }
+        }
+        // Check if message is a Response Format Configuration JSON (unquoted format: {...})
+        if (message.trim().startsWith('{"fields"') && message.trim().endsWith('}')) {
+            try {
+                const config = JSON.parse(message);
+                // Format response using config
+                return this.formatResponseWithConfig(config);
+            }
+            catch (e) {
+                console.error('[Message Formatting] Failed to parse unquoted config:', e);
                 return message; // Fall back to showing the raw message
             }
         }
