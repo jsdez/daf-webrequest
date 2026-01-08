@@ -1012,19 +1012,43 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
             </div>
 
             <div class="form-group">
-              <label class="control-label">Configuration JSON</label>
-              <textarea 
-                class="form-control" 
-                readonly
-                rows="6"
-                .value=${this.generateResponseConfig()}
-                style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 12px;"
-              ></textarea>
+              <label class="control-label">Response Format Configuration</label>
+              <div style="position: relative;">
+                <textarea 
+                  class="form-control" 
+                  readonly
+                  rows="3"
+                  .value=${this.generateResponseConfigQuoted()}
+                  style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 12px; padding-right: 80px;"
+                ></textarea>
+                <button 
+                  class="btn btn-primary" 
+                  style="position: absolute; top: 8px; right: 8px; padding: 4px 12px; font-size: 12px;"
+                  @click=${() => {
+            const quoted = this.generateResponseConfigQuoted();
+            this.copyToClipboard(quoted);
+            alert('Configuration copied to clipboard!');
+        }}
+                  title="Copy to clipboard"
+                >
+                  📋 Copy
+                </button>
+              </div>
               <button 
                 class="btn btn-primary" 
                 style="margin-top: 8px;"
                 @click=${() => {
-            this.responseConfig = this.generateResponseConfig();
+            // Store the minified version (without outer quotes) to the property
+            const config = { fields: [] };
+            this.formatterSelectedFields.forEach((fieldConfig, key) => {
+                if (fieldConfig.checked) {
+                    config.fields.push({
+                        path: key,
+                        title: fieldConfig.title || key
+                    });
+                }
+            });
+            this.responseConfig = JSON.stringify(config);
             this.requestUpdate();
             alert('Configuration saved to responseConfig property!');
         }}
@@ -1123,6 +1147,20 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
             }
         });
         return JSON.stringify(config, null, 2);
+    }
+    generateResponseConfigQuoted() {
+        const config = { fields: [] };
+        this.formatterSelectedFields.forEach((fieldConfig, key) => {
+            if (fieldConfig.checked) {
+                config.fields.push({
+                    path: key,
+                    title: fieldConfig.title || key
+                });
+            }
+        });
+        // Minify and wrap in double quotes
+        const minified = JSON.stringify(config);
+        return `"${minified.replace(/"/g, '\\"')}"`;
     }
     formatValue(value) {
         if (typeof value === 'boolean')
