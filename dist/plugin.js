@@ -459,14 +459,25 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         if (isDelayedSubmission) {
             submissionCountdown = Math.ceil((cooldownMs - timeSinceLastCall) / 1000);
         }
+        // Check if customMessage contains newlines (formatted response)
+        const isFormattedResponse = customMessage.includes('\n');
         // For success responses, show only the custom message
         if (this.responseType === 'success') {
             return html `
         <div class="alert ${alertClass}" part="response-alert">
           <div>
             <span class="alert-icon">${icon}</span>
-            <strong>${typeLabel}:</strong> ${customMessage}
+            <strong>${typeLabel}</strong>
           </div>
+          ${isFormattedResponse ? html `
+            <div class="alert-response" style="white-space: pre-line; margin-top: 8px;">
+              ${customMessage}
+            </div>
+          ` : html `
+            <div style="display: inline; margin-left: 4px;">
+              ${customMessage}
+            </div>
+          `}
           ${isDelayedSubmission ? html `
             <div class="alert-response">
               Submitting form in ${submissionCountdown} seconds...
@@ -480,8 +491,17 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
       <div class="alert ${alertClass}" part="response-alert">
         <div>
           <span class="alert-icon">${icon}</span>
-          <strong>${typeLabel}:</strong> ${customMessage}
+          <strong>${typeLabel}</strong>
         </div>
+        ${isFormattedResponse ? html `
+          <div class="alert-response" style="white-space: pre-line; margin-top: 8px;">
+            ${customMessage}
+          </div>
+        ` : html `
+          <div style="display: inline; margin-left: 4px;">
+            ${customMessage}
+          </div>
+        `}
         ${((_a = this.value) === null || _a === void 0 ? void 0 : _a.message) ? html `
           <div class="alert-response">
             ${this.value.message}
@@ -1085,17 +1105,6 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                   📋 Copy
                 </button>
               </div>
-              <button 
-                class="btn btn-primary" 
-                style="margin-top: 8px;"
-                @click=${() => {
-            // Just copy to clipboard, user will paste into Nintex property
-            const quoted = this.generateResponseConfigQuoted();
-            this.copyToClipboard(quoted);
-        }}
-              >
-                Copy Configuration
-              </button>
             </div>
           ` : ''}
         ` : ''}
