@@ -441,7 +441,6 @@ export class DafWebRequestPlugin extends LitElement {
   @property({ type: String }) clientId!: string;
   @property({ type: String }) clientSecret!: string;
   @property({ type: String }) outputValueKey!: string;
-  @property({ type: String }) responseConfig!: string;
   @property({ type: String }) contentType!: string;
   @property({ type: Boolean }) debugMode!: boolean;
   @property({ type: String }) method!: string;
@@ -496,7 +495,6 @@ export class DafWebRequestPlugin extends LitElement {
     this.clientId = '';
     this.clientSecret = '';
     this.outputValueKey = '';
-    this.responseConfig = '';
     this.contentType = 'application/json';
     this.debugMode = false;
     this.method = 'POST';
@@ -585,12 +583,6 @@ export class DafWebRequestPlugin extends LitElement {
           description: 'Optional: JSON key path to extract from response',
           defaultValue: '',
         } as PropType,
-        responseConfig: {
-          type: 'string',
-          title: 'Response Format Configuration',
-          description: 'JSON configuration for formatting API response display',
-          defaultValue: '',
-        } as PropType,
         contentType: {
           type: 'string',
           title: 'Content Type',
@@ -675,19 +667,19 @@ export class DafWebRequestPlugin extends LitElement {
         successMessage: {
           type: 'string',
           title: 'Success Message',
-          description: 'Custom message to display when the API call succeeds.',
+          description: 'Custom message to display when the API call succeeds. Can be plain text or a Response Format Configuration JSON from the Response Formatter.',
           defaultValue: 'API call completed successfully',
         } as PropType,
         warningMessage: {
           type: 'string',
           title: 'Warning Message',
-          description: 'Custom message to display when the API call returns a warning.',
+          description: 'Custom message to display when the API call returns a warning. Can be plain text or a Response Format Configuration JSON from the Response Formatter.',
           defaultValue: 'API call completed with warnings',
         } as PropType,
         errorMessage: {
           type: 'string',
           title: 'Error Message',
-          description: 'Custom message to display when the API call fails.',
+          description: 'Custom message to display when the API call fails. Can be plain text or a Response Format Configuration JSON from the Response Formatter.',
           defaultValue: 'API call failed',
         } as PropType,
         sendAPICall: {
@@ -965,12 +957,56 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   private getCustomMessage(type: 'success' | 'warning' | 'error'): string {
+    let message: string;
     switch (type) {
-      case 'success': return this.successMessage;
-      case 'warning': return this.warningMessage;
-      case 'error': return this.errorMessage;
-      default: return 'Unknown response type';
+      case 'success': message = this.successMessage; break;
+      case 'warning': message = this.warningMessage; break;
+      case 'error': message = this.errorMessage; break;
+      default: message = 'Unknown response type';
     }
+    
+    // Check if message is a Response Format Configuration JSON
+    if (message.startsWith('"{') && message.endsWith('}"')) {
+      try {
+        // Remove outer quotes and unescape
+        const unquoted = message.slice(1, -1).replace(/\\"/g, '"');
+        const config = JSON.parse(unquoted);
+        
+        // Format response using config
+        return this.formatResponseWithConfig(config);
+      } catch (e) {
+        console.error('[Message Formatting] Failed to parse config:', e);
+        return message; // Fall back to showing the raw message
+      }
+    }
+    
+    // Return plain text message
+    return message;
+  }
+
+  private formatResponseWithConfig(config: any): string {
+    if (!config.fields || !Array.isArray(config.fields)) {
+      return 'Invalid configuration format';
+    }
+    
+    // Parse the response data
+    let responseData: any;
+    try {
+      responseData = JSON.parse(this.value.data);
+    } catch (e) {
+      console.error('[Message Formatting] Failed to parse response data:', e);
+      return 'Unable to parse response data';
+    }
+    
+    // Format each field according to config
+    const lines: string[] = [];
+    config.fields.forEach((field: any) => {
+      const value = this.extractNestedValue(responseData, field.path);
+      const displayValue = value !== undefined ? String(value) : 'N/A';
+      lines.push(`${field.title}: ${displayValue}`);
+    });
+    
+    return lines.join('\n');
   }
 
   // Handle property changes from the host application
@@ -1533,7 +1569,6 @@ export class DafWebRequestPlugin extends LitElement {
                   @click=${() => {
                     const quoted = this.generateResponseConfigQuoted();
                     this.copyToClipboard(quoted);
-                    alert('Configuration copied to clipboard!');
                   }}
                   title="Copy to clipboard"
                 >
@@ -1544,22 +1579,12 @@ export class DafWebRequestPlugin extends LitElement {
                 class="btn btn-primary" 
                 style="margin-top: 8px;"
                 @click=${() => {
-                  // Store the minified version (without outer quotes) to the property
-                  const config: any = { fields: [] };
-                  this.formatterSelectedFields.forEach((fieldConfig, key) => {
-                    if (fieldConfig.checked) {
-                      config.fields.push({
-                        path: key,
-                        title: fieldConfig.title || key
-                      });
-                    }
-                  });
-                  this.responseConfig = JSON.stringify(config);
-                  this.requestUpdate();
-                  alert('Configuration saved to responseConfig property!');
+                  // Just copy to clipboard, user will paste into Nintex property
+                  const quoted = this.generateResponseConfigQuoted();
+                  this.copyToClipboard(quoted);
                 }}
               >
-                Save Configuration
+                Copy Configuration
               </button>
             </div>
           ` : ''}
