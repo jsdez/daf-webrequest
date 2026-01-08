@@ -458,6 +458,7 @@ export class DafWebRequestPlugin extends LitElement {
   @property({ type: Boolean }) btnVisible!: boolean;
   @property({ type: Boolean }) formValidation!: boolean;
   @property({ type: String }) submissionAction!: string;
+  @property({ type: Boolean }) submitHidden!: boolean;
 
   // Instance-specific state (not reactive properties - these are internal state only)
   private isLoading = false;
@@ -512,6 +513,14 @@ export class DafWebRequestPlugin extends LitElement {
     this.btnVisible = true;
     this.formValidation = false;
     this.submissionAction = 'none';
+    this.submitHidden = false;
+  }
+
+  // Called when the element is added to the DOM
+  connectedCallback() {
+    super.connectedCallback();
+    // Apply submit button visibility on initial load
+    this.toggleSubmitButtonVisibility();
   }
 
   static getMetaConfig(): PluginContract {
@@ -743,6 +752,12 @@ export class DafWebRequestPlugin extends LitElement {
           enum: ['none', 'quick-submit', 'delayed-submit'],
           defaultValue: 'none',
         } as PropType,
+        submitHidden: {
+          type: 'boolean',
+          title: 'Hide Submit Button',
+          description: 'If true, hides the Nintex form submit button from users.',
+          defaultValue: false,
+        } as PropType,
       },
       standardProperties: {
         fieldLabel: true,
@@ -971,6 +986,37 @@ export class DafWebRequestPlugin extends LitElement {
     // Watch for sendAPICall property changes to trigger API automatically
     if (changedProperties.has('sendAPICall') && this.sendAPICall) {
       this.handleAPICallTrigger();
+    }
+
+    // Watch for submitHidden property changes to hide/show the Nintex submit button
+    if (changedProperties.has('submitHidden')) {
+      this.toggleSubmitButtonVisibility();
+    }
+  }
+
+  private toggleSubmitButtonVisibility(): void {
+    const styleId = 'ntx-submit-button-hidden-style';
+    
+    if (this.submitHidden) {
+      // Hide the submit button by injecting CSS
+      if (!document.getElementById(styleId)) {
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = `
+          button[data-e2e="btn-submit"] {
+            display: none !important;
+          }
+        `;
+        document.head.appendChild(style);
+        console.log('[Submit Button] Hidden via CSS');
+      }
+    } else {
+      // Show the submit button by removing the CSS
+      const existingStyle = document.getElementById(styleId);
+      if (existingStyle) {
+        existingStyle.remove();
+        console.log('[Submit Button] Made visible by removing CSS');
+      }
     }
   }
 
