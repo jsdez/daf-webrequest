@@ -687,7 +687,9 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
           type="checkbox" 
           .checked=${currentValue}
           @change=${(e) => {
-                this[propName] = e.target.checked;
+                const newValue = e.target.checked;
+                this[propName] = newValue;
+                console.log(`[Property Change] ${propName} updated to:`, newValue);
                 this.requestUpdate();
             }}
           style="width: auto; height: auto; cursor: pointer;"
@@ -699,9 +701,10 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
             return html `
         <select
           class="form-control"
-          .value=${currentValue}
           @change=${(e) => {
-                this[propName] = e.target.value;
+                const newValue = e.target.value;
+                this[propName] = newValue;
+                console.log(`[Property Change] ${propName} updated to:`, newValue);
                 this.requestUpdate();
             }}
           style="width: auto; min-width: 150px; height: auto; padding: 4px 8px;"
@@ -721,7 +724,9 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
           .value=${currentValue}
           @input=${(e) => {
                 const value = e.target.value;
-                this[propName] = value === '' ? 0 : Number(value);
+                const newValue = value === '' ? 0 : Number(value);
+                this[propName] = newValue;
+                console.log(`[Property Change] ${propName} updated to:`, newValue);
                 this.requestUpdate();
             }}
           style="width: auto; min-width: 100px; height: auto; padding: 4px 8px;"
@@ -739,7 +744,9 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
           class="form-control"
           .value=${displayValue}
           @input=${(e) => {
-                this[propName] = e.target.value;
+                const newValue = e.target.value;
+                this[propName] = newValue;
+                console.log(`[Property Change] ${propName} updated to:`, newValue.substring(0, 50) + (newValue.length > 50 ? '...' : ''));
                 this.requestUpdate();
             }}
           rows="1"

@@ -1164,7 +1164,9 @@ export class DafWebRequestPlugin extends LitElement {
           type="checkbox" 
           .checked=${currentValue}
           @change=${(e: Event) => {
-            (this as any)[propName] = (e.target as HTMLInputElement).checked;
+            const newValue = (e.target as HTMLInputElement).checked;
+            (this as any)[propName] = newValue;
+            console.log(`[Property Change] ${propName} updated to:`, newValue);
             this.requestUpdate();
           }}
           style="width: auto; height: auto; cursor: pointer;"
@@ -1177,9 +1179,10 @@ export class DafWebRequestPlugin extends LitElement {
       return html`
         <select
           class="form-control"
-          .value=${currentValue}
           @change=${(e: Event) => {
-            (this as any)[propName] = (e.target as HTMLSelectElement).value;
+            const newValue = (e.target as HTMLSelectElement).value;
+            (this as any)[propName] = newValue;
+            console.log(`[Property Change] ${propName} updated to:`, newValue);
             this.requestUpdate();
           }}
           style="width: auto; min-width: 150px; height: auto; padding: 4px 8px;"
@@ -1200,7 +1203,9 @@ export class DafWebRequestPlugin extends LitElement {
           .value=${currentValue}
           @input=${(e: Event) => {
             const value = (e.target as HTMLInputElement).value;
-            (this as any)[propName] = value === '' ? 0 : Number(value);
+            const newValue = value === '' ? 0 : Number(value);
+            (this as any)[propName] = newValue;
+            console.log(`[Property Change] ${propName} updated to:`, newValue);
             this.requestUpdate();
           }}
           style="width: auto; min-width: 100px; height: auto; padding: 4px 8px;"
@@ -1220,7 +1225,9 @@ export class DafWebRequestPlugin extends LitElement {
           class="form-control"
           .value=${displayValue}
           @input=${(e: Event) => {
-            (this as any)[propName] = (e.target as HTMLTextAreaElement).value;
+            const newValue = (e.target as HTMLTextAreaElement).value;
+            (this as any)[propName] = newValue;
+            console.log(`[Property Change] ${propName} updated to:`, newValue.substring(0, 50) + (newValue.length > 50 ? '...' : ''));
             this.requestUpdate();
           }}
           rows="1"
