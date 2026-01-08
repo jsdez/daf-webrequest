@@ -417,7 +417,7 @@ export class DafWebRequestPlugin extends LitElement {
   // Add private property to track active debug tab
   private activeDebugTab: string = 'properties';
   private formatterJsonInput: string = '';
-  private formatterSelectedFields: Map<string, { title: string; checked: boolean }> = new Map();
+  private formatterSelectedFields: Map<string, { title: string; checked: boolean; order: number }> = new Map();
 
   @property({ type: String }) label!: string;
   @property({ type: String }) description!: string;
@@ -1489,9 +1489,23 @@ export class DafWebRequestPlugin extends LitElement {
 
         ${isValidJson && parsedJson ? html`
           <div class="form-group">
-            <label class="control-label">Select Fields to Display</label>
-            <div style="max-height: 400px; overflow-y: auto; border: 1px solid var(--ntx-form-theme-color-border); border-radius: 4px; padding: 12px;">
-              ${this.renderFieldSelector(parsedJson, '')}
+            <label class="control-label">Configure Response Fields</label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+              <!-- Available Fields -->
+              <div>
+                <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--ntx-form-theme-color-input-text);">Available Fields</h4>
+                <div style="max-height: 500px; overflow-y: auto; border: 1px solid var(--ntx-form-theme-color-border); border-radius: 4px; padding: 12px; background: var(--ntx-form-theme-color-background);">
+                  ${this.renderAvailableFields(parsedJson, '')}
+                </div>
+              </div>
+              
+              <!-- Selected Fields -->
+              <div>
+                <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--ntx-form-theme-color-input-text);">Selected Fields (drag to reorder)</h4>
+                <div style="max-height: 500px; overflow-y: auto; border: 1px solid var(--ntx-form-theme-color-border); border-radius: 4px; padding: 12px; background: var(--ntx-form-theme-color-background-alt);">
+                  ${this.renderSelectedFieldsList()}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1554,7 +1568,7 @@ export class DafWebRequestPlugin extends LitElement {
     `;
   }
 
-  private renderFieldSelector(obj: any, path: string): any {
+  private renderAvailableFields(obj: any, path: string): any {
     const fields: any[] = [];
     
     const processObject = (current: any, currentPath: string) => {
@@ -1567,42 +1581,40 @@ export class DafWebRequestPlugin extends LitElement {
           if (value !== null && typeof value !== 'object') {
             const fieldKey = fullPath;
             const isChecked = this.formatterSelectedFields.get(fieldKey)?.checked || false;
-            const customTitle = this.formatterSelectedFields.get(fieldKey)?.title || '';
             
             fields.push(html`
-              <div style="display: flex; align-items: center; margin-bottom: 12px; gap: 12px;">
+              <div style="display: flex; align-items: flex-start; margin-bottom: 10px; padding: 8px; border-radius: 4px; background: ${isChecked ? 'var(--ntx-form-theme-color-primary-light, #e3f2fd)' : 'transparent'}; transition: background 0.2s;">
                 <input 
                   type="checkbox" 
                   .checked=${isChecked}
                   @change=${(e: Event) => {
                     const target = e.target as HTMLInputElement;
-                    const existing = this.formatterSelectedFields.get(fieldKey) || { title: '', checked: false };
-                    this.formatterSelectedFields.set(fieldKey, { ...existing, checked: target.checked });
+                    if (target.checked) {
+                      // Get highest order number and add 1
+                      let maxOrder = -1;
+                      this.formatterSelectedFields.forEach(field => {
+                        if (field.order > maxOrder) maxOrder = field.order;
+                      });
+                      this.formatterSelectedFields.set(fieldKey, { 
+                        title: fieldKey.split('.').pop() || fieldKey, 
+                        checked: true,
+                        order: maxOrder + 1
+                      });
+                    } else {
+                      this.formatterSelectedFields.delete(fieldKey);
+                    }
                     this.requestUpdate();
                   }}
-                  style="width: 18px; height: 18px; cursor: pointer;"
+                  style="width: 18px; height: 18px; cursor: pointer; margin-top: 2px; flex-shrink: 0;"
                 />
-                <div style="flex: 1;">
-                  <div style="font-weight: 500; margin-bottom: 4px;">
-                    <code style="background: var(--ntx-form-theme-color-background-alt); padding: 2px 6px; border-radius: 3px;">${fieldKey}</code>
+                <div style="flex: 1; margin-left: 10px; min-width: 0;">
+                  <div style="font-weight: 500; margin-bottom: 4px; word-break: break-word;">
+                    <code style="background: var(--ntx-form-theme-color-background-alt); padding: 2px 6px; border-radius: 3px; font-size: 12px;">${fieldKey}</code>
                   </div>
-                  <div style="font-size: 12px; color: var(--ntx-form-theme-color-secondary);">Value: ${String(value)}</div>
+                  <div style="font-size: 11px; color: var(--ntx-form-theme-color-secondary); word-break: break-word;">
+                    ${String(value).length > 50 ? String(value).substring(0, 50) + '...' : String(value)}
+                  </div>
                 </div>
-                ${isChecked ? html`
-                  <input 
-                    type="text" 
-                    class="form-control"
-                    placeholder="Custom title (optional)"
-                    .value=${customTitle}
-                    @input=${(e: Event) => {
-                      const target = e.target as HTMLInputElement;
-                      const existing = this.formatterSelectedFields.get(fieldKey) || { title: '', checked: false };
-                      this.formatterSelectedFields.set(fieldKey, { ...existing, title: target.value });
-                      this.requestUpdate();
-                    }}
-                    style="max-width: 250px; font-size: 13px;"
-                  />
-                ` : ''}
               </div>
             `);
           } else if (value && typeof value === 'object' && !Array.isArray(value)) {
@@ -1614,7 +1626,120 @@ export class DafWebRequestPlugin extends LitElement {
     };
     
     processObject(obj, path);
-    return fields;
+    return fields.length > 0 ? fields : html`<div style="color: var(--ntx-form-theme-color-secondary); font-style: italic; padding: 12px; text-align: center;">No fields available</div>`;
+  }
+
+  private renderSelectedFieldsList(): any {
+    // Sort fields by order
+    const sortedFields = Array.from(this.formatterSelectedFields.entries())
+      .filter(([_, config]) => config.checked)
+      .sort((a, b) => a[1].order - b[1].order);
+
+    if (sortedFields.length === 0) {
+      return html`<div style="color: var(--ntx-form-theme-color-secondary); font-style: italic; padding: 12px; text-align: center;">No fields selected. Check fields from the left panel.</div>`;
+    }
+
+    return sortedFields.map(([fieldKey, config], index) => html`
+      <div 
+        draggable="true"
+        @dragstart=${(e: DragEvent) => {
+          e.dataTransfer!.effectAllowed = 'move';
+          e.dataTransfer!.setData('text/plain', index.toString());
+        }}
+        @dragover=${(e: DragEvent) => {
+          e.preventDefault();
+          e.dataTransfer!.dropEffect = 'move';
+        }}
+        @drop=${(e: DragEvent) => {
+          e.preventDefault();
+          const fromIndex = parseInt(e.dataTransfer!.getData('text/plain'));
+          const toIndex = index;
+          
+          if (fromIndex !== toIndex) {
+            // Reorder the fields
+            const reorderedFields = Array.from(sortedFields);
+            const [movedItem] = reorderedFields.splice(fromIndex, 1);
+            reorderedFields.splice(toIndex, 0, movedItem);
+            
+            // Update orders
+            reorderedFields.forEach(([key, cfg], idx) => {
+              this.formatterSelectedFields.set(key, { ...cfg, order: idx });
+            });
+            
+            this.requestUpdate();
+          }
+        }}
+        style="
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 10px;
+          padding: 10px;
+          background: var(--ntx-form-theme-color-background);
+          border: 1px solid var(--ntx-form-theme-color-border);
+          border-radius: 4px;
+          cursor: move;
+          transition: all 0.2s;
+        "
+        @mouseenter=${(e: MouseEvent) => {
+          (e.currentTarget as HTMLElement).style.borderColor = 'var(--ntx-form-theme-color-primary)';
+          (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+        }}
+        @mouseleave=${(e: MouseEvent) => {
+          (e.currentTarget as HTMLElement).style.borderColor = 'var(--ntx-form-theme-color-border)';
+          (e.currentTarget as HTMLElement).style.boxShadow = 'none';
+        }}
+      >
+        <div style="font-size: 16px; color: var(--ntx-form-theme-color-secondary); cursor: grab;" title="Drag to reorder">
+          ⋮⋮
+        </div>
+        <div style="font-weight: 600; color: var(--ntx-form-theme-color-primary); min-width: 30px;">
+          ${index + 1}.
+        </div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 11px; color: var(--ntx-form-theme-color-secondary); margin-bottom: 4px; word-break: break-all;">
+            <code style="font-size: 10px;">${fieldKey}</code>
+          </div>
+          <input 
+            type="text" 
+            class="form-control"
+            placeholder="Display title"
+            .value=${config.title}
+            @input=${(e: Event) => {
+              const target = e.target as HTMLInputElement;
+              this.formatterSelectedFields.set(fieldKey, { ...config, title: target.value });
+              this.requestUpdate();
+            }}
+            style="font-size: 13px; padding: 6px 8px; height: auto;"
+          />
+        </div>
+        <button
+          @click=${() => {
+            this.formatterSelectedFields.delete(fieldKey);
+            this.requestUpdate();
+          }}
+          style="
+            background: var(--ntx-form-theme-color-error, #dc3545);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: filter 0.2s;
+          "
+          @mouseenter=${(e: MouseEvent) => {
+            (e.currentTarget as HTMLElement).style.filter = 'brightness(0.9)';
+          }}
+          @mouseleave=${(e: MouseEvent) => {
+            (e.currentTarget as HTMLElement).style.filter = 'brightness(1)';
+          }}
+          title="Remove field"
+        >
+          ✕
+        </button>
+      </div>
+    `);
   }
 
   private renderFormattedPreview(obj: any): any {
@@ -1639,13 +1764,16 @@ export class DafWebRequestPlugin extends LitElement {
   private generateResponseConfig(): string {
     const config: any = { fields: [] };
     
-    this.formatterSelectedFields.forEach((fieldConfig, key) => {
-      if (fieldConfig.checked) {
-        config.fields.push({
-          path: key,
-          title: fieldConfig.title || key
-        });
-      }
+    // Sort by order before generating config
+    const sortedFields = Array.from(this.formatterSelectedFields.entries())
+      .filter(([_, fieldConfig]) => fieldConfig.checked)
+      .sort((a, b) => a[1].order - b[1].order);
+    
+    sortedFields.forEach(([key, fieldConfig]) => {
+      config.fields.push({
+        path: key,
+        title: fieldConfig.title || key
+      });
     });
     
     return JSON.stringify(config, null, 2);
@@ -1654,13 +1782,16 @@ export class DafWebRequestPlugin extends LitElement {
   private generateResponseConfigQuoted(): string {
     const config: any = { fields: [] };
     
-    this.formatterSelectedFields.forEach((fieldConfig, key) => {
-      if (fieldConfig.checked) {
-        config.fields.push({
-          path: key,
-          title: fieldConfig.title || key
-        });
-      }
+    // Sort by order before generating config
+    const sortedFields = Array.from(this.formatterSelectedFields.entries())
+      .filter(([_, fieldConfig]) => fieldConfig.checked)
+      .sort((a, b) => a[1].order - b[1].order);
+    
+    sortedFields.forEach(([key, fieldConfig]) => {
+      config.fields.push({
+        path: key,
+        title: fieldConfig.title || key
+      });
     });
     
     // Minify and wrap in double quotes

@@ -997,9 +997,23 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
 
         ${isValidJson && parsedJson ? html `
           <div class="form-group">
-            <label class="control-label">Select Fields to Display</label>
-            <div style="max-height: 400px; overflow-y: auto; border: 1px solid var(--ntx-form-theme-color-border); border-radius: 4px; padding: 12px;">
-              ${this.renderFieldSelector(parsedJson, '')}
+            <label class="control-label">Configure Response Fields</label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+              <!-- Available Fields -->
+              <div>
+                <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--ntx-form-theme-color-input-text);">Available Fields</h4>
+                <div style="max-height: 500px; overflow-y: auto; border: 1px solid var(--ntx-form-theme-color-border); border-radius: 4px; padding: 12px; background: var(--ntx-form-theme-color-background);">
+                  ${this.renderAvailableFields(parsedJson, '')}
+                </div>
+              </div>
+              
+              <!-- Selected Fields -->
+              <div>
+                <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--ntx-form-theme-color-input-text);">Selected Fields (drag to reorder)</h4>
+                <div style="max-height: 500px; overflow-y: auto; border: 1px solid var(--ntx-form-theme-color-border); border-radius: 4px; padding: 12px; background: var(--ntx-form-theme-color-background-alt);">
+                  ${this.renderSelectedFieldsList()}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1061,53 +1075,53 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
       </div>
     `;
     }
-    renderFieldSelector(obj, path) {
+    renderAvailableFields(obj, path) {
         const fields = [];
         const processObject = (current, currentPath) => {
             if (current && typeof current === 'object' && !Array.isArray(current)) {
                 Object.keys(current).forEach(key => {
-                    var _a, _b;
+                    var _a;
                     const fullPath = currentPath ? `${currentPath}.${key}` : key;
                     const value = current[key];
                     // Skip nested objects and arrays for now, only show leaf values
                     if (value !== null && typeof value !== 'object') {
                         const fieldKey = fullPath;
                         const isChecked = ((_a = this.formatterSelectedFields.get(fieldKey)) === null || _a === void 0 ? void 0 : _a.checked) || false;
-                        const customTitle = ((_b = this.formatterSelectedFields.get(fieldKey)) === null || _b === void 0 ? void 0 : _b.title) || '';
                         fields.push(html `
-              <div style="display: flex; align-items: center; margin-bottom: 12px; gap: 12px;">
+              <div style="display: flex; align-items: flex-start; margin-bottom: 10px; padding: 8px; border-radius: 4px; background: ${isChecked ? 'var(--ntx-form-theme-color-primary-light, #e3f2fd)' : 'transparent'}; transition: background 0.2s;">
                 <input 
                   type="checkbox" 
                   .checked=${isChecked}
                   @change=${(e) => {
                             const target = e.target;
-                            const existing = this.formatterSelectedFields.get(fieldKey) || { title: '', checked: false };
-                            this.formatterSelectedFields.set(fieldKey, Object.assign(Object.assign({}, existing), { checked: target.checked }));
+                            if (target.checked) {
+                                // Get highest order number and add 1
+                                let maxOrder = -1;
+                                this.formatterSelectedFields.forEach(field => {
+                                    if (field.order > maxOrder)
+                                        maxOrder = field.order;
+                                });
+                                this.formatterSelectedFields.set(fieldKey, {
+                                    title: fieldKey.split('.').pop() || fieldKey,
+                                    checked: true,
+                                    order: maxOrder + 1
+                                });
+                            }
+                            else {
+                                this.formatterSelectedFields.delete(fieldKey);
+                            }
                             this.requestUpdate();
                         }}
-                  style="width: 18px; height: 18px; cursor: pointer;"
+                  style="width: 18px; height: 18px; cursor: pointer; margin-top: 2px; flex-shrink: 0;"
                 />
-                <div style="flex: 1;">
-                  <div style="font-weight: 500; margin-bottom: 4px;">
-                    <code style="background: var(--ntx-form-theme-color-background-alt); padding: 2px 6px; border-radius: 3px;">${fieldKey}</code>
+                <div style="flex: 1; margin-left: 10px; min-width: 0;">
+                  <div style="font-weight: 500; margin-bottom: 4px; word-break: break-word;">
+                    <code style="background: var(--ntx-form-theme-color-background-alt); padding: 2px 6px; border-radius: 3px; font-size: 12px;">${fieldKey}</code>
                   </div>
-                  <div style="font-size: 12px; color: var(--ntx-form-theme-color-secondary);">Value: ${String(value)}</div>
+                  <div style="font-size: 11px; color: var(--ntx-form-theme-color-secondary); word-break: break-word;">
+                    ${String(value).length > 50 ? String(value).substring(0, 50) + '...' : String(value)}
+                  </div>
                 </div>
-                ${isChecked ? html `
-                  <input 
-                    type="text" 
-                    class="form-control"
-                    placeholder="Custom title (optional)"
-                    .value=${customTitle}
-                    @input=${(e) => {
-                            const target = e.target;
-                            const existing = this.formatterSelectedFields.get(fieldKey) || { title: '', checked: false };
-                            this.formatterSelectedFields.set(fieldKey, Object.assign(Object.assign({}, existing), { title: target.value }));
-                            this.requestUpdate();
-                        }}
-                    style="max-width: 250px; font-size: 13px;"
-                  />
-                ` : ''}
               </div>
             `);
                     }
@@ -1119,7 +1133,114 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
             }
         };
         processObject(obj, path);
-        return fields;
+        return fields.length > 0 ? fields : html `<div style="color: var(--ntx-form-theme-color-secondary); font-style: italic; padding: 12px; text-align: center;">No fields available</div>`;
+    }
+    renderSelectedFieldsList() {
+        // Sort fields by order
+        const sortedFields = Array.from(this.formatterSelectedFields.entries())
+            .filter(([_, config]) => config.checked)
+            .sort((a, b) => a[1].order - b[1].order);
+        if (sortedFields.length === 0) {
+            return html `<div style="color: var(--ntx-form-theme-color-secondary); font-style: italic; padding: 12px; text-align: center;">No fields selected. Check fields from the left panel.</div>`;
+        }
+        return sortedFields.map(([fieldKey, config], index) => html `
+      <div 
+        draggable="true"
+        @dragstart=${(e) => {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', index.toString());
+        }}
+        @dragover=${(e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        }}
+        @drop=${(e) => {
+            e.preventDefault();
+            const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
+            const toIndex = index;
+            if (fromIndex !== toIndex) {
+                // Reorder the fields
+                const reorderedFields = Array.from(sortedFields);
+                const [movedItem] = reorderedFields.splice(fromIndex, 1);
+                reorderedFields.splice(toIndex, 0, movedItem);
+                // Update orders
+                reorderedFields.forEach(([key, cfg], idx) => {
+                    this.formatterSelectedFields.set(key, Object.assign(Object.assign({}, cfg), { order: idx }));
+                });
+                this.requestUpdate();
+            }
+        }}
+        style="
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 10px;
+          padding: 10px;
+          background: var(--ntx-form-theme-color-background);
+          border: 1px solid var(--ntx-form-theme-color-border);
+          border-radius: 4px;
+          cursor: move;
+          transition: all 0.2s;
+        "
+        @mouseenter=${(e) => {
+            e.currentTarget.style.borderColor = 'var(--ntx-form-theme-color-primary)';
+            e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+        }}
+        @mouseleave=${(e) => {
+            e.currentTarget.style.borderColor = 'var(--ntx-form-theme-color-border)';
+            e.currentTarget.style.boxShadow = 'none';
+        }}
+      >
+        <div style="font-size: 16px; color: var(--ntx-form-theme-color-secondary); cursor: grab;" title="Drag to reorder">
+          ⋮⋮
+        </div>
+        <div style="font-weight: 600; color: var(--ntx-form-theme-color-primary); min-width: 30px;">
+          ${index + 1}.
+        </div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 11px; color: var(--ntx-form-theme-color-secondary); margin-bottom: 4px; word-break: break-all;">
+            <code style="font-size: 10px;">${fieldKey}</code>
+          </div>
+          <input 
+            type="text" 
+            class="form-control"
+            placeholder="Display title"
+            .value=${config.title}
+            @input=${(e) => {
+            const target = e.target;
+            this.formatterSelectedFields.set(fieldKey, Object.assign(Object.assign({}, config), { title: target.value }));
+            this.requestUpdate();
+        }}
+            style="font-size: 13px; padding: 6px 8px; height: auto;"
+          />
+        </div>
+        <button
+          @click=${() => {
+            this.formatterSelectedFields.delete(fieldKey);
+            this.requestUpdate();
+        }}
+          style="
+            background: var(--ntx-form-theme-color-error, #dc3545);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: filter 0.2s;
+          "
+          @mouseenter=${(e) => {
+            e.currentTarget.style.filter = 'brightness(0.9)';
+        }}
+          @mouseleave=${(e) => {
+            e.currentTarget.style.filter = 'brightness(1)';
+        }}
+          title="Remove field"
+        >
+          ✕
+        </button>
+      </div>
+    `);
     }
     renderFormattedPreview(obj) {
         const items = [];
@@ -1138,25 +1259,29 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
     }
     generateResponseConfig() {
         const config = { fields: [] };
-        this.formatterSelectedFields.forEach((fieldConfig, key) => {
-            if (fieldConfig.checked) {
-                config.fields.push({
-                    path: key,
-                    title: fieldConfig.title || key
-                });
-            }
+        // Sort by order before generating config
+        const sortedFields = Array.from(this.formatterSelectedFields.entries())
+            .filter(([_, fieldConfig]) => fieldConfig.checked)
+            .sort((a, b) => a[1].order - b[1].order);
+        sortedFields.forEach(([key, fieldConfig]) => {
+            config.fields.push({
+                path: key,
+                title: fieldConfig.title || key
+            });
         });
         return JSON.stringify(config, null, 2);
     }
     generateResponseConfigQuoted() {
         const config = { fields: [] };
-        this.formatterSelectedFields.forEach((fieldConfig, key) => {
-            if (fieldConfig.checked) {
-                config.fields.push({
-                    path: key,
-                    title: fieldConfig.title || key
-                });
-            }
+        // Sort by order before generating config
+        const sortedFields = Array.from(this.formatterSelectedFields.entries())
+            .filter(([_, fieldConfig]) => fieldConfig.checked)
+            .sort((a, b) => a[1].order - b[1].order);
+        sortedFields.forEach(([key, fieldConfig]) => {
+            config.fields.push({
+                path: key,
+                title: fieldConfig.title || key
+            });
         });
         // Minify and wrap in double quotes
         const minified = JSON.stringify(config);
