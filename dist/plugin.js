@@ -300,8 +300,8 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                 submissionAction: {
                     type: 'string',
                     title: 'Submission Action',
-                    description: 'Action to take after a successful API call.',
-                    enum: ['none', 'quick-submit', 'delayed-submit'],
+                    description: 'Action to take after a successful API call. Set to "submit-only" to skip API call and directly submit the form.',
+                    enum: ['none', 'quick-submit', 'delayed-submit', 'submit-only'],
                     defaultValue: 'none',
                 },
                 submitHidden: {
@@ -688,6 +688,12 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
             this.sendAPICall = false;
             // Clear any previous validation error
             this.formValidationError = '';
+            // Check if submission action is set to submit-only
+            if (this.submissionAction === 'submit-only') {
+                console.log('[API Call] Submission action is submit-only - skipping API call and validation, submitting form directly');
+                this.submitNintexForm();
+                return;
+            }
             // Check if form validation is required
             if (this.formValidation) {
                 console.log('[API Call] Form validation is ENABLED, checking form...');
