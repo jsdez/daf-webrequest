@@ -430,6 +430,7 @@ export class DafWebRequestPlugin extends LitElement {
     responseType: string;
     data: string;
     message: string;
+    formattedResponse: string;
     timestamp: string;
     executionTime: number;
     access_token?: string;
@@ -440,6 +441,7 @@ export class DafWebRequestPlugin extends LitElement {
     responseType: '',
     data: '',
     message: '',
+    formattedResponse: '',
     timestamp: '',
     executionTime: 0
   };
@@ -672,7 +674,12 @@ export class DafWebRequestPlugin extends LitElement {
             message: {
               type: 'string',
               title: 'Response Message',
-              description: 'User-friendly message describing the result',
+              description: 'Actual message from API response',
+            },
+            formattedResponse: {
+              type: 'string',
+              title: 'Formatted Response',
+              description: 'Formatted response message based on Success/Warning/Error Message configuration',
             },
             timestamp: {
               type: 'string',
@@ -701,6 +708,7 @@ export class DafWebRequestPlugin extends LitElement {
             responseType: '',
             data: '',
             message: '',
+            formattedResponse: '',
             timestamp: '',
             executionTime: 0
           },
@@ -2200,7 +2208,8 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
           statusCode: 401,
           responseType: 'error',
           data: this.apiResponse,
-          message: this.errorMessage,
+          message: '',
+          formattedResponse: this.errorMessage,
           timestamp: timestamp,
           executionTime: executionTime
         };
@@ -2280,6 +2289,7 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
         // Try to parse response and extract values
         let accessToken: string | undefined;
         let customOutput: any = undefined;
+        let responseMessage = '';
         
         try {
           const parsed = JSON.parse(response);
@@ -2293,9 +2303,20 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
           if (this.outputValueKey && this.outputValueKey.trim()) {
             customOutput = this.extractNestedValue(parsed, this.outputValueKey);
           }
+          
+          // Extract response message from common paths (d.Message for SAP, message, Message, etc.)
+          responseMessage = this.extractNestedValue(parsed, 'd.Message') ||
+                           this.extractNestedValue(parsed, 'Message') ||
+                           this.extractNestedValue(parsed, 'message') ||
+                           this.extractNestedValue(parsed, 'msg') ||
+                           this.extractNestedValue(parsed, 'data.message') ||
+                           '';
         } catch {
           // Response is not JSON, skip extraction
         }
+        
+        // Get formatted response message
+        const formattedResponse = this.getCustomMessage(this.responseType);
         
         // Create structured value object
         this.value = {
@@ -2303,7 +2324,8 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
           statusCode: statusCode || (this.responseType === 'success' ? 200 : 500),
           responseType: this.responseType,
           data: response,
-          message: this.getCustomMessage(this.responseType),
+          message: responseMessage,
+          formattedResponse: formattedResponse,
           timestamp: timestamp,
           executionTime: executionTime,
           ...(accessToken && { access_token: accessToken }),
