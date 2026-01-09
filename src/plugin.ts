@@ -422,7 +422,9 @@ export class DafWebRequestPlugin extends LitElement {
   @property({ type: String }) label!: string;
   @property({ type: String }) description!: string;
   @property({ type: Boolean }) readOnly!: boolean;
-  @property({ type: Object }) value!: {
+  
+  // Custom accessor for value property with explicit change notification
+  private _value: {
     success: boolean;
     statusCode: number;
     responseType: string;
@@ -432,7 +434,34 @@ export class DafWebRequestPlugin extends LitElement {
     executionTime: number;
     access_token?: string;
     output?: any;
+  } = {
+    success: false,
+    statusCode: 0,
+    responseType: '',
+    data: '',
+    message: '',
+    timestamp: '',
+    executionTime: 0
   };
+  
+  @property({ type: Object })
+  get value() {
+    return this._value;
+  }
+  set value(newValue: typeof this._value) {
+    const oldValue = this._value;
+    this._value = newValue;
+    console.log('[Value Setter] Value changed, dispatching ntx-value-change event', newValue);
+    
+    // Dispatch ntx-value-change event immediately when value is set
+    this.dispatchEvent(new CustomEvent('ntx-value-change', {
+      detail: newValue,
+      bubbles: true,
+      composed: true,
+    }));
+    
+    this.requestUpdate('value', oldValue);
+  }
   @property({ type: String }) requestBody!: string;
   @property({ type: String }) apiUrl!: string;
   @property({ type: String }) requestHeaders!: string;
@@ -504,15 +533,7 @@ export class DafWebRequestPlugin extends LitElement {
     this.label = '';
     this.description = '';
     this.readOnly = false;
-    this.value = {
-      success: false,
-      statusCode: 0,
-      responseType: '',
-      data: '',
-      message: '',
-      timestamp: '',
-      executionTime: 0
-    };
+    // Note: value is initialized in the private _value field declaration, not here
     this.requestBody = '';
     this.apiUrl = '';
     this.requestHeaders = '';
@@ -1071,14 +1092,7 @@ export class DafWebRequestPlugin extends LitElement {
 
   // Handle property changes from the host application
   updated(changedProperties: Map<string, any>) {
-    if (changedProperties.has('value')) {
-      console.log('[Updated Lifecycle] Value property changed, dispatching ntx-value-change event');
-      this.dispatchEvent(new CustomEvent('ntx-value-change', {
-        detail: this.value,
-        bubbles: true,
-        composed: true,
-      }));
-    }
+    // Note: value change event is now dispatched in the value setter, not here
     
     // Watch for sendAPICall property changes to trigger API automatically
     if (changedProperties.has('sendAPICall') && this.sendAPICall) {
@@ -2190,11 +2204,7 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
           timestamp: timestamp,
           executionTime: executionTime
         };
-        this.dispatchEvent(new CustomEvent('ntx-value-change', {
-          detail: this.value,
-          bubbles: true,
-          composed: true,
-        }));
+        // Note: ntx-value-change event is automatically dispatched by value setter
         this.isLoading = false;
         this.requestUpdate();
         return;
@@ -2305,18 +2315,12 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
           this.hasSuccessfulCall = true;
         }
         
-        // Dispatch value change event
-        console.log('[Value Change] Dispatching ntx-value-change event with value:', this.value);
-        this.dispatchEvent(new CustomEvent('ntx-value-change', {
-          detail: this.value,
-          bubbles: true,
-          composed: true,
-        }));
-        console.log('[Value Change] Event dispatched at:', new Date().toISOString());
+        // Note: ntx-value-change event is automatically dispatched by value setter
+        console.log('[Value Change] Value updated at:', new Date().toISOString());
         
         this.requestUpdate();
         
-        // After dispatching the value change event, wait for Nintex to process it
+        // After value change event is dispatched (happens in setter), wait for Nintex to process it
         // then trigger post-submission action if needed
         const isSuccessResponse = this.responseType === 'success' || this.responseType === 'warning';
         if (isSuccessResponse) {

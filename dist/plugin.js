@@ -18,6 +18,21 @@ import { html, LitElement, css } from 'lit';
 import { callApi } from './apiClient.js';
 import { customElement, property } from 'lit/decorators.js';
 let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin extends LitElement {
+    get value() {
+        return this._value;
+    }
+    set value(newValue) {
+        const oldValue = this._value;
+        this._value = newValue;
+        console.log('[Value Setter] Value changed, dispatching ntx-value-change event', newValue);
+        // Dispatch ntx-value-change event immediately when value is set
+        this.dispatchEvent(new CustomEvent('ntx-value-change', {
+            detail: newValue,
+            bubbles: true,
+            composed: true,
+        }));
+        this.requestUpdate('value', oldValue);
+    }
     get btnEnabled() {
         return this._btnEnabled;
     }
@@ -42,6 +57,16 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         this.activeDebugTab = 'properties';
         this.formatterJsonInput = '';
         this.formatterSelectedFields = new Map();
+        // Custom accessor for value property with explicit change notification
+        this._value = {
+            success: false,
+            statusCode: 0,
+            responseType: '',
+            data: '',
+            message: '',
+            timestamp: '',
+            executionTime: 0
+        };
         // Custom accessors for btnEnabled with explicit change detection
         this._btnEnabled = true;
         // Custom accessors for btnVisible with explicit change detection
@@ -62,15 +87,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         this.label = '';
         this.description = '';
         this.readOnly = false;
-        this.value = {
-            success: false,
-            statusCode: 0,
-            responseType: '',
-            data: '',
-            message: '',
-            timestamp: '',
-            executionTime: 0
-        };
+        // Note: value is initialized in the private _value field declaration, not here
         this.requestBody = '';
         this.apiUrl = '';
         this.requestHeaders = '';
@@ -612,14 +629,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
     }
     // Handle property changes from the host application
     updated(changedProperties) {
-        if (changedProperties.has('value')) {
-            console.log('[Updated Lifecycle] Value property changed, dispatching ntx-value-change event');
-            this.dispatchEvent(new CustomEvent('ntx-value-change', {
-                detail: this.value,
-                bubbles: true,
-                composed: true,
-            }));
-        }
+        // Note: value change event is now dispatched in the value setter, not here
         // Watch for sendAPICall property changes to trigger API automatically
         if (changedProperties.has('sendAPICall') && this.sendAPICall) {
             this.handleAPICallTrigger();
@@ -1646,11 +1656,7 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
                         timestamp: timestamp,
                         executionTime: executionTime
                     };
-                    this.dispatchEvent(new CustomEvent('ntx-value-change', {
-                        detail: this.value,
-                        bubbles: true,
-                        composed: true,
-                    }));
+                    // Note: ntx-value-change event is automatically dispatched by value setter
                     this.isLoading = false;
                     this.requestUpdate();
                     return;
@@ -1745,16 +1751,10 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
                     if (this.responseType === 'success' || this.responseType === 'warning') {
                         this.hasSuccessfulCall = true;
                     }
-                    // Dispatch value change event
-                    console.log('[Value Change] Dispatching ntx-value-change event with value:', this.value);
-                    this.dispatchEvent(new CustomEvent('ntx-value-change', {
-                        detail: this.value,
-                        bubbles: true,
-                        composed: true,
-                    }));
-                    console.log('[Value Change] Event dispatched at:', new Date().toISOString());
+                    // Note: ntx-value-change event is automatically dispatched by value setter
+                    console.log('[Value Change] Value updated at:', new Date().toISOString());
                     this.requestUpdate();
-                    // After dispatching the value change event, wait for Nintex to process it
+                    // After value change event is dispatched (happens in setter), wait for Nintex to process it
                     // then trigger post-submission action if needed
                     const isSuccessResponse = this.responseType === 'success' || this.responseType === 'warning';
                     if (isSuccessResponse) {
@@ -2339,7 +2339,7 @@ __decorate([
 ], DafWebRequestPlugin.prototype, "readOnly", void 0);
 __decorate([
     property({ type: Object })
-], DafWebRequestPlugin.prototype, "value", void 0);
+], DafWebRequestPlugin.prototype, "value", null);
 __decorate([
     property({ type: String })
 ], DafWebRequestPlugin.prototype, "requestBody", void 0);
