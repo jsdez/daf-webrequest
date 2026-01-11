@@ -1097,11 +1097,24 @@ export class DafWebRequestPlugin extends LitElement {
       // Handle arrays (like multiple error details)
       if (Array.isArray(value)) {
         if (value.length > 0) {
-          lines.push(`${field.title}:`);
-          value.forEach((item, index) => {
-            const displayValue = typeof item === 'object' ? JSON.stringify(item) : String(item);
-            lines.push(`  ${index + 1}. ${displayValue}`);
-          });
+          // Check if array contains objects or primitives
+          const firstItem = value[0];
+          const isPrimitiveArray = typeof firstItem !== 'object' || firstItem === null;
+          
+          if (isPrimitiveArray) {
+            // Array of primitive values (strings, numbers, etc.)
+            lines.push(`${field.title}:`);
+            value.forEach((item, index) => {
+              lines.push(`  ${index + 1}. ${String(item)}`);
+            });
+          } else {
+            // Array of objects - show as JSON
+            lines.push(`${field.title}:`);
+            value.forEach((item, index) => {
+              const displayValue = JSON.stringify(item);
+              lines.push(`  ${index + 1}. ${displayValue}`);
+            });
+          }
         } else {
           lines.push(`${field.title}: (empty)`);
         }
@@ -1925,7 +1938,9 @@ export class DafWebRequestPlugin extends LitElement {
             
             // Always process first item to show available fields within array items
             if (typeof value[0] === 'object' && !Array.isArray(value[0])) {
-              processObject(value[0], `${fullPath}[0]`);
+              // For array items, show both [0] notation and [*] notation for nested fields
+              const arrayItemPath = this.formatterUseArrayNotation ? `${fullPath}[*]` : `${fullPath}[0]`;
+              processObject(value[0], arrayItemPath);
             }
           } else if (value !== null && typeof value !== 'object') {
             // Show leaf values
@@ -2654,11 +2669,13 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
       return obj[path];
     }
     
-    // If not found, try nested path navigation (for paths like "data.user.name" or "error.innererror.errordetails[0].message")
+    // If not found, try nested path navigation (for paths like "data.user.name" or "error.innererror.errordetails[*].message")
     const keys = path.split('.');
     let current = obj;
+    let foundArrayWildcard = false;
     
-    for (const key of keys) {
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
       // Handle array notation like "errordetails[0]" or "errordetails[*]" for all items
       const arrayMatch = key.match(/^(.+)\[(\*|\d+)\]$/);
       
@@ -2671,8 +2688,19 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
           
           if (Array.isArray(array)) {
             if (index === '*') {
-              // Return all items in the array
-              current = array;
+              // If there are more keys after this, we need to extract that property from all items
+              const remainingKeys = keys.slice(i + 1);
+              
+              if (remainingKeys.length > 0) {
+                // Extract the property from each array item
+                const remainingPath = remainingKeys.join('.');
+                current = array.map(item => this.extractNestedValue(item, remainingPath)).filter(val => val !== undefined);
+              } else {
+                // No more keys, return all items
+                current = array;
+              }
+              foundArrayWildcard = true;
+              break; // We've processed all remaining keys
             } else {
               // Return specific index
               current = array[parseInt(index)];
