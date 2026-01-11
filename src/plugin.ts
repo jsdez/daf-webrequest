@@ -416,8 +416,10 @@ export class DafWebRequestPlugin extends LitElement {
 
   // Add private property to track active debug tab
   private activeDebugTab: string = 'properties';
+  private activeFormatterTab: string = 'success';
   private formatterJsonInput: string = '';
   private formatterSelectedFields: Map<string, { title: string; checked: boolean; order: number }> = new Map();
+  private formatterUseArrayNotation: boolean = true;
 
   @property({ type: String }) label!: string;
   @property({ type: String }) description!: string;
@@ -1598,7 +1600,6 @@ export class DafWebRequestPlugin extends LitElement {
             @input=${(e: Event) => {
               const target = e.target as HTMLTextAreaElement;
               this.formatterJsonInput = target.value;
-              this.formatterSelectedFields.clear();
               this.requestUpdate();
             }}
             placeholder="Paste your API response JSON here (for success, error, or warning responses)..."
@@ -1608,138 +1609,264 @@ export class DafWebRequestPlugin extends LitElement {
         </div>
 
         ${isValidJson && parsedJson ? html`
-          <div class="form-group">
-            <label class="control-label">Configure Response Fields</label>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-              <!-- Available Fields -->
-              <div>
-                <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--ntx-form-theme-color-input-text);">Available Fields</h4>
-                <div style="max-height: 500px; overflow-y: auto; border: 1px solid var(--ntx-form-theme-color-border); border-radius: 4px; padding: 12px; background: var(--ntx-form-theme-color-background);">
-                  ${this.renderAvailableFields(parsedJson, '')}
-                </div>
-              </div>
-              
-              <!-- Selected Fields -->
-              <div>
-                <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--ntx-form-theme-color-input-text);">Selected Fields (drag to reorder)</h4>
-                <div style="max-height: 500px; overflow-y: auto; border: 1px solid var(--ntx-form-theme-color-border); border-radius: 4px; padding: 12px; background: var(--ntx-form-theme-color-background-alt);">
-                  ${this.renderSelectedFieldsList()}
-                </div>
-              </div>
-            </div>
+          <!-- Message Type Tabs -->
+          <div class="debug-tab-nav" style="margin-bottom: 0;">
+            <button 
+              class="debug-tab-button ${this.activeFormatterTab === 'success' ? 'active' : ''}"
+              @click=${() => {
+                this.activeFormatterTab = 'success';
+                this.loadConfigIntoFields('success');
+                this.requestUpdate();
+              }}
+            >
+              ✓ Success Message
+            </button>
+            <button 
+              class="debug-tab-button ${this.activeFormatterTab === 'warning' ? 'active' : ''}"
+              @click=${() => {
+                this.activeFormatterTab = 'warning';
+                this.loadConfigIntoFields('warning');
+                this.requestUpdate();
+              }}
+            >
+              ⚠ Warning Message
+            </button>
+            <button 
+              class="debug-tab-button ${this.activeFormatterTab === 'error' ? 'active' : ''}"
+              @click=${() => {
+                this.activeFormatterTab = 'error';
+                this.loadConfigIntoFields('error');
+                this.requestUpdate();
+              }}
+            >
+              ✕ Error Message
+            </button>
           </div>
 
-          ${this.formatterSelectedFields.size > 0 ? html`
-            <div class="form-group">
-              <label class="control-label">Preview</label>
-              <div style="border: 1px solid var(--ntx-form-theme-color-border); border-radius: 4px; padding: 16px; background: var(--ntx-form-theme-color-background-alt); white-space: pre-line;">
-                ${this.renderFormattedPreview(parsedJson)}
-              </div>
-            </div>
+          <!-- Success Tab Content -->
+          <div class="debug-tab-content ${this.activeFormatterTab === 'success' ? 'active' : ''}">
+            ${this.renderMessageTypeConfig('success', this.successMessage, parsedJson)}
+          </div>
 
-            <div class="form-group">
-              <label class="control-label" style="margin-bottom: 16px; display: block; font-size: 16px; font-weight: 600;">
-                Copy Configuration for Message Type
-              </label>
-              
-              <!-- Success Message Configuration -->
-              <div style="margin-bottom: 20px;">
-                <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #155724; display: flex; align-items: center;">
-                  <span style="font-size: 18px; margin-right: 8px;">✓</span> Success Message Configuration
-                </h4>
-                <p style="font-size: 12px; color: var(--ntx-form-theme-color-secondary); margin-bottom: 8px;">
-                  Use this for the <strong>Success Message</strong> property in Plugin Properties
-                </p>
-                <div style="position: relative;">
-                  <textarea 
-                    class="form-control" 
-                    readonly
-                    rows="3"
-                    .value=${this.generateResponseConfigQuoted()}
-                    style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 12px; padding-right: 80px; background: #d4edda; color: #155724; border-color: #c3e6cb;"
-                  ></textarea>
-                  <button 
-                    class="btn" 
-                    style="position: absolute; top: 8px; right: 8px; padding: 4px 12px; font-size: 12px; background: #28a745; color: white; border: none;"
-                    @click=${() => {
-                      const quoted = this.generateResponseConfigQuoted();
-                      this.copyToClipboard(quoted);
-                    }}
-                    title="Copy Success Message configuration"
-                  >
-                    📋 Copy
-                  </button>
-                </div>
-              </div>
+          <!-- Warning Tab Content -->
+          <div class="debug-tab-content ${this.activeFormatterTab === 'warning' ? 'active' : ''}">
+            ${this.renderMessageTypeConfig('warning', this.warningMessage, parsedJson)}
+          </div>
 
-              <!-- Warning Message Configuration -->
-              <div style="margin-bottom: 20px;">
-                <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #856404; display: flex; align-items: center;">
-                  <span style="font-size: 18px; margin-right: 8px;">⚠</span> Warning Message Configuration
-                </h4>
-                <p style="font-size: 12px; color: var(--ntx-form-theme-color-secondary); margin-bottom: 8px;">
-                  Use this for the <strong>Warning Message</strong> property in Plugin Properties
-                </p>
-                <div style="position: relative;">
-                  <textarea 
-                    class="form-control" 
-                    readonly
-                    rows="3"
-                    .value=${this.generateResponseConfigQuoted()}
-                    style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 12px; padding-right: 80px; background: #fff3cd; color: #856404; border-color: #ffeaa7;"
-                  ></textarea>
-                  <button 
-                    class="btn" 
-                    style="position: absolute; top: 8px; right: 8px; padding: 4px 12px; font-size: 12px; background: #ffc107; color: #000; border: none;"
-                    @click=${() => {
-                      const quoted = this.generateResponseConfigQuoted();
-                      this.copyToClipboard(quoted);
-                    }}
-                    title="Copy Warning Message configuration"
-                  >
-                    📋 Copy
-                  </button>
-                </div>
-              </div>
-
-              <!-- Error Message Configuration -->
-              <div style="margin-bottom: 20px;">
-                <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #721c24; display: flex; align-items: center;">
-                  <span style="font-size: 18px; margin-right: 8px;">✕</span> Error Message Configuration
-                </h4>
-                <p style="font-size: 12px; color: var(--ntx-form-theme-color-secondary); margin-bottom: 8px;">
-                  Use this for the <strong>Error Message</strong> property in Plugin Properties
-                </p>
-                <div style="position: relative;">
-                  <textarea 
-                    class="form-control" 
-                    readonly
-                    rows="3"
-                    .value=${this.generateResponseConfigQuoted()}
-                    style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 12px; padding-right: 80px; background: #f8d7da; color: #721c24; border-color: #f5c6cb;"
-                  ></textarea>
-                  <button 
-                    class="btn" 
-                    style="position: absolute; top: 8px; right: 8px; padding: 4px 12px; font-size: 12px; background: #dc3545; color: white; border: none;"
-                    @click=${() => {
-                      const quoted = this.generateResponseConfigQuoted();
-                      this.copyToClipboard(quoted);
-                    }}
-                    title="Copy Error Message configuration"
-                  >
-                    📋 Copy
-                  </button>
-                </div>
-              </div>
-
-              <div style="padding: 12px; background: var(--ntx-form-theme-color-background-alt); border-left: 4px solid var(--ntx-form-theme-color-primary); border-radius: 4px; font-size: 12px; color: var(--ntx-form-theme-color-secondary);">
-                <strong>💡 Tip:</strong> The same configuration works for all three message types. Select different fields for each type based on what data is available in success, warning, or error responses. For error responses, use array notation like <code>error.innererror.errordetails[*]</code> to show all error details.
-              </div>
-            </div>
-          ` : ''}
+          <!-- Error Tab Content -->
+          <div class="debug-tab-content ${this.activeFormatterTab === 'error' ? 'active' : ''}">
+            ${this.renderMessageTypeConfig('error', this.errorMessage, parsedJson)}
+          </div>
         ` : ''}
       </div>
     `;
+  }
+
+  private renderMessageTypeConfig(type: 'success' | 'warning' | 'error', currentConfig: string, parsedJson: any) {
+    const colors = {
+      success: { bg: '#d4edda', text: '#155724', border: '#c3e6cb', btnBg: '#28a745', btnText: 'white' },
+      warning: { bg: '#fff3cd', text: '#856404', border: '#ffeaa7', btnBg: '#ffc107', btnText: '#000' },
+      error: { bg: '#f8d7da', text: '#721c24', border: '#f5c6cb', btnBg: '#dc3545', btnText: 'white' }
+    };
+    const color = colors[type];
+
+    return html`
+      <div style="border: 1px solid var(--ntx-form-theme-color-border); border-top: none; border-radius: 0 0 4px 4px; padding: 16px; background: var(--ntx-form-theme-color-background);">
+        
+        <!-- Current Configuration -->
+        <div class="form-group">
+          <label class="control-label">Current ${type.charAt(0).toUpperCase() + type.slice(1)} Message Configuration</label>
+          <div style="position: relative;">
+            <textarea 
+              class="form-control" 
+              readonly
+              rows="4"
+              .value=${currentConfig}
+              style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 12px; background: ${color.bg}; color: ${color.text}; border-color: ${color.border};"
+            ></textarea>
+          </div>
+          <div style="font-size: 11px; color: var(--ntx-form-theme-color-secondary); margin-top: 4px;">
+            ${currentConfig.trim().startsWith('{"fields"') || currentConfig.trim().startsWith('"{') ? 
+              '✓ Formatted response configuration detected' : 
+              '○ Plain text message'}
+          </div>
+        </div>
+
+        <!-- Preview -->
+        <div class="form-group">
+          <label class="control-label">Preview of Current Configuration</label>
+          <div style="border: 1px solid ${color.border}; border-radius: 4px; padding: 16px; background: ${color.bg}; color: ${color.text}; white-space: pre-line; min-height: 60px;">
+            ${this.getPreviewForConfig(currentConfig, parsedJson)}
+          </div>
+        </div>
+
+        <!-- Response Field Configurator -->
+        <div class="form-group">
+          <label class="control-label">Response Field Configurator</label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <!-- Available Fields -->
+            <div>
+              <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--ntx-form-theme-color-input-text);">
+                Available Fields
+                <label style="float: right; font-weight: normal; font-size: 12px; display: flex; align-items: center; gap: 6px;">
+                  <input 
+                    type="checkbox" 
+                    .checked=${this.formatterUseArrayNotation || false}
+                    @change=${(e: Event) => {
+                      const target = e.target as HTMLInputElement;
+                      this.formatterUseArrayNotation = target.checked;
+                      this.requestUpdate();
+                    }}
+                    style="cursor: pointer;"
+                  />
+                  List all array items
+                </label>
+              </h4>
+              <div style="max-height: 500px; overflow-y: auto; border: 1px solid var(--ntx-form-theme-color-border); border-radius: 4px; padding: 12px; background: var(--ntx-form-theme-color-background);">
+                ${this.renderAvailableFields(parsedJson, '')}
+              </div>
+            </div>
+            
+            <!-- Selected Fields -->
+            <div>
+              <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--ntx-form-theme-color-input-text);">Selected Fields (drag to reorder)</h4>
+              <div style="max-height: 500px; overflow-y: auto; border: 1px solid var(--ntx-form-theme-color-border); border-radius: 4px; padding: 12px; background: var(--ntx-form-theme-color-background-alt);">
+                ${this.renderSelectedFieldsList()}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        ${this.formatterSelectedFields.size > 0 ? html`
+          <!-- New Configuration Preview -->
+          <div class="form-group">
+            <label class="control-label">New Configuration Preview</label>
+            <div style="border: 1px solid var(--ntx-form-theme-color-border); border-radius: 4px; padding: 16px; background: var(--ntx-form-theme-color-background-alt); white-space: pre-line;">
+              ${this.renderFormattedPreview(parsedJson)}
+            </div>
+          </div>
+
+          <!-- Copy New Configuration -->
+          <div class="form-group">
+            <label class="control-label">Copy New Configuration</label>
+            <div style="position: relative;">
+              <textarea 
+                class="form-control" 
+                readonly
+                rows="4"
+                .value=${this.generateResponseConfigQuoted()}
+                style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 12px; padding-right: 100px; background: ${color.bg}; color: ${color.text}; border-color: ${color.border};"
+              ></textarea>
+              <button 
+                class="btn" 
+                style="position: absolute; top: 8px; right: 8px; padding: 6px 16px; font-size: 13px; background: ${color.btnBg}; color: ${color.btnText || 'white'}; border: none; font-weight: 600;"
+                @click=${() => {
+                  const quoted = this.generateResponseConfigQuoted();
+                  this.copyToClipboard(quoted);
+                }}
+                title="Copy configuration to paste into ${type.charAt(0).toUpperCase() + type.slice(1)} Message property"
+              >
+                📋 Copy Config
+              </button>
+            </div>
+            <div style="font-size: 11px; color: var(--ntx-form-theme-color-secondary); margin-top: 4px;">
+              Copy this and paste into the <strong>${type.charAt(0).toUpperCase() + type.slice(1)} Message</strong> property in Plugin Properties
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  private getPreviewForConfig(config: string, parsedJson: any): any {
+    if (!config || config.trim().length === 0) {
+      return html`<span style="font-style: italic; opacity: 0.6;">No configuration set</span>`;
+    }
+
+    // Store current value temporarily
+    const originalValue = this.value;
+    
+    // Create temporary value with the parsedJson as data
+    const tempValue = {
+      ...this.value,
+      data: JSON.stringify(parsedJson)
+    };
+    
+    this.value = tempValue;
+    
+    // Get the formatted message
+    let preview: string;
+    if (config.trim().startsWith('{"fields"') || config.trim().startsWith('"{')) {
+      // It's a formatted config
+      try {
+        let parsedConfig;
+        if (config.startsWith('"{') && config.endsWith('}"')) {
+          const unquoted = config.slice(1, -1).replace(/\\"/g, '"');
+          parsedConfig = JSON.parse(unquoted);
+        } else {
+          parsedConfig = JSON.parse(config);
+        }
+        preview = this.formatResponseWithConfig(parsedConfig);
+      } catch (e) {
+        preview = config; // Fall back to plain text
+      }
+    } else {
+      // Plain text
+      preview = config;
+    }
+    
+    // Restore original value
+    this.value = originalValue;
+    
+    return preview;
+  }
+
+  private loadConfigIntoFields(type: 'success' | 'warning' | 'error') {
+    const config = type === 'success' ? this.successMessage : 
+                   type === 'warning' ? this.warningMessage : 
+                   this.errorMessage;
+    
+    // Clear existing selections
+    this.formatterSelectedFields.clear();
+    
+    if (!config || config.trim().length === 0) {
+      this.requestUpdate();
+      return;
+    }
+    
+    // Try to parse the config
+    try {
+      let parsedConfig;
+      
+      // Handle quoted format
+      if (config.startsWith('"{') && config.endsWith('}"')) {
+        const unquoted = config.slice(1, -1).replace(/\\"/g, '"');
+        parsedConfig = JSON.parse(unquoted);
+      } 
+      // Handle unquoted format
+      else if (config.trim().startsWith('{"fields"')) {
+        parsedConfig = JSON.parse(config);
+      } else {
+        // Plain text, nothing to load
+        this.requestUpdate();
+        return;
+      }
+      
+      // Load fields from config
+      if (parsedConfig.fields && Array.isArray(parsedConfig.fields)) {
+        parsedConfig.fields.forEach((field: any, index: number) => {
+          this.formatterSelectedFields.set(field.path, {
+            title: field.title || field.path,
+            checked: true,
+            order: index
+          });
+        });
+      }
+    } catch (e) {
+      console.error('[Config Loading] Failed to parse config:', e);
+    }
+    
+    this.requestUpdate();
   }
 
   private renderAvailableFields(obj: any, path: string): any {
@@ -1753,47 +1880,50 @@ export class DafWebRequestPlugin extends LitElement {
           
           // Handle arrays with [*] notation
           if (Array.isArray(value) && value.length > 0) {
-            const fieldKey = `${fullPath}[*]`;
-            const isChecked = this.formatterSelectedFields.get(fieldKey)?.checked || false;
-            const previewValue = `Array with ${value.length} item${value.length > 1 ? 's' : ''}`;
-            
-            fields.push(html`
-              <div style="display: flex; align-items: flex-start; margin-bottom: 10px; padding: 8px; border-radius: 4px; background: ${isChecked ? 'var(--ntx-form-theme-color-primary-light, #e3f2fd)' : 'transparent'}; transition: background 0.2s;">
-                <input 
-                  type="checkbox" 
-                  .checked=${isChecked}
-                  @change=${(e: Event) => {
-                    const target = e.target as HTMLInputElement;
-                    if (target.checked) {
-                      let maxOrder = -1;
-                      this.formatterSelectedFields.forEach(field => {
-                        if (field.order > maxOrder) maxOrder = field.order;
-                      });
-                      this.formatterSelectedFields.set(fieldKey, { 
-                        title: key, 
-                        checked: true,
-                        order: maxOrder + 1
-                      });
-                    } else {
-                      this.formatterSelectedFields.delete(fieldKey);
-                    }
-                    this.requestUpdate();
-                  }}
-                  style="width: 18px; height: 18px; cursor: pointer; margin-top: 2px; flex-shrink: 0;"
-                />
-                <div style="flex: 1; margin-left: 10px; min-width: 0;">
-                  <div style="font-weight: 500; margin-bottom: 4px; word-break: break-word;">
-                    <code style="background: var(--ntx-form-theme-color-background-alt); padding: 2px 6px; border-radius: 3px; font-size: 12px;">${fieldKey}</code>
-                    <span style="margin-left: 6px; font-size: 11px; color: var(--ntx-form-theme-color-secondary);">📋 Array</span>
-                  </div>
-                  <div style="font-size: 11px; color: var(--ntx-form-theme-color-secondary); word-break: break-word;">
-                    ${previewValue}
+            // Only show array notation option if the checkbox is enabled
+            if (this.formatterUseArrayNotation) {
+              const fieldKey = `${fullPath}[*]`;
+              const isChecked = this.formatterSelectedFields.get(fieldKey)?.checked || false;
+              const previewValue = `Array with ${value.length} item${value.length > 1 ? 's' : ''}`;
+              
+              fields.push(html`
+                <div style="display: flex; align-items: flex-start; margin-bottom: 10px; padding: 8px; border-radius: 4px; background: ${isChecked ? 'var(--ntx-form-theme-color-primary-light, #e3f2fd)' : 'transparent'}; transition: background 0.2s;">
+                  <input 
+                    type="checkbox" 
+                    .checked=${isChecked}
+                    @change=${(e: Event) => {
+                      const target = e.target as HTMLInputElement;
+                      if (target.checked) {
+                        let maxOrder = -1;
+                        this.formatterSelectedFields.forEach(field => {
+                          if (field.order > maxOrder) maxOrder = field.order;
+                        });
+                        this.formatterSelectedFields.set(fieldKey, { 
+                          title: key, 
+                          checked: true,
+                          order: maxOrder + 1
+                        });
+                      } else {
+                        this.formatterSelectedFields.delete(fieldKey);
+                      }
+                      this.requestUpdate();
+                    }}
+                    style="width: 18px; height: 18px; cursor: pointer; margin-top: 2px; flex-shrink: 0;"
+                  />
+                  <div style="flex: 1; margin-left: 10px; min-width: 0;">
+                    <div style="font-weight: 500; margin-bottom: 4px; word-break: break-word;">
+                      <code style="background: var(--ntx-form-theme-color-background-alt); padding: 2px 6px; border-radius: 3px; font-size: 12px;">${fieldKey}</code>
+                      <span style="margin-left: 6px; font-size: 11px; color: var(--ntx-form-theme-color-secondary);">📋 Array</span>
+                    </div>
+                    <div style="font-size: 11px; color: var(--ntx-form-theme-color-secondary); word-break: break-word;">
+                      ${previewValue}
+                    </div>
                   </div>
                 </div>
-              </div>
-            `);
+              `);
+            }
             
-            // Process first item to show available fields within array items
+            // Always process first item to show available fields within array items
             if (typeof value[0] === 'object' && !Array.isArray(value[0])) {
               processObject(value[0], `${fullPath}[0]`);
             }
