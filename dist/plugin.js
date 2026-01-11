@@ -629,8 +629,23 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         const lines = [];
         config.fields.forEach((field) => {
             const value = this.extractNestedValue(responseData, field.path);
-            const displayValue = value !== undefined ? String(value) : 'N/A';
-            lines.push(`${field.title}: ${displayValue}`);
+            // Handle arrays (like multiple error details)
+            if (Array.isArray(value)) {
+                if (value.length > 0) {
+                    lines.push(`${field.title}:`);
+                    value.forEach((item, index) => {
+                        const displayValue = typeof item === 'object' ? JSON.stringify(item) : String(item);
+                        lines.push(`  ${index + 1}. ${displayValue}`);
+                    });
+                }
+                else {
+                    lines.push(`${field.title}: (empty)`);
+                }
+            }
+            else {
+                const displayValue = value !== undefined && value !== null ? String(value) : 'N/A';
+                lines.push(`${field.title}: ${displayValue}`);
+            }
         });
         return lines.join('\n');
     }
@@ -1080,7 +1095,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
             this.formatterSelectedFields.clear();
             this.requestUpdate();
         }}
-            placeholder="Paste your API response JSON here..."
+            placeholder="Paste your API response JSON here (for success, error, or warning responses)..."
             style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 13px;"
           ></textarea>
           ${jsonError ? html `<div class="text-danger" style="margin-top: 8px;">${jsonError}</div>` : ''}
@@ -1111,32 +1126,108 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
           ${this.formatterSelectedFields.size > 0 ? html `
             <div class="form-group">
               <label class="control-label">Preview</label>
-              <div style="border: 1px solid var(--ntx-form-theme-color-border); border-radius: 4px; padding: 16px; background: var(--ntx-form-theme-color-background-alt);">
+              <div style="border: 1px solid var(--ntx-form-theme-color-border); border-radius: 4px; padding: 16px; background: var(--ntx-form-theme-color-background-alt); white-space: pre-line;">
                 ${this.renderFormattedPreview(parsedJson)}
               </div>
             </div>
 
             <div class="form-group">
-              <label class="control-label">Response Format Configuration</label>
-              <div style="position: relative;">
-                <textarea 
-                  class="form-control" 
-                  readonly
-                  rows="3"
-                  .value=${this.generateResponseConfigQuoted()}
-                  style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 12px; padding-right: 80px;"
-                ></textarea>
-                <button 
-                  class="btn btn-primary" 
-                  style="position: absolute; top: 8px; right: 8px; padding: 4px 12px; font-size: 12px;"
-                  @click=${() => {
+              <label class="control-label" style="margin-bottom: 16px; display: block; font-size: 16px; font-weight: 600;">
+                Copy Configuration for Message Type
+              </label>
+              
+              <!-- Success Message Configuration -->
+              <div style="margin-bottom: 20px;">
+                <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #155724; display: flex; align-items: center;">
+                  <span style="font-size: 18px; margin-right: 8px;">✓</span> Success Message Configuration
+                </h4>
+                <p style="font-size: 12px; color: var(--ntx-form-theme-color-secondary); margin-bottom: 8px;">
+                  Use this for the <strong>Success Message</strong> property in Plugin Properties
+                </p>
+                <div style="position: relative;">
+                  <textarea 
+                    class="form-control" 
+                    readonly
+                    rows="3"
+                    .value=${this.generateResponseConfigQuoted()}
+                    style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 12px; padding-right: 80px; background: #d4edda; color: #155724; border-color: #c3e6cb;"
+                  ></textarea>
+                  <button 
+                    class="btn" 
+                    style="position: absolute; top: 8px; right: 8px; padding: 4px 12px; font-size: 12px; background: #28a745; color: white; border: none;"
+                    @click=${() => {
             const quoted = this.generateResponseConfigQuoted();
             this.copyToClipboard(quoted);
         }}
-                  title="Copy to clipboard"
-                >
-                  📋 Copy
-                </button>
+                    title="Copy Success Message configuration"
+                  >
+                    📋 Copy
+                  </button>
+                </div>
+              </div>
+
+              <!-- Warning Message Configuration -->
+              <div style="margin-bottom: 20px;">
+                <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #856404; display: flex; align-items: center;">
+                  <span style="font-size: 18px; margin-right: 8px;">⚠</span> Warning Message Configuration
+                </h4>
+                <p style="font-size: 12px; color: var(--ntx-form-theme-color-secondary); margin-bottom: 8px;">
+                  Use this for the <strong>Warning Message</strong> property in Plugin Properties
+                </p>
+                <div style="position: relative;">
+                  <textarea 
+                    class="form-control" 
+                    readonly
+                    rows="3"
+                    .value=${this.generateResponseConfigQuoted()}
+                    style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 12px; padding-right: 80px; background: #fff3cd; color: #856404; border-color: #ffeaa7;"
+                  ></textarea>
+                  <button 
+                    class="btn" 
+                    style="position: absolute; top: 8px; right: 8px; padding: 4px 12px; font-size: 12px; background: #ffc107; color: #000; border: none;"
+                    @click=${() => {
+            const quoted = this.generateResponseConfigQuoted();
+            this.copyToClipboard(quoted);
+        }}
+                    title="Copy Warning Message configuration"
+                  >
+                    📋 Copy
+                  </button>
+                </div>
+              </div>
+
+              <!-- Error Message Configuration -->
+              <div style="margin-bottom: 20px;">
+                <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #721c24; display: flex; align-items: center;">
+                  <span style="font-size: 18px; margin-right: 8px;">✕</span> Error Message Configuration
+                </h4>
+                <p style="font-size: 12px; color: var(--ntx-form-theme-color-secondary); margin-bottom: 8px;">
+                  Use this for the <strong>Error Message</strong> property in Plugin Properties
+                </p>
+                <div style="position: relative;">
+                  <textarea 
+                    class="form-control" 
+                    readonly
+                    rows="3"
+                    .value=${this.generateResponseConfigQuoted()}
+                    style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 12px; padding-right: 80px; background: #f8d7da; color: #721c24; border-color: #f5c6cb;"
+                  ></textarea>
+                  <button 
+                    class="btn" 
+                    style="position: absolute; top: 8px; right: 8px; padding: 4px 12px; font-size: 12px; background: #dc3545; color: white; border: none;"
+                    @click=${() => {
+            const quoted = this.generateResponseConfigQuoted();
+            this.copyToClipboard(quoted);
+        }}
+                    title="Copy Error Message configuration"
+                  >
+                    📋 Copy
+                  </button>
+                </div>
+              </div>
+
+              <div style="padding: 12px; background: var(--ntx-form-theme-color-background-alt); border-left: 4px solid var(--ntx-form-theme-color-primary); border-radius: 4px; font-size: 12px; color: var(--ntx-form-theme-color-secondary);">
+                <strong>💡 Tip:</strong> The same configuration works for all three message types. Select different fields for each type based on what data is available in success, warning, or error responses. For error responses, use array notation like <code>error.innererror.errordetails[*]</code> to show all error details.
               </div>
             </div>
           ` : ''}
@@ -1149,13 +1240,14 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         const processObject = (current, currentPath) => {
             if (current && typeof current === 'object' && !Array.isArray(current)) {
                 Object.keys(current).forEach(key => {
-                    var _a;
+                    var _a, _b;
                     const fullPath = currentPath ? `${currentPath}.${key}` : key;
                     const value = current[key];
-                    // Skip nested objects and arrays for now, only show leaf values
-                    if (value !== null && typeof value !== 'object') {
-                        const fieldKey = fullPath;
+                    // Handle arrays with [*] notation
+                    if (Array.isArray(value) && value.length > 0) {
+                        const fieldKey = `${fullPath}[*]`;
                         const isChecked = ((_a = this.formatterSelectedFields.get(fieldKey)) === null || _a === void 0 ? void 0 : _a.checked) || false;
+                        const previewValue = `Array with ${value.length} item${value.length > 1 ? 's' : ''}`;
                         fields.push(html `
               <div style="display: flex; align-items: flex-start; margin-bottom: 10px; padding: 8px; border-radius: 4px; background: ${isChecked ? 'var(--ntx-form-theme-color-primary-light, #e3f2fd)' : 'transparent'}; transition: background 0.2s;">
                 <input 
@@ -1164,7 +1256,52 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                   @change=${(e) => {
                             const target = e.target;
                             if (target.checked) {
-                                // Get highest order number and add 1
+                                let maxOrder = -1;
+                                this.formatterSelectedFields.forEach(field => {
+                                    if (field.order > maxOrder)
+                                        maxOrder = field.order;
+                                });
+                                this.formatterSelectedFields.set(fieldKey, {
+                                    title: key,
+                                    checked: true,
+                                    order: maxOrder + 1
+                                });
+                            }
+                            else {
+                                this.formatterSelectedFields.delete(fieldKey);
+                            }
+                            this.requestUpdate();
+                        }}
+                  style="width: 18px; height: 18px; cursor: pointer; margin-top: 2px; flex-shrink: 0;"
+                />
+                <div style="flex: 1; margin-left: 10px; min-width: 0;">
+                  <div style="font-weight: 500; margin-bottom: 4px; word-break: break-word;">
+                    <code style="background: var(--ntx-form-theme-color-background-alt); padding: 2px 6px; border-radius: 3px; font-size: 12px;">${fieldKey}</code>
+                    <span style="margin-left: 6px; font-size: 11px; color: var(--ntx-form-theme-color-secondary);">📋 Array</span>
+                  </div>
+                  <div style="font-size: 11px; color: var(--ntx-form-theme-color-secondary); word-break: break-word;">
+                    ${previewValue}
+                  </div>
+                </div>
+              </div>
+            `);
+                        // Process first item to show available fields within array items
+                        if (typeof value[0] === 'object' && !Array.isArray(value[0])) {
+                            processObject(value[0], `${fullPath}[0]`);
+                        }
+                    }
+                    else if (value !== null && typeof value !== 'object') {
+                        // Show leaf values
+                        const fieldKey = fullPath;
+                        const isChecked = ((_b = this.formatterSelectedFields.get(fieldKey)) === null || _b === void 0 ? void 0 : _b.checked) || false;
+                        fields.push(html `
+              <div style="display: flex; align-items: flex-start; margin-bottom: 10px; padding: 8px; border-radius: 4px; background: ${isChecked ? 'var(--ntx-form-theme-color-primary-light, #e3f2fd)' : 'transparent'}; transition: background 0.2s;">
+                <input 
+                  type="checkbox" 
+                  .checked=${isChecked}
+                  @change=${(e) => {
+                            const target = e.target;
+                            if (target.checked) {
                                 let maxOrder = -1;
                                 this.formatterSelectedFields.forEach(field => {
                                     if (field.order > maxOrder)
@@ -1816,11 +1953,36 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
         if (obj && typeof obj === 'object' && path in obj) {
             return obj[path];
         }
-        // If not found, try nested path navigation (for paths like "data.user.name")
+        // If not found, try nested path navigation (for paths like "data.user.name" or "error.innererror.errordetails[0].message")
         const keys = path.split('.');
         let current = obj;
         for (const key of keys) {
-            if (current && typeof current === 'object' && key in current) {
+            // Handle array notation like "errordetails[0]" or "errordetails[*]" for all items
+            const arrayMatch = key.match(/^(.+)\[(\*|\d+)\]$/);
+            if (arrayMatch) {
+                const arrayKey = arrayMatch[1];
+                const index = arrayMatch[2];
+                if (current && typeof current === 'object' && arrayKey in current) {
+                    const array = current[arrayKey];
+                    if (Array.isArray(array)) {
+                        if (index === '*') {
+                            // Return all items in the array
+                            current = array;
+                        }
+                        else {
+                            // Return specific index
+                            current = array[parseInt(index)];
+                        }
+                    }
+                    else {
+                        return undefined;
+                    }
+                }
+                else {
+                    return undefined;
+                }
+            }
+            else if (current && typeof current === 'object' && key in current) {
                 current = current[key];
             }
             else {
