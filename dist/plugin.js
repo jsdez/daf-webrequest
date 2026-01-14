@@ -59,6 +59,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         this.formatterJsonInput = '';
         this.formatterSelectedFields = new Map();
         this.formatterUseArrayNotation = true;
+        this.formatterMessageTitle = '';
         // Custom accessor for value property with explicit change notification
         this._value = {
             success: false,
@@ -576,7 +577,9 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         const alertClass = `alert-${this.responseType}`;
         const icon = this.getAlertIcon(this.responseType);
         const typeLabel = this.responseType.charAt(0).toUpperCase() + this.responseType.slice(1);
-        const customMessage = this.getCustomMessage(this.responseType);
+        const messageData = this.getCustomMessage(this.responseType);
+        const customTitle = messageData.title;
+        const customMessage = messageData.message;
         // Calculate remaining seconds for delayed submission
         let submissionCountdown = 0;
         if (isDelayedSubmission) {
@@ -588,16 +591,18 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         if (this.responseType === 'success') {
             return html `
         <div class="alert ${alertClass} ${beforeClass}" part="response-alert">
-          <div>
-            <span class="alert-icon">${icon}</span>
-            <strong>${typeLabel}</strong>
-          </div>
+          ${customTitle ? html `
+            <div>
+              <span class="alert-icon">${icon}</span>
+              <strong>${customTitle}</strong>
+            </div>
+          ` : ''}
           ${isFormattedResponse ? html `
-            <div class="alert-response" style="white-space: pre-line; margin-top: 8px;">
+            <div class="alert-response" style="white-space: pre-line; margin-top: ${customTitle ? '8px' : '0'};">
               ${customMessage}
             </div>
           ` : html `
-            <div style="display: inline; margin-left: 4px;">
+            <div style="display: inline; margin-left: ${customTitle ? '4px' : '0'};">
               ${customMessage}
             </div>
           `}
@@ -628,16 +633,18 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         // For warnings and errors, show custom message + actual response message
         return html `
       <div class="alert ${alertClass} ${beforeClass}" part="response-alert">
-        <div>
-          <span class="alert-icon">${icon}</span>
-          <strong>${typeLabel}</strong>
-        </div>
+        ${customTitle ? html `
+          <div>
+            <span class="alert-icon">${icon}</span>
+            <strong>${customTitle}</strong>
+          </div>
+        ` : ''}
         ${isFormattedResponse ? html `
-          <div class="alert-response" style="white-space: pre-line; margin-top: 8px;">
+          <div class="alert-response" style="white-space: pre-line; margin-top: ${customTitle ? '8px' : '0'};">
             ${customMessage}
           </div>
         ` : html `
-          <div style="display: inline; margin-left: 4px;">
+          <div style="display: inline; margin-left: ${customTitle ? '4px' : '0'};">
             ${customMessage}
           </div>
         `}
@@ -710,47 +717,53 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         this.copyToClipboard(content);
     }
     getCustomMessage(type) {
-        let message;
+        let messageConfig;
         switch (type) {
             case 'success':
-                message = this.successMessage;
+                messageConfig = this.successMessage;
                 break;
             case 'warning':
-                message = this.warningMessage;
+                messageConfig = this.warningMessage;
                 break;
             case 'error':
-                message = this.errorMessage;
+                messageConfig = this.errorMessage;
                 break;
-            default: message = 'Unknown response type';
+            default: messageConfig = 'Unknown response type';
         }
-        // Check if message is a Response Format Configuration JSON (quoted format: "{...}")
-        if (message.startsWith('"{') && message.endsWith('}"')) {
+        // Check if messageConfig is a Response Format Configuration JSON (quoted format: "{...}")
+        if (messageConfig.startsWith('"{') && messageConfig.endsWith('}"')) {
             try {
                 // Remove outer quotes and unescape
-                const unquoted = message.slice(1, -1).replace(/\\"/g, '"');
+                const unquoted = messageConfig.slice(1, -1).replace(/\\"/g, '"');
                 const config = JSON.parse(unquoted);
                 // Format response using config
-                return this.formatResponseWithConfig(config);
+                return {
+                    title: config.title || null,
+                    message: this.formatResponseWithConfig(config)
+                };
             }
             catch (e) {
                 console.error('[Message Formatting] Failed to parse quoted config:', e);
-                return message; // Fall back to showing the raw message
+                return { title: null, message: messageConfig }; // Fall back to showing the raw message
             }
         }
-        // Check if message is a Response Format Configuration JSON (unquoted format: {...})
-        if (message.trim().startsWith('{"fields"') && message.trim().endsWith('}')) {
+        // Check if messageConfig is a Response Format Configuration JSON (unquoted format: {...})
+        if (messageConfig.trim().startsWith('{"')) {
             try {
-                const config = JSON.parse(message);
+                const config = JSON.parse(messageConfig);
                 // Format response using config
-                return this.formatResponseWithConfig(config);
+                return {
+                    title: config.title || null,
+                    message: this.formatResponseWithConfig(config)
+                };
             }
             catch (e) {
                 console.error('[Message Formatting] Failed to parse unquoted config:', e);
-                return message; // Fall back to showing the raw message
+                return { title: null, message: messageConfig }; // Fall back to showing the raw message
             }
         }
-        // Return plain text message
-        return message;
+        // Return plain text message with no custom title
+        return { title: null, message: messageConfig };
     }
     formatResponseWithConfig(config) {
         if (!config.fields || !Array.isArray(config.fields)) {
@@ -1346,6 +1359,27 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         <!-- Response Field Configurator -->
         <div class="form-group">
           <label class="control-label">Response Field Configurator</label>
+          
+          <!-- Message Title -->
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label class="control-label" style="font-size: 13px; font-weight: 500;">Message Title</label>
+            <input 
+              type="text" 
+              class="form-control"
+              .value=${this.formatterMessageTitle}
+              @input=${(e) => {
+            const target = e.target;
+            this.formatterMessageTitle = target.value;
+            this.requestUpdate();
+        }}
+              placeholder="Leave empty to hide title header"
+              style="width: 100%;"
+            />
+            <div style="font-size: 11px; color: var(--ntx-form-theme-color-secondary); margin-top: 4px;">
+              ${this.formatterMessageTitle ? '✓ Custom title will be displayed' : '○ No title - header will be hidden'}
+            </div>
+          </div>
+
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
             <!-- Available Fields -->
             <div>
@@ -1460,8 +1494,9 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         const config = type === 'success' ? this.successMessage :
             type === 'warning' ? this.warningMessage :
                 this.errorMessage;
-        // Clear existing selections
+        // Clear existing selections and title
         this.formatterSelectedFields.clear();
+        this.formatterMessageTitle = '';
         if (!config || config.trim().length === 0) {
             this.requestUpdate();
             return;
@@ -1475,13 +1510,17 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                 parsedConfig = JSON.parse(unquoted);
             }
             // Handle unquoted format
-            else if (config.trim().startsWith('{"fields"')) {
+            else if (config.trim().startsWith('{"')) {
                 parsedConfig = JSON.parse(config);
             }
             else {
                 // Plain text, nothing to load
                 this.requestUpdate();
                 return;
+            }
+            // Load title from config
+            if (parsedConfig.title) {
+                this.formatterMessageTitle = parsedConfig.title;
             }
             // Load fields from config
             if (parsedConfig.fields && Array.isArray(parsedConfig.fields)) {
@@ -1733,7 +1772,12 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         return items.length > 0 ? items : html `<div style="color: var(--ntx-form-theme-color-secondary); font-style: italic;">No fields selected</div>`;
     }
     generateResponseConfig() {
-        const config = { fields: [] };
+        const config = {};
+        // Add title if provided
+        if (this.formatterMessageTitle && this.formatterMessageTitle.trim()) {
+            config.title = this.formatterMessageTitle.trim();
+        }
+        config.fields = [];
         // Sort by order before generating config
         const sortedFields = Array.from(this.formatterSelectedFields.entries())
             .filter(([_, fieldConfig]) => fieldConfig.checked)
@@ -1747,7 +1791,12 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         return JSON.stringify(config, null, 2);
     }
     generateResponseConfigQuoted() {
-        const config = { fields: [] };
+        const config = {};
+        // Add title if provided
+        if (this.formatterMessageTitle && this.formatterMessageTitle.trim()) {
+            config.title = this.formatterMessageTitle.trim();
+        }
+        config.fields = [];
         // Sort by order before generating config
         const sortedFields = Array.from(this.formatterSelectedFields.entries())
             .filter(([_, fieldConfig]) => fieldConfig.checked)
@@ -2168,9 +2217,9 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
                         // Response is not JSON, skip extraction
                     }
                     // Get formatted response message
-                    const formattedResponse = this.getCustomMessage(this.responseType);
+                    const formattedResponseData = this.getCustomMessage(this.responseType);
                     // Create structured value object
-                    this.value = Object.assign(Object.assign({ success: success !== false && (this.responseType === 'success' || this.responseType === 'warning'), statusCode: statusCode || (this.responseType === 'success' ? 200 : 500), responseType: this.responseType, data: response, message: responseMessage, formattedResponse: formattedResponse, timestamp: timestamp, executionTime: executionTime }, (accessToken && { access_token: accessToken })), (customOutput !== undefined && { output: customOutput }));
+                    this.value = Object.assign(Object.assign({ success: success !== false && (this.responseType === 'success' || this.responseType === 'warning'), statusCode: statusCode || (this.responseType === 'success' ? 200 : 500), responseType: this.responseType, data: response, message: responseMessage, formattedResponse: formattedResponseData.message, timestamp: timestamp, executionTime: executionTime }, (accessToken && { access_token: accessToken })), (customOutput !== undefined && { output: customOutput }));
                     // Mark as successful call if success or warning
                     if (this.responseType === 'success' || this.responseType === 'warning') {
                         this.hasSuccessfulCall = true;
