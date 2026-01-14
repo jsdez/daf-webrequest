@@ -444,6 +444,18 @@ Each tab includes:
 - **Preview Section**: See how the formatted message will look
 - **Field Configurator**: Build new configurations visually
 
+#### Message Title Configuration
+
+**Message Title** field (full-width text input):
+- Optional custom title for the alert header
+- Replaces default labels ("Success", "Warning", "Error")
+- Leave empty to hide the title header completely
+- Shows status indicator:
+  - `✓ Custom title will be displayed` when title is set
+  - `○ No title - header will be hidden` when empty
+- Automatically included in configuration output
+- Ideal for contextual messages like "Employee Created Successfully"
+
 #### Two-Column Field Configuration
 
 **Left Panel - Available Fields**:
@@ -473,7 +485,8 @@ Each tab includes:
 
 #### Configuration Output
 - Generated JSON config
-- Format: `{"fields":[{"path":"...","title":"..."}]}`
+- Format: `{"title":"Custom Title","fields":[{"path":"...","title":"..."}]}`
+- Title field optional - omit if no custom title needed
 - **📋 Copy Button**: Copy to clipboard (color-coded per message type)
 - Auto-minified and ready to paste
 
@@ -490,25 +503,30 @@ Each tab includes:
    - View current configuration (if any)
    - See preview of current config
 
-3. **Select Fields**
+3. **Set Custom Title (Optional)**
+   - Enter custom title in "Message Title" field
+   - Examples: "Registration Complete", "Update Failed", "Action Required"
+   - Or leave empty to hide title header completely
+
+4. **Select Fields**
    - Browse "Available Fields" panel
    - Check boxes next to desired fields
    - For arrays: Enable "List all array items" checkbox
    - Select array properties: `errordetails[*].message`
    - Fields appear in "Selected Fields" panel
 
-4. **Customize Display**
+5. **Customize Display**
    - Edit "Display title" inputs
    - Drag ⋮⋮ handles to reorder
    - Click ✕ to remove fields
    - Watch Preview update in real-time
 
-5. **Generate Configuration**
+6. **Generate Configuration**
    - Review Preview section
    - Scroll to "Response Format Configuration"
    - Click color-coded 📋 Copy button
 
-6. **Apply to Form**
+7. **Apply to Form**
    - Paste into Success/Warning/Error Message property
    - Disable Debug Mode
    - Make API call
@@ -516,18 +534,31 @@ Each tab includes:
 
 **Example - Simple Fields**:
 ```json
-// Configuration
-{"fields":[
+// Configuration (with custom title)
+{"title":"Employee Registration","fields":[
   {"path":"d.Message","title":"Message"},
   {"path":"d.Pernr","title":"Personnel Number"},
   {"path":"d.EmployeeName","title":"Employee Name"}
 ]}
 
 // Result Displayed
-✓ Success
+✓ Employee Registration
 Message: Registration successful
 Personnel Number: 12345
 Employee Name: John Doe
+```
+
+**Example - Without Title**:
+```json
+// Configuration (no title - header hidden)
+{"fields":[
+  {"path":"d.Message","title":"Message"},
+  {"path":"d.Pernr","title":"Personnel Number"}
+]}
+
+// Result Displayed (no header)
+Message: Registration successful
+Personnel Number: 12345
 ```
 
 **Example - Array Handling**:
@@ -691,19 +722,31 @@ Output Value Key: data.order.id
   }
 }
 
-// Step 2: Select fields and customize titles
+// Step 2: Set custom title (optional)
+// Message Title: "Employee Created Successfully"
+// Leave empty to hide the title header completely
+
+// Step 3: Select fields and customize titles
 // - d.Message → "Message"
 // - d.Pernr → "Personnel Number"
 // - d.EmployeeName → "Employee Name"
 // - d.Department → "Department"
 
-// Step 3: Copy configuration, paste into Success Message:
-{"fields":[{"path":"d.Message","title":"Message"},{"path":"d.Pernr","title":"Personnel Number"},{"path":"d.EmployeeName","title":"Employee Name"},{"path":"d.Department","title":"Department"}]}
+// Step 4: Copy configuration, paste into Success Message:
+{"title":"Employee Created Successfully","fields":[{"path":"d.Message","title":"Message"},{"path":"d.Pernr","title":"Personnel Number"},{"path":"d.EmployeeName","title":"Employee Name"},{"path":"d.Department","title":"Department"}]}
 
-// Step 4: Disable Debug Mode and test
+// Step 5: Disable Debug Mode and test
 
+// User sees (with title):
+✓ Employee Created Successfully
+Message: Registration in SAP successful
+Personnel Number: 12345
+Employee Name: John Doe
+Department: Engineering
+
+// Or without title (omit "title" field):
+{"fields":[...]}
 // User sees:
-✓ Success
 Message: Registration in SAP successful
 Personnel Number: 12345
 Employee Name: John Doe

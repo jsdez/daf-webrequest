@@ -1233,7 +1233,6 @@ export class DafWebRequestPlugin extends LitElement {
         <div class="alert ${alertClass} ${beforeClass}" part="response-alert">
           ${customTitle ? html`
             <div>
-              <span class="alert-icon">${icon}</span>
               <strong>${customTitle}</strong>
             </div>
           ` : ''}
@@ -1276,7 +1275,6 @@ export class DafWebRequestPlugin extends LitElement {
       <div class="alert ${alertClass} ${beforeClass}" part="response-alert">
         ${customTitle ? html`
           <div>
-            <span class="alert-icon">${icon}</span>
             <strong>${customTitle}</strong>
           </div>
         ` : ''}

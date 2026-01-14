@@ -109,7 +109,6 @@ var me=Object.defineProperty,Re=Object.defineProperties,qe=Object.getOwnProperty
         <div class="alert ${d} ${l}" part="response-alert">
           ${h?p`
             <div>
-              <span class="alert-icon">${c}</span>
               <strong>${h}</strong>
             </div>
           `:""}
@@ -148,7 +147,6 @@ var me=Object.defineProperty,Re=Object.defineProperties,qe=Object.getOwnProperty
       <div class="alert ${d} ${l}" part="response-alert">
         ${h?p`
           <div>
-            <span class="alert-icon">${c}</span>
             <strong>${h}</strong>
           </div>
         `:""}

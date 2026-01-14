@@ -593,7 +593,6 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         <div class="alert ${alertClass} ${beforeClass}" part="response-alert">
           ${customTitle ? html `
             <div>
-              <span class="alert-icon">${icon}</span>
               <strong>${customTitle}</strong>
             </div>
           ` : ''}
@@ -635,7 +634,6 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
       <div class="alert ${alertClass} ${beforeClass}" part="response-alert">
         ${customTitle ? html `
           <div>
-            <span class="alert-icon">${icon}</span>
             <strong>${customTitle}</strong>
           </div>
         ` : ''}
