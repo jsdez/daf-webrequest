@@ -372,7 +372,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                     type: 'string',
                     title: 'Alert Position',
                     description: 'Controls where the alert message is displayed relative to the button.',
-                    enum: ['After', 'Before', 'Inline', 'Pop-out'],
+                    enum: ['After', 'Before', 'Pop-out'],
                     defaultValue: 'After',
                 },
             },
@@ -473,23 +473,6 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         ${this.shouldShowAlert() ? this.renderModal(alert) : ''}
       `;
         }
-        // Handle Inline positioning
-        if (this.alertPosition === 'Inline') {
-            const isCentered = this.btnAlignment === 'center';
-            return html `
-        <div class="form-group">
-          <div class="btn-alert-container align-${this.btnAlignment}">
-            ${this.btnAlignment === 'right' ? html `
-              <div class="inline-alert ${isCentered ? 'center' : ''}">${alert}</div>
-              ${button}
-            ` : html `
-              ${button}
-              <div class="inline-alert ${isCentered ? 'center' : ''}">${alert}</div>
-            `}
-          </div>
-        </div>
-      `;
-        }
         // Handle Before positioning
         if (this.alertPosition === 'Before') {
             return html `
@@ -536,13 +519,8 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
             }
         }}>
         <div class="modal-content">
-          <div class="modal-header">
-            <div class="modal-title">API Response</div>
-            <button class="modal-close" @click=${() => this.closeModal()}>&times;</button>
-          </div>
-          <div class="modal-body">
-            ${alertContent}
-          </div>
+          <button class="modal-close" @click=${() => this.closeModal()}>&times;</button>
+          ${alertContent}
         </div>
       </div>
     `;
@@ -2578,6 +2556,8 @@ DafWebRequestPlugin.styles = css `
       overflow-y: auto;
       animation: slideIn 0.3s ease;
       margin: 20px;
+      position: relative;
+      padding: 16px;
     }
 
     @keyframes slideIn {
@@ -2591,22 +2571,11 @@ DafWebRequestPlugin.styles = css `
       }
     }
 
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--ntx-form-theme-color-border, #dee2e6);
-    }
-
-    .modal-title {
-      font-weight: 600;
-      font-size: 18px;
-      color: var(--ntx-form-theme-color-input-text, #333333);
-    }
-
     .modal-close {
-      background: none;
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: white;
       border: none;
       font-size: 24px;
       line-height: 1;
@@ -2620,17 +2589,15 @@ DafWebRequestPlugin.styles = css `
       justify-content: center;
       border-radius: 50%;
       transition: background 0.2s ease;
+      z-index: 1;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
     .modal-close:hover {
       background: var(--ntx-form-theme-color-background-alt, #f8f9fa);
     }
 
-    .modal-body {
-      padding: 20px;
-    }
-
-    .modal-body .alert {
+    .modal-content .alert {
       margin-top: 0;
     }
 
