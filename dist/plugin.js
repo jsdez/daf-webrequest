@@ -549,7 +549,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                 ${this.detailsExpanded ? '▼' : '▶'} More Details...
               </button>
               ${this.detailsExpanded ? html `
-                <div class="alert-more-details-content">${this.apiResponse}</div>
+                <div class="alert-more-details-content">${this.formatRawResponse()}</div>
               ` : ''}
             </div>
           ` : ''}
@@ -591,7 +591,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
               ${this.detailsExpanded ? '▼' : '▶'} More Details...
             </button>
             ${this.detailsExpanded ? html `
-              <div class="alert-more-details-content">${this.apiResponse}</div>
+              <div class="alert-more-details-content">${this.formatRawResponse()}</div>
             ` : ''}
           </div>
         ` : ''}
@@ -619,6 +619,19 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
     toggleDetailsExpanded() {
         this.detailsExpanded = !this.detailsExpanded;
         this.requestUpdate();
+    }
+    formatRawResponse() {
+        if (!this.apiResponse)
+            return '';
+        try {
+            // Try to parse as JSON and pretty-print with indentation
+            const parsed = JSON.parse(this.apiResponse);
+            return JSON.stringify(parsed, null, 2);
+        }
+        catch (e) {
+            // If not valid JSON, return as-is
+            return this.apiResponse;
+        }
     }
     getCustomMessage(type) {
         let message;

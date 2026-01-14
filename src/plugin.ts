@@ -1048,7 +1048,7 @@ export class DafWebRequestPlugin extends LitElement {
                 ${this.detailsExpanded ? '▼' : '▶'} More Details...
               </button>
               ${this.detailsExpanded ? html`
-                <div class="alert-more-details-content">${this.apiResponse}</div>
+                <div class="alert-more-details-content">${this.formatRawResponse()}</div>
               ` : ''}
             </div>
           ` : ''}
@@ -1091,7 +1091,7 @@ export class DafWebRequestPlugin extends LitElement {
               ${this.detailsExpanded ? '▼' : '▶'} More Details...
             </button>
             ${this.detailsExpanded ? html`
-              <div class="alert-more-details-content">${this.apiResponse}</div>
+              <div class="alert-more-details-content">${this.formatRawResponse()}</div>
             ` : ''}
           </div>
         ` : ''}
@@ -1120,6 +1120,19 @@ export class DafWebRequestPlugin extends LitElement {
   private toggleDetailsExpanded() {
     this.detailsExpanded = !this.detailsExpanded;
     this.requestUpdate();
+  }
+
+  private formatRawResponse(): string {
+    if (!this.apiResponse) return '';
+    
+    try {
+      // Try to parse as JSON and pretty-print with indentation
+      const parsed = JSON.parse(this.apiResponse);
+      return JSON.stringify(parsed, null, 2);
+    } catch (e) {
+      // If not valid JSON, return as-is
+      return this.apiResponse;
+    }
   }
 
   private getCustomMessage(type: 'success' | 'warning' | 'error'): string {
