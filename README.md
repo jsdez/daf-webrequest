@@ -258,11 +258,12 @@ https://cdn.jsdelivr.net/npm/<your-package-name>@<version>/dist/plugin.js
 ### Submission Actions
 
 #### Submission Action
-- **Type**: Dropdown | **Default**: `none`
+- **Type**: Dropdown | **Default**: `no-submit`
 - **Options**:
-  - **none**: No automatic submission
+  - **no-submit**: No automatic submission
   - **quick-submit**: Immediately submit Nintex form after successful API call
   - **delayed-submit**: Show countdown, then submit form (respects Countdown Timer value)
+  - **only-submit**: Skip API call and directly submit the form
 - **Triggers on**: Success (200-299) and Warning (300-399) responses only
 
 #### Hide Submit Button
@@ -271,6 +272,38 @@ https://cdn.jsdelivr.net/npm/<your-package-name>@<version>/dist/plugin.js
 - **How**: Injects global CSS to hide `button[data-e2e="btn-submit"]`
 - **Use case**: Force users to submit via API call button
 - **Note**: Submit button remains functional when hidden (for `Submission Action` use)
+
+---
+
+### Alert Display Configuration
+
+#### Show More Details
+- **Type**: Dropdown | **Default**: `Never`
+- **Options**: `Never`, `Always`, `On Error/Warning`
+- **Description**: Controls when to show expandable raw response details in alerts
+- **When enabled**:
+  - Adds "More Details..." link below alert message
+  - Click to expand and view full API response (pretty-formatted JSON)
+  - Includes "copy" link to copy raw response to clipboard
+- **Use cases**:
+  - **Never**: Clean interface, hide technical details from users
+  - **Always**: Show details for all responses (success, warning, error)
+  - **On Error/Warning**: Only show details when troubleshooting is needed
+
+#### Alert Position
+- **Type**: Dropdown | **Default**: `After`
+- **Options**: `After`, `Before`, `Pop-out`
+- **Description**: Controls where the alert message is displayed relative to the button
+- **Options explained**:
+  - **After**: Alert displays below the button (default position)
+  - **Before**: Alert displays above the button (uses margin-bottom instead of margin-top)
+  - **Pop-out**: Alert displays as a modal overlay with backdrop
+- **Modal features** (Pop-out):
+  - Semi-transparent backdrop
+  - Centered modal with shadow
+  - Close button (×) in top-right
+  - Click outside to close
+  - Smooth fade-in/slide-in animations
 
 ---
 
@@ -392,7 +425,7 @@ Enable comprehensive debugging by setting **Debug Mode** to `true`. This reveals
 
 ### Tab 4: Response Formatter
 
-**Purpose**: Create formatted response displays visually.
+**Purpose**: Create formatted response displays visually with support for complex nested data and arrays.
 
 **Features**:
 
@@ -400,12 +433,27 @@ Enable comprehensive debugging by setting **Debug Mode** to `true`. This reveals
 - Large textarea for API response
 - Auto-validation with error display
 
+#### Three-Tab Configuration Interface
+
+**Success Tab**: Configure display for successful responses (HTTP 200-299)
+**Warning Tab**: Configure display for warning responses (HTTP 300-399)
+**Error Tab**: Configure display for error responses (HTTP 400+)
+
+Each tab includes:
+- **Current Configuration**: Shows existing config with color-coded preview (green/yellow/red)
+- **Preview Section**: See how the formatted message will look
+- **Field Configurator**: Build new configurations visually
+
 #### Two-Column Field Configuration
 
 **Left Panel - Available Fields**:
 - Auto-extracted list of all response fields
 - Shows field path and sample value
-- Checkbox to select fields
+- **Checkbox**: Select fields to include
+- **Array Support**: 
+  - Enable "List all array items" to show `[*]` notation
+  - Access properties within arrays: `errordetails[*].message`
+  - Access specific indexes: `errordetails[0].message`
 - Selected fields highlighted blue
 - Auto-assigns order numbers
 
@@ -413,7 +461,7 @@ Enable comprehensive debugging by setting **Debug Mode** to `true`. This reveals
 - Draggable cards showing selected fields
 - **⋮⋮ Handle**: Drag to reorder
 - **Number**: Current position (1, 2, 3...)
-- **Field Path**: Original JSON path
+- **Field Path**: Original JSON path (supports nested paths and arrays)
 - **Title Input**: Custom display label
 - **✕ Button**: Remove field
 
@@ -421,11 +469,12 @@ Enable comprehensive debugging by setting **Debug Mode** to `true`. This reveals
 - Shows exact formatted output
 - Uses custom titles
 - Format: `Title: Value` on separate lines
+- **Array formatting**: Multiple items shown as numbered list
 
 #### Configuration Output
 - Generated JSON config
 - Format: `{"fields":[{"path":"...","title":"..."}]}`
-- **📋 Copy Button**: Copy to clipboard
+- **📋 Copy Button**: Copy to clipboard (color-coded per message type)
 - Auto-minified and ready to paste
 
 **Complete Workflow**:
@@ -436,29 +485,36 @@ Enable comprehensive debugging by setting **Debug Mode** to `true`. This reveals
    - Paste into "Paste Response JSON" textarea
    - Verify JSON is valid
 
-2. **Select Fields**
+2. **Select Message Type Tab**
+   - Click Success, Warning, or Error tab
+   - View current configuration (if any)
+   - See preview of current config
+
+3. **Select Fields**
    - Browse "Available Fields" panel
    - Check boxes next to desired fields
+   - For arrays: Enable "List all array items" checkbox
+   - Select array properties: `errordetails[*].message`
    - Fields appear in "Selected Fields" panel
 
-3. **Customize Display**
+4. **Customize Display**
    - Edit "Display title" inputs
    - Drag ⋮⋮ handles to reorder
    - Click ✕ to remove fields
    - Watch Preview update in real-time
 
-4. **Generate Configuration**
+5. **Generate Configuration**
    - Review Preview section
    - Scroll to "Response Format Configuration"
-   - Click 📋 Copy button
+   - Click color-coded 📋 Copy button
 
-5. **Apply to Form**
+6. **Apply to Form**
    - Paste into Success/Warning/Error Message property
    - Disable Debug Mode
    - Make API call
    - View formatted response
 
-**Example**:
+**Example - Simple Fields**:
 ```json
 // Configuration
 {"fields":[
@@ -472,6 +528,32 @@ Enable comprehensive debugging by setting **Debug Mode** to `true`. This reveals
 Message: Registration successful
 Personnel Number: 12345
 Employee Name: John Doe
+```
+
+**Example - Array Handling**:
+```json
+// API Response (SAP Error)
+{
+  "error": {
+    "innererror": {
+      "errordetails": [
+        {"code":"XS/138","message":"Email address 234124 is invalid"},
+        {"code":"/IWBEP/CX_MGW_BUSI_EXCEPTION","message":"An exception was raised"}
+      ]
+    }
+  }
+}
+
+// Configuration (with array notation)
+{"fields":[
+  {"path":"error.innererror.errordetails[*].message","title":"Error Messages"}
+]}
+
+// Result Displayed
+✗ Error
+Error Messages:
+  1. Email address 234124 is invalid
+  2. An exception was raised
 ```
 
 ---
@@ -703,6 +785,80 @@ HTTP Method: POST
 // - Prod: OAuth 2.0 with client credentials
 ```
 
+### Example 9: Alert Display Options
+
+```javascript
+// Configuration for User-Facing Forms
+Alert Position: Pop-out          // Show as modal overlay
+Show More Details: Never         // Hide technical details
+
+// Result:
+// - Clean, professional modal alert
+// - No raw JSON visible to users
+// - Automatic close on backdrop click
+
+// Configuration for Admin/Developer Forms
+Alert Position: After            // Standard position below button
+Show More Details: Always        // Show expandable details
+
+// Result:
+// - Standard alert with "More Details..." link
+// - Click to expand and see full API response
+// - "copy" link to copy raw JSON to clipboard
+
+// Configuration for Error Handling
+Alert Position: Before           // Show above button for visibility
+Show More Details: On Error/Warning  // Only show details when needed
+
+// Result:
+// - Alert appears first (before button)
+// - Details section only for errors/warnings
+// - Clean success messages without clutter
+```
+
+### Example 10: Array Response Handling
+
+```javascript
+// API Response with Multiple Errors
+{
+  "error": {
+    "innererror": {
+      "errordetails": [
+        {"code":"XS/138","message":"Email address 234124 is invalid","severity":"error"},
+        {"code":"XS/139","message":"Phone number format incorrect","severity":"error"},
+        {"code":"XS/140","message":"Postal code missing","severity":"warning"}
+      ]
+    }
+  }
+}
+
+// Response Formatter Configuration
+// In Debug Mode:
+// 1. Paste response JSON
+// 2. Click "Error" tab
+// 3. Enable "List all array items" checkbox
+// 4. Select: error.innererror.errordetails[*].message
+// 5. Select: error.innererror.errordetails[*].severity
+// 6. Copy configuration
+
+// Error Message Property:
+{"fields":[
+  {"path":"error.innererror.errordetails[*].message","title":"Validation Errors"},
+  {"path":"error.innererror.errordetails[*].severity","title":"Severity Levels"}
+]}
+
+// User Sees:
+✗ Error
+Validation Errors:
+  1. Email address 234124 is invalid
+  2. Phone number format incorrect
+  3. Postal code missing
+Severity Levels:
+  1. error
+  2. error
+  3. warning
+```
+
 ---
 
 ## Response Object
@@ -715,7 +871,8 @@ The plugin returns a structured response object in the `value` property:
   statusCode: number,         // HTTP status code (200, 404, 500, etc.)
   responseType: string,       // 'success', 'warning', or 'error'
   data: string,              // Raw response data (stringified JSON)
-  message: string,           // User-friendly message
+  message: string,           // Actual message from API response (extracted from d.Message, Message, or message)
+  formattedResponse: string, // Formatted response based on Success/Warning/Error Message configuration
   timestamp: string,         // ISO timestamp of API call
   executionTime: number,     // Milliseconds taken
   access_token?: string,     // Auto-extracted if present in response
@@ -727,7 +884,8 @@ The plugin returns a structured response object in the `value` property:
 - `{Control:WebRequest.success}` - Boolean success flag
 - `{Control:WebRequest.statusCode}` - HTTP status code
 - `{Control:WebRequest.data}` - Raw response data
-- `{Control:WebRequest.message}` - Response message
+- `{Control:WebRequest.message}` - Actual message from API
+- `{Control:WebRequest.formattedResponse}` - Formatted display message
 - `{Control:WebRequest.output}` - Extracted value (from outputValueKey)
 - `{Control:WebRequest.access_token}` - OAuth token (for reuse)
 
