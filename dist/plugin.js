@@ -118,6 +118,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         this.submissionAction = 'no-submit';
         this.submitHidden = false;
         this.showMoreDetails = 'Never';
+        this.alertPosition = 'After';
     }
     // Called when the element is added to the DOM
     connectedCallback() {
@@ -367,6 +368,13 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                     enum: ['Never', 'Always', 'On Error/Warning'],
                     defaultValue: 'Never',
                 },
+                alertPosition: {
+                    type: 'string',
+                    title: 'Alert Position',
+                    description: 'Controls where the alert message is displayed relative to the button.',
+                    enum: ['After', 'Before', 'Inline', 'Pop-out'],
+                    defaultValue: 'After',
+                },
             },
             standardProperties: {
                 fieldLabel: true,
@@ -382,21 +390,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
             // Debug mode: Enhanced debug interface with tabs
             return html `
         <div class="plugin-container">
-          ${this.btnVisible ? html `
-            <div class="form-group">
-              <div class="btn-container align-${this.btnAlignment}">
-                <button 
-                  class="btn btn-primary" 
-                  part="api-button"
-                  @click=${() => this.triggerAPICall()} 
-                  ?disabled=${this.isButtonDisabled()}
-                >
-                  ${this.isLoading ? html `<span class="spinner"></span>Calling API...` : this.btnText}
-                </button>
-              </div>
-              ${this.renderResponseAlert()}
-            </div>
-          ` : ''}
+          ${this.btnVisible ? this.renderButtonWithAlert('Calling API...') : ''}
 
           <div class="debug-tabs">
             <div class="debug-tab-nav">
@@ -452,21 +446,114 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         }
         return html `
       <div class="plugin-container">
+        ${this.renderButtonWithAlert('Processing...')}
+      </div>
+    `;
+    }
+    renderButtonWithAlert(loadingText) {
+        const alert = this.renderResponseAlert();
+        const button = html `
+      <button 
+        class="btn btn-primary" 
+        part="api-button"
+        @click=${() => this.triggerAPICall()} 
+        ?disabled=${this.isButtonDisabled()}
+      >
+        ${this.isLoading ? html `<span class="spinner"></span>${loadingText}` : this.btnText}
+      </button>
+    `;
+        // Handle Pop-out modal
+        if (this.alertPosition === 'Pop-out') {
+            return html `
         <div class="form-group">
           <div class="btn-container align-${this.btnAlignment}">
-            <button 
-              class="btn btn-primary" 
-              part="api-button"
-              @click=${() => this.triggerAPICall()} 
-              ?disabled=${this.isButtonDisabled()}
-            >
-              ${this.isLoading ? html `<span class="spinner"></span>Processing...` : this.btnText}
-            </button>
+            ${button}
           </div>
-          ${this.renderResponseAlert()}
+        </div>
+        ${this.shouldShowAlert() ? this.renderModal(alert) : ''}
+      `;
+        }
+        // Handle Inline positioning
+        if (this.alertPosition === 'Inline') {
+            const isCentered = this.btnAlignment === 'center';
+            return html `
+        <div class="form-group">
+          <div class="btn-alert-container align-${this.btnAlignment}">
+            ${this.btnAlignment === 'right' ? html `
+              <div class="inline-alert ${isCentered ? 'center' : ''}">${alert}</div>
+              ${button}
+            ` : html `
+              ${button}
+              <div class="inline-alert ${isCentered ? 'center' : ''}">${alert}</div>
+            `}
+          </div>
+        </div>
+      `;
+        }
+        // Handle Before positioning
+        if (this.alertPosition === 'Before') {
+            return html `
+        <div class="form-group">
+          ${alert}
+          <div class="btn-container align-${this.btnAlignment}">
+            ${button}
+          </div>
+        </div>
+      `;
+        }
+        // Default: After positioning
+        return html `
+      <div class="form-group">
+        <div class="btn-container align-${this.btnAlignment}">
+          ${button}
+        </div>
+        ${alert}
+      </div>
+    `;
+    }
+    shouldShowAlert() {
+        // Check if there's any alert content to show
+        if (this.formValidationError)
+            return true;
+        const now = Date.now();
+        const timeSinceLastCall = now - this.lastApiCallTime;
+        const cooldownMs = this.countdownTimer * 1000;
+        const inCooldown = this.countdownEnabled && this.lastApiCallTime > 0 && timeSinceLastCall < cooldownMs;
+        if (inCooldown && this.showCooldownAlert)
+            return true;
+        if (!this.apiResponse || !this.responseType)
+            return false;
+        if (this.lastCooldownAlertTime > this.lastApiCallTime)
+            return false;
+        return true;
+    }
+    renderModal(alertContent) {
+        return html `
+      <div class="modal-overlay" @click=${(e) => {
+            // Close modal if clicking on overlay (not the content)
+            if (e.target === e.currentTarget) {
+                this.closeModal();
+            }
+        }}>
+        <div class="modal-content">
+          <div class="modal-header">
+            <div class="modal-title">API Response</div>
+            <button class="modal-close" @click=${() => this.closeModal()}>&times;</button>
+          </div>
+          <div class="modal-body">
+            ${alertContent}
+          </div>
         </div>
       </div>
     `;
+    }
+    closeModal() {
+        // Clear the response to close the modal
+        this.apiResponse = '';
+        this.responseType = null;
+        this.formValidationError = '';
+        this.showCooldownAlert = false;
+        this.requestUpdate();
     }
     renderResponseAlert() {
         var _a;
@@ -2462,6 +2549,121 @@ DafWebRequestPlugin.styles = css `
       word-break: break-all;
     }
 
+    /* Modal Styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: var(--ntx-form-theme-border-radius, 4px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+      max-width: 600px;
+      max-height: 80vh;
+      overflow-y: auto;
+      animation: slideIn 0.3s ease;
+      margin: 20px;
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateY(-20px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--ntx-form-theme-color-border, #dee2e6);
+    }
+
+    .modal-title {
+      font-weight: 600;
+      font-size: 18px;
+      color: var(--ntx-form-theme-color-input-text, #333333);
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      line-height: 1;
+      cursor: pointer;
+      color: var(--ntx-form-theme-color-secondary, #6c757d);
+      padding: 0;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      transition: background 0.2s ease;
+    }
+
+    .modal-close:hover {
+      background: var(--ntx-form-theme-color-background-alt, #f8f9fa);
+    }
+
+    .modal-body {
+      padding: 20px;
+    }
+
+    .modal-body .alert {
+      margin-top: 0;
+    }
+
+    /* Inline Alert Styles */
+    .btn-alert-container {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn-alert-container.align-left {
+      justify-content: flex-start;
+      align-items: flex-start;
+    }
+
+    .btn-alert-container.align-center {
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    .btn-alert-container.align-right {
+      justify-content: flex-end;
+      align-items: flex-start;
+    }
+
+    .inline-alert {
+      flex: 1;
+      max-width: 400px;
+    }
+
+    .inline-alert.center {
+      max-width: 300px;
+    }
+
     .spinner {
       display: inline-block;
       width: 12px;
@@ -2842,6 +3044,9 @@ __decorate([
 __decorate([
     property({ type: String, reflect: true, attribute: 'show-more-details' })
 ], DafWebRequestPlugin.prototype, "showMoreDetails", void 0);
+__decorate([
+    property({ type: String, reflect: true, attribute: 'alert-position' })
+], DafWebRequestPlugin.prototype, "alertPosition", void 0);
 DafWebRequestPlugin = DafWebRequestPlugin_1 = __decorate([
     customElement('daf-webrequest-plugin')
 ], DafWebRequestPlugin);
