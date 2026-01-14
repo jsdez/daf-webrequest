@@ -2638,13 +2638,23 @@ DafWebRequestPlugin.styles = css `
       background: white;
       border-radius: var(--ntx-form-theme-border-radius, 4px);
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-      max-width: 600px;
+      width: 80%;
+      min-width: 600px;
+      max-width: 800px;
       max-height: 80vh;
       overflow-y: auto;
       animation: slideIn 0.3s ease;
       margin: 20px;
       position: relative;
       padding: 16px;
+    }
+
+    @media (max-width: 768px) {
+      .modal-content {
+        width: 80%;
+        min-width: unset;
+        max-width: unset;
+      }
     }
 
     @keyframes slideIn {
