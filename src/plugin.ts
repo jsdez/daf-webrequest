@@ -123,6 +123,44 @@ export class DafWebRequestPlugin extends LitElement {
       word-break: break-all;
     }
 
+    .alert-more-details {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .alert-more-details-toggle {
+      color: inherit;
+      text-decoration: underline;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: inherit;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .alert-more-details-toggle:hover {
+      opacity: 0.8;
+    }
+
+    .alert-more-details-content {
+      margin-top: 8px;
+      padding: 8px;
+      background: rgba(0, 0, 0, 0.05);
+      border-radius: 4px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 11px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
     .spinner {
       display: inline-block;
       width: 12px;
@@ -517,8 +555,10 @@ export class DafWebRequestPlugin extends LitElement {
   @property({ type: Boolean, reflect: true, attribute: 'form-validation' }) formValidation!: boolean;
   @property({ type: String, reflect: true, attribute: 'submission-action' }) submissionAction!: string;
   @property({ type: Boolean, reflect: true, attribute: 'submit-hidden' }) submitHidden!: boolean;
+  @property({ type: String, reflect: true, attribute: 'show-more-details' }) showMoreDetails!: string;
 
   // Instance-specific state (not reactive properties - these are internal state only)
+  private detailsExpanded: boolean = false;
   private isLoading = false;
   private apiResponse: string = '';
   private responseType: 'success' | 'warning' | 'error' | null = null;
@@ -563,6 +603,7 @@ export class DafWebRequestPlugin extends LitElement {
     this.formValidation = false;
     this.submissionAction = 'no-submit';
     this.submitHidden = false;
+    this.showMoreDetails = 'Never';
   }
 
   // Called when the element is added to the DOM
@@ -807,6 +848,13 @@ export class DafWebRequestPlugin extends LitElement {
           description: 'If true, hides the Nintex form submit button from users.',
           defaultValue: false,
         } as PropType,
+        showMoreDetails: {
+          type: 'string',
+          title: 'Show More Details',
+          description: 'Controls when to show expandable raw response details in alerts.',
+          enum: ['Never', 'Always', 'On Error/Warning'],
+          defaultValue: 'Never',
+        } as PropType,
       },
       standardProperties: {
         fieldLabel: true,
@@ -991,6 +1039,19 @@ export class DafWebRequestPlugin extends LitElement {
               Submitting form in ${submissionCountdown} seconds...
             </div>
           ` : ''}
+          ${this.shouldShowMoreDetails('success') ? html`
+            <div class="alert-more-details">
+              <button 
+                class="alert-more-details-toggle"
+                @click=${() => this.toggleDetailsExpanded()}
+              >
+                ${this.detailsExpanded ? '▼' : '▶'} More Details...
+              </button>
+              ${this.detailsExpanded ? html`
+                <div class="alert-more-details-content">${this.apiResponse}</div>
+              ` : ''}
+            </div>
+          ` : ''}
         </div>
       `;
     }
@@ -1021,6 +1082,19 @@ export class DafWebRequestPlugin extends LitElement {
             Submitting form in ${submissionCountdown} seconds...
           </div>
         ` : ''}
+        ${this.shouldShowMoreDetails(this.responseType) ? html`
+          <div class="alert-more-details">
+            <button 
+              class="alert-more-details-toggle"
+              @click=${() => this.toggleDetailsExpanded()}
+            >
+              ${this.detailsExpanded ? '▼' : '▶'} More Details...
+            </button>
+            ${this.detailsExpanded ? html`
+              <div class="alert-more-details-content">${this.apiResponse}</div>
+            ` : ''}
+          </div>
+        ` : ''}
       </div>
     `;
   }
@@ -1032,6 +1106,20 @@ export class DafWebRequestPlugin extends LitElement {
       case 'error': return '✗';
       default: return '•';
     }
+  }
+
+  private shouldShowMoreDetails(responseType: string): boolean {
+    if (this.showMoreDetails === 'Never') return false;
+    if (this.showMoreDetails === 'Always') return true;
+    if (this.showMoreDetails === 'On Error/Warning') {
+      return responseType === 'error' || responseType === 'warning';
+    }
+    return false;
+  }
+
+  private toggleDetailsExpanded() {
+    this.detailsExpanded = !this.detailsExpanded;
+    this.requestUpdate();
   }
 
   private getCustomMessage(type: 'success' | 'warning' | 'error'): string {

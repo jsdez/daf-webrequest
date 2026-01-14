@@ -75,6 +75,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         // Custom accessors for btnVisible with explicit change detection
         this._btnVisible = true;
         // Instance-specific state (not reactive properties - these are internal state only)
+        this.detailsExpanded = false;
         this.isLoading = false;
         this.apiResponse = '';
         this.responseType = null;
@@ -116,6 +117,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         this.formValidation = false;
         this.submissionAction = 'no-submit';
         this.submitHidden = false;
+        this.showMoreDetails = 'Never';
     }
     // Called when the element is added to the DOM
     connectedCallback() {
@@ -358,6 +360,13 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                     description: 'If true, hides the Nintex form submit button from users.',
                     defaultValue: false,
                 },
+                showMoreDetails: {
+                    type: 'string',
+                    title: 'Show More Details',
+                    description: 'Controls when to show expandable raw response details in alerts.',
+                    enum: ['Never', 'Always', 'On Error/Warning'],
+                    defaultValue: 'Never',
+                },
             },
             standardProperties: {
                 fieldLabel: true,
@@ -531,6 +540,19 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
               Submitting form in ${submissionCountdown} seconds...
             </div>
           ` : ''}
+          ${this.shouldShowMoreDetails('success') ? html `
+            <div class="alert-more-details">
+              <button 
+                class="alert-more-details-toggle"
+                @click=${() => this.toggleDetailsExpanded()}
+              >
+                ${this.detailsExpanded ? '▼' : '▶'} More Details...
+              </button>
+              ${this.detailsExpanded ? html `
+                <div class="alert-more-details-content">${this.apiResponse}</div>
+              ` : ''}
+            </div>
+          ` : ''}
         </div>
       `;
         }
@@ -560,6 +582,19 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
             Submitting form in ${submissionCountdown} seconds...
           </div>
         ` : ''}
+        ${this.shouldShowMoreDetails(this.responseType) ? html `
+          <div class="alert-more-details">
+            <button 
+              class="alert-more-details-toggle"
+              @click=${() => this.toggleDetailsExpanded()}
+            >
+              ${this.detailsExpanded ? '▼' : '▶'} More Details...
+            </button>
+            ${this.detailsExpanded ? html `
+              <div class="alert-more-details-content">${this.apiResponse}</div>
+            ` : ''}
+          </div>
+        ` : ''}
       </div>
     `;
     }
@@ -570,6 +605,20 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
             case 'error': return '✗';
             default: return '•';
         }
+    }
+    shouldShowMoreDetails(responseType) {
+        if (this.showMoreDetails === 'Never')
+            return false;
+        if (this.showMoreDetails === 'Always')
+            return true;
+        if (this.showMoreDetails === 'On Error/Warning') {
+            return responseType === 'error' || responseType === 'warning';
+        }
+        return false;
+    }
+    toggleDetailsExpanded() {
+        this.detailsExpanded = !this.detailsExpanded;
+        this.requestUpdate();
     }
     getCustomMessage(type) {
         let message;
@@ -2362,6 +2411,44 @@ DafWebRequestPlugin.styles = css `
       word-break: break-all;
     }
 
+    .alert-more-details {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .alert-more-details-toggle {
+      color: inherit;
+      text-decoration: underline;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: inherit;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .alert-more-details-toggle:hover {
+      opacity: 0.8;
+    }
+
+    .alert-more-details-content {
+      margin-top: 8px;
+      padding: 8px;
+      background: rgba(0, 0, 0, 0.05);
+      border-radius: 4px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 11px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
     .spinner {
       display: inline-block;
       width: 12px;
@@ -2739,6 +2826,9 @@ __decorate([
 __decorate([
     property({ type: Boolean, reflect: true, attribute: 'submit-hidden' })
 ], DafWebRequestPlugin.prototype, "submitHidden", void 0);
+__decorate([
+    property({ type: String, reflect: true, attribute: 'show-more-details' })
+], DafWebRequestPlugin.prototype, "showMoreDetails", void 0);
 DafWebRequestPlugin = DafWebRequestPlugin_1 = __decorate([
     customElement('daf-webrequest-plugin')
 ], DafWebRequestPlugin);
