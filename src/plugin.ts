@@ -167,13 +167,13 @@ export class DafWebRequestPlugin extends LitElement {
     }
 
     .alert-more-details-wrapper {
-      position: relative;
+      position: relative
     }
 
     .alert-more-details-copy {
       position: absolute;
       top: 8px;
-      right: 8px;
+      right: 20px;
       color: inherit;
       text-decoration: underline;
       cursor: pointer;
