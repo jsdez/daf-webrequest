@@ -451,7 +451,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
     `;
     }
     renderButtonWithAlert(loadingText) {
-        const alert = this.renderResponseAlert();
+        const alert = this.renderResponseAlert(this.alertPosition === 'Before');
         const button = html `
       <button 
         class="btn btn-primary" 
@@ -533,7 +533,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         this.showCooldownAlert = false;
         this.requestUpdate();
     }
-    renderResponseAlert() {
+    renderResponseAlert(isBefore = false) {
         var _a;
         const now = Date.now();
         const timeSinceLastCall = now - this.lastApiCallTime;
@@ -543,10 +543,11 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         const isDelayedSubmission = this.submissionAction === 'delayed-submit' &&
             this.cooldownTimerId !== null &&
             (this.responseType === 'success' || this.responseType === 'warning');
+        const beforeClass = isBefore ? 'alert-before' : '';
         // Show form validation error if present
         if (this.formValidationError) {
             return html `
-        <div class="alert alert-error" part="validation-alert">
+        <div class="alert alert-error ${beforeClass}" part="validation-alert">
           <div>
             <span class="alert-icon">✗</span>
             <strong>Validation Error:</strong> ${this.formValidationError}
@@ -558,7 +559,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         if (inCooldown && this.showCooldownAlert) {
             const remainingSeconds = Math.ceil((cooldownMs - timeSinceLastCall) / 1000);
             return html `
-        <div class="alert alert-info" part="cooldown-alert">
+        <div class="alert alert-info ${beforeClass}" part="cooldown-alert">
           <div>
             <span class="alert-icon">ℹ</span>
             <strong>Information:</strong> Please wait ${remainingSeconds} seconds before sending another request.
@@ -586,7 +587,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         // For success responses, show only the custom message
         if (this.responseType === 'success') {
             return html `
-        <div class="alert ${alertClass}" part="response-alert">
+        <div class="alert ${alertClass} ${beforeClass}" part="response-alert">
           <div>
             <span class="alert-icon">${icon}</span>
             <strong>${typeLabel}</strong>
@@ -614,7 +615,10 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                 ${this.detailsExpanded ? '▼' : '▶'} More Details...
               </button>
               ${this.detailsExpanded ? html `
-                <div class="alert-more-details-content">${this.formatRawResponse()}</div>
+                <div class="alert-more-details-wrapper">
+                  <span class="alert-more-details-copy" @click=${() => this.copyRawResponseToClipboard()}>copy</span>
+                  <div class="alert-more-details-content">${this.formatRawResponse()}</div>
+                </div>
               ` : ''}
             </div>
           ` : ''}
@@ -623,7 +627,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         }
         // For warnings and errors, show custom message + actual response message
         return html `
-      <div class="alert ${alertClass}" part="response-alert">
+      <div class="alert ${alertClass} ${beforeClass}" part="response-alert">
         <div>
           <span class="alert-icon">${icon}</span>
           <strong>${typeLabel}</strong>
@@ -656,7 +660,10 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
               ${this.detailsExpanded ? '▼' : '▶'} More Details...
             </button>
             ${this.detailsExpanded ? html `
-              <div class="alert-more-details-content">${this.formatRawResponse()}</div>
+              <div class="alert-more-details-wrapper">
+                <span class="alert-more-details-copy" @click=${() => this.copyRawResponseToClipboard()}>copy</span>
+                <div class="alert-more-details-content">${this.formatRawResponse()}</div>
+              </div>
             ` : ''}
           </div>
         ` : ''}
@@ -697,6 +704,10 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
             // If not valid JSON, return as-is
             return this.apiResponse;
         }
+    }
+    copyRawResponseToClipboard() {
+        const content = this.formatRawResponse();
+        this.copyToClipboard(content);
     }
     getCustomMessage(type) {
         let message;
@@ -2450,6 +2461,11 @@ DafWebRequestPlugin.styles = css `
       -ms-user-select: text;
     }
 
+    .alert-before {
+      margin-top: 0;
+      margin-bottom: 12px;
+    }
+
     .alert-success {
       background-color: #d4edda;
       color: #155724;
@@ -2525,6 +2541,30 @@ DafWebRequestPlugin.styles = css `
       font-size: 11px;
       white-space: pre-wrap;
       word-break: break-all;
+    }
+
+    .alert-more-details-wrapper {
+      position: relative;
+    }
+
+    .alert-more-details-copy {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      color: inherit;
+      text-decoration: underline;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 500;
+      background: white;
+      padding: 2px 6px;
+      border-radius: 3px;
+      opacity: 0.8;
+      transition: opacity 0.2s ease;
+    }
+
+    .alert-more-details-copy:hover {
+      opacity: 1;
     }
 
     /* Modal Styles */
