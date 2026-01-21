@@ -609,7 +609,7 @@ export class DafWebRequestPlugin extends LitElement {
   
   // Custom accessor for value property with explicit change notification
   private _value: {
-    success: boolean;
+    success: boolean | null;
     statusCode: number;
     responseType: string;
     data: string;
@@ -620,7 +620,7 @@ export class DafWebRequestPlugin extends LitElement {
     access_token?: string;
     output?: any;
   } = {
-    success: false,
+    success: null,
     statusCode: 0,
     responseType: '',
     data: '',
@@ -892,7 +892,7 @@ export class DafWebRequestPlugin extends LitElement {
             }
           },
           defaultValue: {
-            success: false,
+            success: null,
             statusCode: 0,
             responseType: '',
             data: '',

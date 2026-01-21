@@ -62,7 +62,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         this.formatterMessageTitle = '';
         // Custom accessor for value property with explicit change notification
         this._value = {
-            success: false,
+            success: null,
             statusCode: 0,
             responseType: '',
             data: '',
@@ -211,7 +211,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                         success: {
                             type: 'boolean',
                             title: 'Success',
-                            description: 'Whether the API call was successful',
+                            description: 'Whether the API call was successful (true), failed (false), or not yet executed (null)',
                         },
                         statusCode: {
                             type: 'integer',
@@ -260,7 +260,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                         }
                     },
                     defaultValue: {
-                        success: false,
+                        success: null,
                         statusCode: 0,
                         responseType: '',
                         data: '',
