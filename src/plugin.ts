@@ -2982,7 +2982,7 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
         // Create structured value object
         this.value = {
           success: success !== false && (this.responseType === 'success' || this.responseType === 'warning'),
-          statusCode: statusCode || (this.responseType === 'success' ? 200 : 500),
+          statusCode: statusCode !== undefined ? statusCode : (this.responseType === 'success' ? 200 : 500),
           responseType: this.responseType,
           data: response,
           message: responseMessage,

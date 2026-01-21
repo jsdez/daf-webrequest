@@ -11,7 +11,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 export function callApi(_a) {
     return __awaiter(this, arguments, void 0, function* ({ url, method = 'POST', headers = {}, requestBody, contentType = 'application/json', setLoading, setResponse, }) {
         setLoading(true);
-        setResponse('', 0, false);
         try {
             // Prepare the body based on content type
             let body;

@@ -211,7 +211,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                         success: {
                             type: 'boolean',
                             title: 'Success',
-                            description: 'Whether the API call was successful (true), failed (false), or not yet executed (null)',
+                            description: 'Whether the API call was successful',
                         },
                         statusCode: {
                             type: 'integer',
@@ -2217,7 +2217,7 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
                     // Get formatted response message
                     const formattedResponseData = this.getCustomMessage(this.responseType);
                     // Create structured value object
-                    this.value = Object.assign(Object.assign({ success: success !== false && (this.responseType === 'success' || this.responseType === 'warning'), statusCode: statusCode || (this.responseType === 'success' ? 200 : 500), responseType: this.responseType, data: response, message: responseMessage, formattedResponse: formattedResponseData.message, timestamp: timestamp, executionTime: executionTime }, (accessToken && { access_token: accessToken })), (customOutput !== undefined && { output: customOutput }));
+                    this.value = Object.assign(Object.assign({ success: success !== false && (this.responseType === 'success' || this.responseType === 'warning'), statusCode: statusCode !== undefined ? statusCode : (this.responseType === 'success' ? 200 : 500), responseType: this.responseType, data: response, message: responseMessage, formattedResponse: formattedResponseData.message, timestamp: timestamp, executionTime: executionTime }, (accessToken && { access_token: accessToken })), (customOutput !== undefined && { output: customOutput }));
                     // Mark as successful call if success or warning
                     if (this.responseType === 'success' || this.responseType === 'warning') {
                         this.hasSuccessfulCall = true;

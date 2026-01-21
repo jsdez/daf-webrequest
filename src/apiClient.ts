@@ -18,7 +18,6 @@ export async function callApi({
   setResponse: (response: string, statusCode?: number, success?: boolean) => void;
 }) {
   setLoading(true);
-  setResponse('', 0, false);
   try {
     // Prepare the body based on content type
     let body: string | undefined;
