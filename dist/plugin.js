@@ -88,6 +88,8 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         this.cooldownTimerId = null; // Track the timer for cleanup
         this.formValidationError = '';
         this.oauthTokenResponse = null;
+        this.isValidating = false; // Track if we're in validation mode
+        this.submitBlockerAttached = false; // Track if submit blocker is active
         // Initialize all properties with their default values
         this.label = '';
         this.description = '';
@@ -127,6 +129,28 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         super.connectedCallback();
         // Apply submit button visibility on initial load
         this.toggleSubmitButtonVisibility();
+        // Attach submit blocker for validation mode
+        this.attachSubmitBlocker();
+    }
+    attachSubmitBlocker() {
+        if (this.submitBlockerAttached)
+            return;
+        const form = document.querySelector('form');
+        if (!form) {
+            console.warn('[Submit Blocker] No form found to attach blocker');
+            return;
+        }
+        // Attach a persistent submit blocker that runs in capture phase
+        form.addEventListener('submit', (event) => {
+            if (this.isValidating) {
+                console.log('[Submit Blocker] Blocking submit - validation in progress');
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+            }
+        }, true); // Capture phase to intercept early
+        this.submitBlockerAttached = true;
+        console.log('[Submit Blocker] Persistent submit blocker attached');
     }
     static getMetaConfig() {
         return {
@@ -886,20 +910,19 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                 console.warn('[Submit Validation] No form found for validation');
                 return true; // If no form found, proceed anyway
             }
+            // Set validation mode to block submits
+            this.isValidating = true;
+            console.log('[Submit Validation] Validation mode ENABLED - submits will be blocked');
             return new Promise((resolve) => {
                 let validationResult = true;
-                let submitAttempted = false;
-                // Create a one-time submit event listener in capture phase
-                const submitHandler = (event) => {
-                    console.log('[Submit Validation] Submit event captured');
-                    submitAttempted = true;
-                    // Prevent the actual submission
-                    event.preventDefault();
-                    event.stopPropagation();
-                    event.stopImmediatePropagation();
-                    console.log('[Submit Validation] Submit prevented, checking for validation errors...');
-                    // Give Nintex a moment to update validation state
+                // Find and click the submit button to trigger validation
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (submitBtn instanceof HTMLElement) {
+                    console.log('[Submit Validation] Clicking submit button to trigger validation...');
+                    submitBtn.click();
+                    // Wait for Nintex validation to complete and check results
                     setTimeout(() => {
+                        console.log('[Submit Validation] Checking for validation errors...');
                         // Check for validation errors using multiple methods
                         const ariaInvalidFields = form.querySelectorAll('[aria-invalid="true"]');
                         const html5InvalidFields = form.querySelectorAll(':invalid');
@@ -919,31 +942,15 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                             console.log('[Submit Validation] PASSED - no validation errors');
                             validationResult = true;
                         }
-                        // Clean up listener
-                        form.removeEventListener('submit', submitHandler, true);
+                        // Disable validation mode
+                        this.isValidating = false;
+                        console.log('[Submit Validation] Validation mode DISABLED - submits unblocked');
                         resolve(validationResult);
-                    }, 300); // Wait 300ms for Nintex validation to complete
-                };
-                // Attach the listener in capture phase to intercept early
-                form.addEventListener('submit', submitHandler, true);
-                console.log('[Submit Validation] Submit listener attached, attempting submit...');
-                // Find and click the submit button to trigger validation
-                const submitBtn = form.querySelector('button[type="submit"]');
-                if (submitBtn instanceof HTMLElement) {
-                    console.log('[Submit Validation] Clicking submit button to trigger validation...');
-                    submitBtn.click();
-                    // Safety timeout in case submit never fires
-                    setTimeout(() => {
-                        if (!submitAttempted) {
-                            console.warn('[Submit Validation] Submit event never fired, assuming valid');
-                            form.removeEventListener('submit', submitHandler, true);
-                            resolve(true);
-                        }
-                    }, 1000);
+                    }, 350); // Wait 350ms for Nintex validation to complete
                 }
                 else {
                     console.error('[Submit Validation] No submit button found');
-                    form.removeEventListener('submit', submitHandler, true);
+                    this.isValidating = false;
                     resolve(true); // If no submit button, proceed anyway
                 }
             });
@@ -2517,6 +2524,8 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
             clearTimeout(this.cooldownTimerId);
             this.cooldownTimerId = null;
         }
+        // Reset validation mode
+        this.isValidating = false;
     }
 };
 DafWebRequestPlugin.styles = css `
