@@ -116,6 +116,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         this.btnAlignment = 'left';
         this._btnVisible = true;
         this.formValidation = false;
+        this.submitValidation = false;
         this.submissionAction = 'no-submit';
         this.submitHidden = false;
         this.showMoreDetails = 'Never';
@@ -347,6 +348,12 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                     type: 'boolean',
                     title: 'Validate Form Before API Call',
                     description: 'If true, validates the entire Nintex form before making the API call. Only proceeds if all required fields are valid.',
+                    defaultValue: false,
+                },
+                submitValidation: {
+                    type: 'boolean',
+                    title: 'Validate Form with Submit Rules',
+                    description: 'If true, validates Nintex form rules by intercepting form submission. This catches rule-based validation that only runs on submit. More thorough but requires actual submit attempt.',
                     defaultValue: false,
                 },
                 submissionAction: {
@@ -871,6 +878,77 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
             }
         }
     }
+    validateNintexFormBySubmit() {
+        return __awaiter(this, void 0, void 0, function* () {
+            console.log('[Submit Validation] Starting submit-based form validation...');
+            const form = document.querySelector('form');
+            if (!form) {
+                console.warn('[Submit Validation] No form found for validation');
+                return true; // If no form found, proceed anyway
+            }
+            return new Promise((resolve) => {
+                let validationResult = true;
+                let submitAttempted = false;
+                // Create a one-time submit event listener in capture phase
+                const submitHandler = (event) => {
+                    console.log('[Submit Validation] Submit event captured');
+                    submitAttempted = true;
+                    // Prevent the actual submission
+                    event.preventDefault();
+                    event.stopPropagation();
+                    event.stopImmediatePropagation();
+                    console.log('[Submit Validation] Submit prevented, checking for validation errors...');
+                    // Give Nintex a moment to update validation state
+                    setTimeout(() => {
+                        // Check for validation errors using multiple methods
+                        const ariaInvalidFields = form.querySelectorAll('[aria-invalid="true"]');
+                        const html5InvalidFields = form.querySelectorAll(':invalid');
+                        const nintexErrorMessages = form.querySelectorAll('.ntx-form-error, [class*="error-message"], [role="alert"]');
+                        const totalInvalidCount = ariaInvalidFields.length + html5InvalidFields.length;
+                        const isValid = totalInvalidCount === 0 && nintexErrorMessages.length === 0;
+                        console.log('[Submit Validation] Validation check results:');
+                        console.log('  - aria-invalid:', ariaInvalidFields.length);
+                        console.log('  - HTML5 invalid:', html5InvalidFields.length);
+                        console.log('  - Error messages:', nintexErrorMessages.length);
+                        console.log('[Submit Validation] Form is valid:', isValid);
+                        if (!isValid) {
+                            console.log('[Submit Validation] FAILED - validation errors found');
+                            validationResult = false;
+                        }
+                        else {
+                            console.log('[Submit Validation] PASSED - no validation errors');
+                            validationResult = true;
+                        }
+                        // Clean up listener
+                        form.removeEventListener('submit', submitHandler, true);
+                        resolve(validationResult);
+                    }, 300); // Wait 300ms for Nintex validation to complete
+                };
+                // Attach the listener in capture phase to intercept early
+                form.addEventListener('submit', submitHandler, true);
+                console.log('[Submit Validation] Submit listener attached, attempting submit...');
+                // Find and click the submit button to trigger validation
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (submitBtn instanceof HTMLElement) {
+                    console.log('[Submit Validation] Clicking submit button to trigger validation...');
+                    submitBtn.click();
+                    // Safety timeout in case submit never fires
+                    setTimeout(() => {
+                        if (!submitAttempted) {
+                            console.warn('[Submit Validation] Submit event never fired, assuming valid');
+                            form.removeEventListener('submit', submitHandler, true);
+                            resolve(true);
+                        }
+                    }, 1000);
+                }
+                else {
+                    console.error('[Submit Validation] No submit button found');
+                    form.removeEventListener('submit', submitHandler, true);
+                    resolve(true); // If no submit button, proceed anyway
+                }
+            });
+        });
+    }
     validateNintexForm() {
         return __awaiter(this, void 0, void 0, function* () {
             console.log('[Validation] Starting form validation...');
@@ -934,7 +1012,19 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                 return;
             }
             // Check if form validation is required
-            if (this.formValidation) {
+            if (this.submitValidation) {
+                console.log('[API Call] Submit validation is ENABLED, checking form with submit rules...');
+                const isFormValid = yield this.validateNintexFormBySubmit();
+                console.log('[API Call] Submit validation result:', isFormValid);
+                if (!isFormValid) {
+                    console.log('[API Call] Submit validation FAILED - BLOCKING API call');
+                    this.formValidationError = 'Please correct the form validation errors before proceeding.';
+                    this.requestUpdate();
+                    return;
+                }
+                console.log('[API Call] Submit validation PASSED - proceeding with API call');
+            }
+            else if (this.formValidation) {
                 console.log('[API Call] Form validation is ENABLED, checking form...');
                 const isFormValid = yield this.validateNintexForm();
                 console.log('[API Call] Validation result:', isFormValid);
@@ -3099,6 +3189,9 @@ __decorate([
 __decorate([
     property({ type: Boolean, reflect: true, attribute: 'form-validation' })
 ], DafWebRequestPlugin.prototype, "formValidation", void 0);
+__decorate([
+    property({ type: Boolean, reflect: true, attribute: 'submit-validation' })
+], DafWebRequestPlugin.prototype, "submitValidation", void 0);
 __decorate([
     property({ type: String, reflect: true, attribute: 'submission-action' })
 ], DafWebRequestPlugin.prototype, "submissionAction", void 0);
