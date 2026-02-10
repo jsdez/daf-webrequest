@@ -1138,6 +1138,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         const metadata = this.constructor.getMetaConfig();
         const properties = [];
         // Iterate through all properties defined in the metadata
+        // Properties are maintained in declaration order (order from getMetaConfig)
         if (metadata.properties) {
             for (const [propName, propConfig] of Object.entries(metadata.properties)) {
                 // Skip the value property as it's output-only and complex
@@ -1150,8 +1151,8 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                 });
             }
         }
-        // Sort properties alphabetically for consistency
-        properties.sort((a, b) => a.name.localeCompare(b.name));
+        // NOTE: Properties are displayed in declaration order (as defined in getMetaConfig)
+        // This groups related properties together for better UX
         return html `
       <table class="debug-table">
         <thead>

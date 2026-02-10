@@ -1828,6 +1828,7 @@ export class DafWebRequestPlugin extends LitElement {
     const properties: Array<{ name: string; default: any; config: any }> = [];
     
     // Iterate through all properties defined in the metadata
+    // Properties are maintained in declaration order (order from getMetaConfig)
     if (metadata.properties) {
       for (const [propName, propConfig] of Object.entries(metadata.properties)) {
         // Skip the value property as it's output-only and complex
@@ -1841,8 +1842,8 @@ export class DafWebRequestPlugin extends LitElement {
       }
     }
     
-    // Sort properties alphabetically for consistency
-    properties.sort((a, b) => a.name.localeCompare(b.name));
+    // NOTE: Properties are displayed in declaration order (as defined in getMetaConfig)
+    // This groups related properties together for better UX
 
     return html`
       <table class="debug-table">
