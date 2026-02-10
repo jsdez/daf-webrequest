@@ -15,6 +15,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 var DafWebRequestPlugin_1;
 import { html, LitElement, css } from 'lit';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { callApi } from './apiClient.js';
 import { customElement, property } from 'lit/decorators.js';
 let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin extends LitElement {
@@ -90,6 +91,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         this.oauthTokenResponse = null;
         this.isValidating = false; // Track if we're in validation mode
         this.submitBlockerAttached = false; // Track if submit blocker is active
+        this.delayedSubmissionStartTime = 0; // Track when delayed submission countdown started
         // Initialize all properties with their default values
         this.label = '';
         this.description = '';
@@ -614,12 +616,15 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         // Calculate remaining seconds for delayed submission
         let submissionCountdown = 0;
         if (isDelayedSubmission) {
-            submissionCountdown = Math.ceil((cooldownMs - timeSinceLastCall) / 1000);
+            const elapsed = Date.now() - this.delayedSubmissionStartTime;
+            const remaining = this.countdownTimer * 1000 - elapsed;
+            submissionCountdown = Math.max(0, Math.ceil(remaining / 1000));
         }
         // Check if customMessage contains newlines (formatted response)
         const isFormattedResponse = customMessage.includes('\n');
         // For success responses, show only the custom message
         if (this.responseType === 'success') {
+            const showFooter = this.shouldShowMoreDetails('success') || isDelayedSubmission;
             return html `
         <div class="alert ${alertClass} ${beforeClass}" part="response-alert">
           ${customTitle ? html `
@@ -636,31 +641,36 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
               ${customMessage}
             </div>
           `}
-          ${isDelayedSubmission ? html `
-            <div class="alert-response">
-              Submitting form in ${submissionCountdown} seconds...
-            </div>
-          ` : ''}
-          ${this.shouldShowMoreDetails('success') ? html `
-            <div class="alert-more-details">
-              <button 
-                class="alert-more-details-toggle"
-                @click=${() => this.toggleDetailsExpanded()}
-              >
-                ${this.detailsExpanded ? '▼' : '▶'} More Details...
-              </button>
-              ${this.detailsExpanded ? html `
-                <div class="alert-more-details-wrapper">
-                  <span class="alert-more-details-copy" @click=${() => this.copyRawResponseToClipboard()}>copy</span>
-                  <div class="alert-more-details-content">${this.formatRawResponse()}</div>
+          ${showFooter ? html `
+            <div class="alert-footer">
+              <div class="alert-footer-left">
+                ${this.shouldShowMoreDetails('success') ? html `
+                  <button 
+                    class="alert-more-details-toggle"
+                    @click=${() => this.toggleDetailsExpanded()}
+                  >
+                    ${this.detailsExpanded ? '▼' : '▶'} More Details...
+                  </button>
+                ` : ''}
+              </div>
+              ${isDelayedSubmission ? html `
+                <div class="alert-footer-right">
+                  Submitting form in ${submissionCountdown} seconds...
                 </div>
               ` : ''}
             </div>
+            ${this.detailsExpanded && this.shouldShowMoreDetails('success') ? html `
+              <div class="alert-more-details-wrapper">
+                <span class="alert-more-details-copy" @click=${() => this.copyRawResponseToClipboard()}>copy</span>
+                <div class="alert-more-details-content">${this.formatRawResponse()}</div>
+              </div>
+            ` : ''}
           ` : ''}
         </div>
       `;
         }
         // For warnings and errors, show custom message + actual response message
+        const showFooter = this.shouldShowMoreDetails(this.responseType) || isDelayedSubmission;
         return html `
       <div class="alert ${alertClass} ${beforeClass}" part="response-alert">
         ${customTitle ? html `
@@ -679,32 +689,53 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         `}
         ${((_a = this.value) === null || _a === void 0 ? void 0 : _a.message) ? html `
           <div class="alert-response">
-            ${this.value.message}
+            ${unsafeHTML(this.formatMessageWithBoldLabels(this.value.message))}
           </div>
         ` : ''}
-        ${isDelayedSubmission ? html `
-          <div class="alert-response">
-            Submitting form in ${submissionCountdown} seconds...
-          </div>
-        ` : ''}
-        ${this.shouldShowMoreDetails(this.responseType) ? html `
-          <div class="alert-more-details">
-            <button 
-              class="alert-more-details-toggle"
-              @click=${() => this.toggleDetailsExpanded()}
-            >
-              ${this.detailsExpanded ? '▼' : '▶'} More Details...
-            </button>
-            ${this.detailsExpanded ? html `
-              <div class="alert-more-details-wrapper">
-                <span class="alert-more-details-copy" @click=${() => this.copyRawResponseToClipboard()}>copy</span>
-                <div class="alert-more-details-content">${this.formatRawResponse()}</div>
+        ${showFooter ? html `
+          <div class="alert-footer">
+            <div class="alert-footer-left">
+              ${this.shouldShowMoreDetails(this.responseType) ? html `
+                <button 
+                  class="alert-more-details-toggle"
+                  @click=${() => this.toggleDetailsExpanded()}
+                >
+                  ${this.detailsExpanded ? '▼' : '▶'} More Details...
+                </button>
+              ` : ''}
+            </div>
+            ${isDelayedSubmission ? html `
+              <div class="alert-footer-right">
+                Submitting form in ${submissionCountdown} seconds...
               </div>
             ` : ''}
           </div>
+          ${this.detailsExpanded && this.shouldShowMoreDetails(this.responseType) ? html `
+            <div class="alert-more-details-wrapper">
+              <span class="alert-more-details-copy" @click=${() => this.copyRawResponseToClipboard()}>copy</span>
+              <div class="alert-more-details-content">${this.formatRawResponse()}</div>
+            </div>
+          ` : ''}
         ` : ''}
       </div>
     `;
+    }
+    formatMessageWithBoldLabels(message) {
+        if (!message)
+            return '';
+        // Split by lines and process each line
+        const lines = message.split('\n');
+        const formattedLines = lines.map(line => {
+            // Match pattern "Label: Value" where label is at the start of the line
+            const match = line.match(/^([^:]+):\s*(.*)$/);
+            if (match) {
+                const label = match[1].trim();
+                const value = match[2];
+                return `<strong>${label}:</strong> ${value}`;
+            }
+            return line;
+        });
+        return formattedLines.join('<br>');
     }
     getAlertIcon(type) {
         switch (type) {
@@ -2472,6 +2503,7 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
         }
         const countdownMs = this.countdownTimer * 1000;
         const startTime = Date.now();
+        this.delayedSubmissionStartTime = startTime; // Track when countdown started
         // Update the UI to show countdown
         const updateCountdown = () => {
             const elapsed = Date.now() - startTime;
@@ -2481,6 +2513,7 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
                 console.log('[Submission Action] Countdown complete - submitting form');
                 this.submitNintexForm();
                 this.cooldownTimerId = null;
+                this.delayedSubmissionStartTime = 0; // Reset countdown start time
             }
             else {
                 // Still counting down, update UI
@@ -2643,7 +2676,6 @@ DafWebRequestPlugin.styles = css `
 
     .alert-response {
       margin-top: 8px;
-      padding-top: 8px;
       border-top: 1px solid rgba(0, 0, 0, 0.1);
       font-family: 'Courier New', Courier, monospace;
       font-size: 12px;
@@ -2655,6 +2687,28 @@ DafWebRequestPlugin.styles = css `
       margin-top: 12px;
       padding-top: 12px;
       border-top: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .alert-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(0, 0, 0, 0.1);
+      gap: 12px;
+    }
+
+    .alert-footer-left {
+      flex: 0 1 auto;
+    }
+
+    .alert-footer-right {
+      flex: 0 0 auto;
+      font-size: 12px;
+      font-style: italic;
+      color: inherit;
+      opacity: 0.9;
     }
 
     .alert-more-details-toggle {

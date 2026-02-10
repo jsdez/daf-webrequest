@@ -1,4 +1,5 @@
 import { html, LitElement, css } from 'lit';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { callApi } from './apiClient.js';
 import { customElement, property } from 'lit/decorators.js';
 import { PluginContract, PropType } from '@nintex/form-plugin-contract';
@@ -120,7 +121,6 @@ export class DafWebRequestPlugin extends LitElement {
 
     .alert-response {
       margin-top: 8px;
-      padding-top: 8px;
       border-top: 1px solid rgba(0, 0, 0, 0.1);
       font-family: 'Courier New', Courier, monospace;
       font-size: 12px;
@@ -132,6 +132,28 @@ export class DafWebRequestPlugin extends LitElement {
       margin-top: 12px;
       padding-top: 12px;
       border-top: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .alert-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(0, 0, 0, 0.1);
+      gap: 12px;
+    }
+
+    .alert-footer-left {
+      flex: 0 1 auto;
+    }
+
+    .alert-footer-right {
+      flex: 0 0 auto;
+      font-size: 12px;
+      font-style: italic;
+      color: inherit;
+      opacity: 0.9;
     }
 
     .alert-more-details-toggle {
@@ -718,6 +740,7 @@ export class DafWebRequestPlugin extends LitElement {
   private oauthTokenResponse: any = null;
   private isValidating: boolean = false; // Track if we're in validation mode
   private submitBlockerAttached: boolean = false; // Track if submit blocker is active
+  private delayedSubmissionStartTime: number = 0; // Track when delayed submission countdown started
 
   constructor() {
     super();
@@ -1266,7 +1289,9 @@ export class DafWebRequestPlugin extends LitElement {
     // Calculate remaining seconds for delayed submission
     let submissionCountdown = 0;
     if (isDelayedSubmission) {
-      submissionCountdown = Math.ceil((cooldownMs - timeSinceLastCall) / 1000);
+      const elapsed = Date.now() - this.delayedSubmissionStartTime;
+      const remaining = this.countdownTimer * 1000 - elapsed;
+      submissionCountdown = Math.max(0, Math.ceil(remaining / 1000));
     }
     
     // Check if customMessage contains newlines (formatted response)
@@ -1274,6 +1299,8 @@ export class DafWebRequestPlugin extends LitElement {
     
     // For success responses, show only the custom message
     if (this.responseType === 'success') {
+      const showFooter = this.shouldShowMoreDetails('success') || isDelayedSubmission;
+      
       return html`
         <div class="alert ${alertClass} ${beforeClass}" part="response-alert">
           ${customTitle ? html`
@@ -1290,32 +1317,38 @@ export class DafWebRequestPlugin extends LitElement {
               ${customMessage}
             </div>
           `}
-          ${isDelayedSubmission ? html`
-            <div class="alert-response">
-              Submitting form in ${submissionCountdown} seconds...
-            </div>
-          ` : ''}
-          ${this.shouldShowMoreDetails('success') ? html`
-            <div class="alert-more-details">
-              <button 
-                class="alert-more-details-toggle"
-                @click=${() => this.toggleDetailsExpanded()}
-              >
-                ${this.detailsExpanded ? '▼' : '▶'} More Details...
-              </button>
-              ${this.detailsExpanded ? html`
-                <div class="alert-more-details-wrapper">
-                  <span class="alert-more-details-copy" @click=${() => this.copyRawResponseToClipboard()}>copy</span>
-                  <div class="alert-more-details-content">${this.formatRawResponse()}</div>
+          ${showFooter ? html`
+            <div class="alert-footer">
+              <div class="alert-footer-left">
+                ${this.shouldShowMoreDetails('success') ? html`
+                  <button 
+                    class="alert-more-details-toggle"
+                    @click=${() => this.toggleDetailsExpanded()}
+                  >
+                    ${this.detailsExpanded ? '▼' : '▶'} More Details...
+                  </button>
+                ` : ''}
+              </div>
+              ${isDelayedSubmission ? html`
+                <div class="alert-footer-right">
+                  Submitting form in ${submissionCountdown} seconds...
                 </div>
               ` : ''}
             </div>
+            ${this.detailsExpanded && this.shouldShowMoreDetails('success') ? html`
+              <div class="alert-more-details-wrapper">
+                <span class="alert-more-details-copy" @click=${() => this.copyRawResponseToClipboard()}>copy</span>
+                <div class="alert-more-details-content">${this.formatRawResponse()}</div>
+              </div>
+            ` : ''}
           ` : ''}
         </div>
       `;
     }
     
     // For warnings and errors, show custom message + actual response message
+    const showFooter = this.shouldShowMoreDetails(this.responseType) || isDelayedSubmission;
+    
     return html`
       <div class="alert ${alertClass} ${beforeClass}" part="response-alert">
         ${customTitle ? html`
@@ -1334,32 +1367,55 @@ export class DafWebRequestPlugin extends LitElement {
         `}
         ${this.value?.message ? html`
           <div class="alert-response">
-            ${this.value.message}
+            ${unsafeHTML(this.formatMessageWithBoldLabels(this.value.message))}
           </div>
         ` : ''}
-        ${isDelayedSubmission ? html`
-          <div class="alert-response">
-            Submitting form in ${submissionCountdown} seconds...
-          </div>
-        ` : ''}
-        ${this.shouldShowMoreDetails(this.responseType) ? html`
-          <div class="alert-more-details">
-            <button 
-              class="alert-more-details-toggle"
-              @click=${() => this.toggleDetailsExpanded()}
-            >
-              ${this.detailsExpanded ? '▼' : '▶'} More Details...
-            </button>
-            ${this.detailsExpanded ? html`
-              <div class="alert-more-details-wrapper">
-                <span class="alert-more-details-copy" @click=${() => this.copyRawResponseToClipboard()}>copy</span>
-                <div class="alert-more-details-content">${this.formatRawResponse()}</div>
+        ${showFooter ? html`
+          <div class="alert-footer">
+            <div class="alert-footer-left">
+              ${this.shouldShowMoreDetails(this.responseType) ? html`
+                <button 
+                  class="alert-more-details-toggle"
+                  @click=${() => this.toggleDetailsExpanded()}
+                >
+                  ${this.detailsExpanded ? '▼' : '▶'} More Details...
+                </button>
+              ` : ''}
+            </div>
+            ${isDelayedSubmission ? html`
+              <div class="alert-footer-right">
+                Submitting form in ${submissionCountdown} seconds...
               </div>
             ` : ''}
           </div>
+          ${this.detailsExpanded && this.shouldShowMoreDetails(this.responseType) ? html`
+            <div class="alert-more-details-wrapper">
+              <span class="alert-more-details-copy" @click=${() => this.copyRawResponseToClipboard()}>copy</span>
+              <div class="alert-more-details-content">${this.formatRawResponse()}</div>
+            </div>
+          ` : ''}
         ` : ''}
       </div>
     `;
+  }
+
+  private formatMessageWithBoldLabels(message: string): string {
+    if (!message) return '';
+    
+    // Split by lines and process each line
+    const lines = message.split('\n');
+    const formattedLines = lines.map(line => {
+      // Match pattern "Label: Value" where label is at the start of the line
+      const match = line.match(/^([^:]+):\s*(.*)$/);
+      if (match) {
+        const label = match[1].trim();
+        const value = match[2];
+        return `<strong>${label}:</strong> ${value}`;
+      }
+      return line;
+    });
+    
+    return formattedLines.join('<br>');
   }
 
   private getAlertIcon(type: 'success' | 'warning' | 'error'): string {
@@ -3269,6 +3325,7 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
     
     const countdownMs = this.countdownTimer * 1000;
     const startTime = Date.now();
+    this.delayedSubmissionStartTime = startTime; // Track when countdown started
     
     // Update the UI to show countdown
     const updateCountdown = () => {
@@ -3280,6 +3337,7 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
         console.log('[Submission Action] Countdown complete - submitting form');
         this.submitNintexForm();
         this.cooldownTimerId = null;
+        this.delayedSubmissionStartTime = 0; // Reset countdown start time
       } else {
         // Still counting down, update UI
         this.requestUpdate();
