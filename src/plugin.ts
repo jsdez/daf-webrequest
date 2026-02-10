@@ -1651,9 +1651,15 @@ export class DafWebRequestPlugin extends LitElement {
           console.log('  - Error messages:', nintexErrorMessages.length);
           console.log('[Rule Validation] Form is valid:', isValid);
           
-          // Clear the flag to allow form submission later if needed
-          this.checkingRuleValidation = false;
-          console.log('[Rule Validation] Flag cleared - form can submit if triggered');
+          // Only clear flag if validation FAILED (we won't proceed)
+          // If validation PASSED, keep flag active to block the original submit attempt
+          // The flag will be cleared later after API call completes
+          if (!isValid) {
+            this.checkingRuleValidation = false;
+            console.log('[Rule Validation] Flag cleared - validation failed');
+          } else {
+            console.log('[Rule Validation] Flag STILL ACTIVE - will keep blocking original submit while API call executes');
+          }
           
           resolve(isValid);
         }, 350); // Wait 350ms for Nintex validation to complete
@@ -3260,6 +3266,13 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
 
   private handlePostSubmissionAction(): void {
     console.log('[Submission Action] API call complete - checking submission action:', this.submissionAction);
+    
+    // Clear rule validation flag now that API is complete and we're handling submission
+    // This releases the block on the original submit attempt (which we no longer need)
+    if (this.checkingRuleValidation) {
+      this.checkingRuleValidation = false;
+      console.log('[Submission Action] Cleared rule validation flag - original submit fully blocked');
+    }
     
     if (this.submissionAction === 'no-submit') {
       console.log('[Submission Action] No submission - API call complete, form will not submit');
