@@ -92,39 +92,10 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         this.isValidating = false; // Track if we're in validation mode
         this.submitBlockerAttached = false; // Track if submit blocker is active
         this.delayedSubmissionStartTime = 0; // Track when delayed submission countdown started
-        // Initialize all properties with their default values
-        this.label = '';
-        this.description = '';
-        this.readOnly = false;
-        // Note: value is initialized in the private _value field declaration, not here
-        this.requestBody = '';
-        this.apiUrl = '';
-        this.requestHeaders = '';
-        this.bearerToken = '';
-        this.tokenUrl = '';
-        this.clientId = '';
-        this.clientSecret = '';
-        this.outputValueKey = '';
-        this.contentType = 'application/json';
-        this.debugMode = false;
-        this.method = 'POST';
-        this.successMessage = 'API call completed successfully';
-        this.warningMessage = 'API call completed with warnings';
-        this.errorMessage = 'API call failed';
-        this.sendAPICall = false;
-        this.allowMultipleAPICalls = false;
-        this.countdownEnabled = false;
-        this.countdownTimer = 5;
-        this._btnEnabled = true;
-        this.btnText = 'Send API Request';
-        this.btnAlignment = 'left';
-        this._btnVisible = true;
-        this.formValidation = false;
-        this.submitValidation = false;
-        this.submissionAction = 'no-submit';
-        this.submitHidden = false;
-        this.showMoreDetails = 'Never';
-        this.alertPosition = 'After';
+        this.allowFormSubmit = false; // Track when we explicitly allow form submission
+        // NOTE: Do NOT initialize @property decorated fields here if they have defaultValue in metadata
+        // Nintex passes values via attributes, and constructor initialization would override them
+        // Only initialize private fields that aren't reactive properties
     }
     // Called when the element is added to the DOM
     connectedCallback() {
@@ -144,11 +115,22 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         }
         // Attach a persistent submit blocker that runs in capture phase
         form.addEventListener('submit', (event) => {
+            // Block submit if we're validating
             if (this.isValidating) {
                 console.log('[Submit Blocker] Blocking submit - validation in progress');
                 event.preventDefault();
                 event.stopPropagation();
                 event.stopImmediatePropagation();
+                return;
+            }
+            // Block submit if submissionAction is no-submit (unless we explicitly allowed it via submitNintexForm)
+            // We'll use a flag to track when we intentionally trigger submission
+            if (!this.allowFormSubmit && this.submissionAction === 'no-submit') {
+                console.log('[Submit Blocker] Blocking submit - submissionAction is no-submit');
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+                return;
             }
         }, true); // Capture phase to intercept early
         this.submitBlockerAttached = true;
@@ -2489,7 +2471,13 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
         const submitBtn = form.querySelector('button[type="submit"]');
         if (submitBtn instanceof HTMLElement) {
             console.log('[Submission Action] Clicking submit button');
+            // Temporarily allow form submission
+            this.allowFormSubmit = true;
             submitBtn.click();
+            // Reset flag after a short delay (submission should have happened by then)
+            setTimeout(() => {
+                this.allowFormSubmit = false;
+            }, 100);
         }
         else {
             console.error('[Submission Action] No submit button found');
