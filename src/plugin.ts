@@ -1622,16 +1622,18 @@ export class DafWebRequestPlugin extends LitElement {
       return true; // If no form found, proceed anyway
     }
 
-    // Set flag to block actual submission during validation check
-    this.checkingRuleValidation = true;
-    console.log('[Rule Validation] Flag set - will block form submission');
-
     return new Promise<boolean>((resolve) => {
-      // Find and click the submit button to trigger Nintex rules
-      const submitBtn = form.querySelector('button[type="submit"]');
-      if (submitBtn instanceof HTMLElement) {
-        console.log('[Rule Validation] Triggering submit to check rules...');
-        submitBtn.click();
+      let validationBlocker: ((event: Event) => void) | null = null;
+      
+      // Create a one-time submit blocker that will DEFINITELY run when we click
+      validationBlocker = (event: Event) => {
+        console.log('[Rule Validation] Submit event intercepted - BLOCKING');
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        
+        // Remove this one-time listener immediately
+        form.removeEventListener('submit', validationBlocker!, true);
         
         // Wait for Nintex validation to complete and check results
         setTimeout(() => {
@@ -1651,21 +1653,21 @@ export class DafWebRequestPlugin extends LitElement {
           console.log('  - Error messages:', nintexErrorMessages.length);
           console.log('[Rule Validation] Form is valid:', isValid);
           
-          // Only clear flag if validation FAILED (we won't proceed)
-          // If validation PASSED, keep flag active to block the original submit attempt
-          // The flag will be cleared later after API call completes
-          if (!isValid) {
-            this.checkingRuleValidation = false;
-            console.log('[Rule Validation] Flag cleared - validation failed');
-          } else {
-            console.log('[Rule Validation] Flag STILL ACTIVE - will keep blocking original submit while API call executes');
-          }
-          
           resolve(isValid);
         }, 350); // Wait 350ms for Nintex validation to complete
+      };
+      
+      // Attach the one-time blocker BEFORE clicking (capture phase, highest priority)
+      form.addEventListener('submit', validationBlocker, true);
+      console.log('[Rule Validation] One-time blocker attached, triggering submit...');
+      
+      // Find and click the submit button to trigger Nintex rules
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn instanceof HTMLElement) {
+        submitBtn.click();
       } else {
         console.error('[Rule Validation] No submit button found');
-        this.checkingRuleValidation = false;
+        form.removeEventListener('submit', validationBlocker, true);
         resolve(true); // If no submit button, proceed anyway
       }
     });
@@ -3266,13 +3268,6 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
 
   private handlePostSubmissionAction(): void {
     console.log('[Submission Action] API call complete - checking submission action:', this.submissionAction);
-    
-    // Clear rule validation flag now that API is complete and we're handling submission
-    // This releases the block on the original submit attempt (which we no longer need)
-    if (this.checkingRuleValidation) {
-      this.checkingRuleValidation = false;
-      console.log('[Submission Action] Cleared rule validation flag - original submit fully blocked');
-    }
     
     if (this.submissionAction === 'no-submit') {
       console.log('[Submission Action] No submission - API call complete, form will not submit');
