@@ -979,14 +979,16 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                         if (!isValid) {
                             console.log('[Submit Validation] FAILED - validation errors found');
                             validationResult = false;
+                            // Only disable validation mode if validation failed (we won't proceed with API call)
+                            this.isValidating = false;
+                            console.log('[Submit Validation] Validation mode DISABLED - validation failed');
                         }
                         else {
                             console.log('[Submit Validation] PASSED - no validation errors');
                             validationResult = true;
+                            // Keep isValidating = true to continue blocking submits during API call
+                            console.log('[Submit Validation] Validation mode STILL ACTIVE - will proceed with API call');
                         }
-                        // Disable validation mode
-                        this.isValidating = false;
-                        console.log('[Submit Validation] Validation mode DISABLED - submits unblocked');
                         resolve(validationResult);
                     }, 350); // Wait 350ms for Nintex validation to complete
                 }
@@ -1072,6 +1074,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                     return;
                 }
                 console.log('[API Call] Submit validation PASSED - proceeding with API call');
+                // Note: isValidating is still true at this point to block form submission
             }
             else if (this.formValidation) {
                 console.log('[API Call] Form validation is ENABLED, checking form...');
@@ -2473,6 +2476,9 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
     }
     handlePostSubmissionAction() {
         console.log('[Submission Action] Checking submission action:', this.submissionAction);
+        // Disable validation mode now that API call is complete
+        this.isValidating = false;
+        console.log('[Submission Action] Validation mode DISABLED after API call complete');
         if (this.submissionAction === 'no-submit') {
             console.log('[Submission Action] No action configured');
             return;
