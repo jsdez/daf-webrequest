@@ -1658,6 +1658,10 @@ export class DafWebRequestPlugin extends LitElement {
             validationResult = true;
             // Keep isValidating = true to continue blocking submits during API call
             console.log('[Submit Validation] Validation mode STILL ACTIVE - will proceed with API call');
+            
+            // Immediately call the API while validation mode is still active
+            console.log('[Submit Validation] Calling handleApiCall() directly to prevent premature submission');
+            this.handleApiCall();
           }
           
           resolve(validationResult);
@@ -1754,8 +1758,10 @@ export class DafWebRequestPlugin extends LitElement {
         this.requestUpdate();
         return;
       }
-      console.log('[API Call] Submit validation PASSED - proceeding with API call');
-      // Note: isValidating is still true at this point to block form submission
+      console.log('[API Call] Submit validation PASSED - API call already triggered from validateNintexFormBySubmit()');
+      // Note: When submitValidation passes, handleApiCall() is called directly from validateNintexFormBySubmit()
+      // to prevent premature form submission. Return here to avoid calling it twice.
+      return;
     } else if (this.formValidation) {
       console.log('[API Call] Form validation is ENABLED, checking form...');
       const isFormValid = await this.validateNintexForm();
