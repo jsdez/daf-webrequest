@@ -99,8 +99,8 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         this.btnAlignment = 'left';
         // Custom accessors for btnVisible with explicit change detection
         this._btnVisible = true;
-        this.formValidation = false;
-        this.submitValidation = false;
+        this.fieldValidation = false;
+        this.ruleValidation = false;
         this.submissionAction = 'no-submit';
         this.submitHidden = false;
         this.showMoreDetails = 'Never';
@@ -118,7 +118,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         this.cooldownTimerId = null; // Track the timer for cleanup
         this.formValidationError = '';
         this.oauthTokenResponse = null;
-        this.isValidating = false; // Track if we're in validation mode
+        this.checkingRuleValidation = false; // Track if we're checking rule validation
         this.submitBlockerAttached = false; // Track if submit blocker is active
         this.delayedSubmissionStartTime = 0; // Track when delayed submission countdown started
         this.allowFormSubmit = false; // Track when we explicitly allow form submission
@@ -144,17 +144,22 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         }
         // Attach a persistent submit blocker that runs in capture phase
         form.addEventListener('submit', (event) => {
-            // Block submit if we're validating
-            if (this.isValidating) {
-                console.log('[Submit Blocker] Blocking submit - validation in progress');
+            // Block submit during rule validation check (when we trigger submit to check rules)
+            if (this.checkingRuleValidation) {
+                console.log('[Submit Blocker] Blocking submit - checking rule validation');
                 event.preventDefault();
                 event.stopPropagation();
                 event.stopImmediatePropagation();
                 return;
             }
-            // Block submit if submissionAction is no-submit (unless we explicitly allowed it via submitNintexForm)
-            // We'll use a flag to track when we intentionally trigger submission
-            if (!this.allowFormSubmit && this.submissionAction === 'no-submit') {
+            // Allow submit if we explicitly triggered it via allowFormSubmit flag
+            if (this.allowFormSubmit) {
+                console.log('[Submit Blocker] Allowing submit - explicitly triggered by plugin');
+                this.allowFormSubmit = false; // Reset flag after use
+                return;
+            }
+            // Block all other submits if submissionAction is no-submit
+            if (this.submissionAction === 'no-submit') {
                 console.log('[Submit Blocker] Blocking submit - submissionAction is no-submit');
                 event.preventDefault();
                 event.stopPropagation();
@@ -381,16 +386,16 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                     enum: ['left', 'center', 'right'],
                     defaultValue: 'left',
                 },
-                formValidation: {
+                fieldValidation: {
                     type: 'boolean',
-                    title: 'Validate Form Before API Call',
-                    description: 'If true, validates the entire Nintex form before making the API call. Only proceeds if all required fields are valid.',
+                    title: 'Validate Fields Before API Call',
+                    description: 'If true, validates all form fields before making the API call. Only proceeds if all required fields are valid.',
                     defaultValue: false,
                 },
-                submitValidation: {
+                ruleValidation: {
                     type: 'boolean',
-                    title: 'Validate Form with Submit Rules',
-                    description: 'If true, validates Nintex form rules by intercepting form submission. This catches rule-based validation that only runs on submit. More thorough but requires actual submit attempt.',
+                    title: 'Validate Rules Before API Call',
+                    description: 'If true, validates Nintex form rules by triggering submission logic (but blocking actual submit). This catches rule-based validation. Only proceeds if all rules pass.',
                     defaultValue: false,
                 },
                 submissionAction: {
@@ -946,58 +951,44 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
     }
     validateNintexFormBySubmit() {
         return __awaiter(this, void 0, void 0, function* () {
-            console.log('[Submit Validation] Starting submit-based form validation...');
+            console.log('[Rule Validation] Starting rule-based validation...');
             const form = document.querySelector('form');
             if (!form) {
-                console.warn('[Submit Validation] No form found for validation');
+                console.warn('[Rule Validation] No form found for validation');
                 return true; // If no form found, proceed anyway
             }
-            // Set validation mode to block submits
-            this.isValidating = true;
-            console.log('[Submit Validation] Validation mode ENABLED - submits will be blocked');
+            // Set flag to block actual submission during validation check
+            this.checkingRuleValidation = true;
+            console.log('[Rule Validation] Flag set - will block form submission');
             return new Promise((resolve) => {
-                let validationResult = true;
-                // Find and click the submit button to trigger validation
+                // Find and click the submit button to trigger Nintex rules
                 const submitBtn = form.querySelector('button[type="submit"]');
                 if (submitBtn instanceof HTMLElement) {
-                    console.log('[Submit Validation] Clicking submit button to trigger validation...');
+                    console.log('[Rule Validation] Triggering submit to check rules...');
                     submitBtn.click();
                     // Wait for Nintex validation to complete and check results
                     setTimeout(() => {
-                        console.log('[Submit Validation] Checking for validation errors...');
+                        console.log('[Rule Validation] Checking for validation errors...');
                         // Check for validation errors using multiple methods
                         const ariaInvalidFields = form.querySelectorAll('[aria-invalid="true"]');
                         const html5InvalidFields = form.querySelectorAll(':invalid');
                         const nintexErrorMessages = form.querySelectorAll('.ntx-form-error, [class*="error-message"], [role="alert"]');
                         const totalInvalidCount = ariaInvalidFields.length + html5InvalidFields.length;
                         const isValid = totalInvalidCount === 0 && nintexErrorMessages.length === 0;
-                        console.log('[Submit Validation] Validation check results:');
+                        console.log('[Rule Validation] Validation check results:');
                         console.log('  - aria-invalid:', ariaInvalidFields.length);
                         console.log('  - HTML5 invalid:', html5InvalidFields.length);
                         console.log('  - Error messages:', nintexErrorMessages.length);
-                        console.log('[Submit Validation] Form is valid:', isValid);
-                        if (!isValid) {
-                            console.log('[Submit Validation] FAILED - validation errors found');
-                            validationResult = false;
-                            // Only disable validation mode if validation failed (we won't proceed with API call)
-                            this.isValidating = false;
-                            console.log('[Submit Validation] Validation mode DISABLED - validation failed');
-                        }
-                        else {
-                            console.log('[Submit Validation] PASSED - no validation errors');
-                            validationResult = true;
-                            // Keep isValidating = true to continue blocking submits during API call
-                            console.log('[Submit Validation] Validation mode STILL ACTIVE - will proceed with API call');
-                            // Immediately call the API while validation mode is still active
-                            console.log('[Submit Validation] Calling handleApiCall() directly to prevent premature submission');
-                            this.handleApiCall();
-                        }
-                        resolve(validationResult);
+                        console.log('[Rule Validation] Form is valid:', isValid);
+                        // Clear the flag to allow form submission later if needed
+                        this.checkingRuleValidation = false;
+                        console.log('[Rule Validation] Flag cleared - form can submit if triggered');
+                        resolve(isValid);
                     }, 350); // Wait 350ms for Nintex validation to complete
                 }
                 else {
-                    console.error('[Submit Validation] No submit button found');
-                    this.isValidating = false;
+                    console.error('[Rule Validation] No submit button found');
+                    this.checkingRuleValidation = false;
                     resolve(true); // If no submit button, proceed anyway
                 }
             });
@@ -1054,71 +1045,70 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
     }
     handleAPICallTrigger() {
         return __awaiter(this, void 0, void 0, function* () {
-            console.log('[API Call] handleAPICallTrigger started');
+            console.log('[API Trigger] Button clicked - starting validation and API flow...');
             // Immediately set sendAPICall to false to prevent multiple calls
             this.sendAPICall = false;
             // Clear any previous validation error
             this.formValidationError = '';
-            // Check if submission action is set to only-submit
+            // === STEP 1: Check if submission action is set to only-submit ===
             if (this.submissionAction === 'only-submit') {
-                console.log('[API Call] Submission action is only-submit - skipping API call and validation, submitting form directly');
+                console.log('[API Trigger] Submission action is only-submit - skipping validation and API, submitting form directly');
                 this.submitNintexForm();
                 return;
             }
-            // Check if form validation is required
-            if (this.submitValidation) {
-                console.log('[API Call] Submit validation is ENABLED, checking form with submit rules...');
-                const isFormValid = yield this.validateNintexFormBySubmit();
-                console.log('[API Call] Submit validation result:', isFormValid);
-                if (!isFormValid) {
-                    console.log('[API Call] Submit validation FAILED - BLOCKING API call');
-                    this.formValidationError = 'Please correct the form validation errors before proceeding.';
-                    this.requestUpdate();
-                    return;
-                }
-                console.log('[API Call] Submit validation PASSED - API call already triggered from validateNintexFormBySubmit()');
-                // Note: When submitValidation passes, handleApiCall() is called directly from validateNintexFormBySubmit()
-                // to prevent premature form submission. Return here to avoid calling it twice.
-                return;
-            }
-            else if (this.formValidation) {
-                console.log('[API Call] Form validation is ENABLED, checking form...');
+            // === STEP 2: Field Validation Check (if enabled) ===
+            if (this.fieldValidation) {
+                console.log('[API Trigger] Field validation is ENABLED, checking fields...');
                 const isFormValid = yield this.validateNintexForm();
-                console.log('[API Call] Validation result:', isFormValid);
+                console.log('[API Trigger] Field validation result:', isFormValid);
                 if (!isFormValid) {
-                    console.log('[API Call] Form validation FAILED - BLOCKING API call');
+                    console.log('[API Trigger] Field validation FAILED - STOPPING');
                     this.formValidationError = 'Please fill in all required fields correctly before submitting.';
                     this.requestUpdate();
-                    return;
+                    return; // STOP: Do not proceed to API call
                 }
-                console.log('[API Call] Form validation PASSED - proceeding with API call');
+                console.log('[API Trigger] Field validation PASSED - proceeding...');
             }
             else {
-                console.log('[API Call] Form validation is DISABLED');
+                console.log('[API Trigger] Field validation is DISABLED - skipping...');
             }
-            // Check if multiple API calls are allowed
+            // === STEP 3: Rule Validation Check (if enabled) ===
+            if (this.ruleValidation) {
+                console.log('[API Trigger] Rule validation is ENABLED, checking rules...');
+                const isRuleValid = yield this.validateNintexFormBySubmit();
+                console.log('[API Trigger] Rule validation result:', isRuleValid);
+                if (!isRuleValid) {
+                    console.log('[API Trigger] Rule validation FAILED - STOPPING');
+                    this.formValidationError = 'Please correct the form validation errors before proceeding.';
+                    this.requestUpdate();
+                    return; // STOP: Do not proceed to API call
+                }
+                console.log('[API Trigger] Rule validation PASSED - proceeding...');
+            }
+            else {
+                console.log('[API Trigger] Rule validation is DISABLED - skipping...');
+            }
+            // === STEP 4: Check if multiple API calls are allowed ===
             if (!this.allowMultipleAPICalls && this.hasSuccessfulCall) {
-                console.log('[API Call] Multiple API calls not allowed and already had successful call - BLOCKING');
-                // Multiple calls not allowed and we've already had a successful call - prevent execution
+                console.log('[API Trigger] Multiple API calls not allowed and already had successful call - STOPPING');
                 return;
             }
-            // Check cooldown timer - prevent API call if still in cooldown (only if countdown is enabled)
+            // === STEP 5: Check cooldown timer (only if countdown is enabled) ===
             if (this.countdownEnabled) {
                 const now = Date.now();
                 const timeSinceLastCall = now - this.lastApiCallTime;
                 const cooldownMs = this.countdownTimer * 1000;
                 const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < cooldownMs;
                 if (inCooldown) {
-                    console.log('[API Call] In cooldown period - BLOCKING');
-                    // Show cooldown alert and don't proceed
+                    console.log('[API Trigger] In cooldown period - STOPPING');
                     this.showCooldownAlert = true;
-                    this.lastCooldownAlertTime = Date.now(); // Record when we showed the cooldown alert
+                    this.lastCooldownAlertTime = Date.now();
                     this.startCooldownTimer();
                     return;
                 }
             }
-            // Proceed with API call
-            console.log('[API Call] All checks passed - calling handleApiCall()');
+            // === STEP 6: All checks passed - Make the API call ===
+            console.log('[API Trigger] All validation and checks passed - calling handleApiCall()');
             this.handleApiCall();
         });
     }
@@ -2480,16 +2470,13 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
         });
     }
     handlePostSubmissionAction() {
-        console.log('[Submission Action] Checking submission action:', this.submissionAction);
-        // Disable validation mode now that API call is complete
-        this.isValidating = false;
-        console.log('[Submission Action] Validation mode DISABLED after API call complete');
+        console.log('[Submission Action] API call complete - checking submission action:', this.submissionAction);
         if (this.submissionAction === 'no-submit') {
-            console.log('[Submission Action] No action configured');
+            console.log('[Submission Action] No submission - API call complete, form will not submit');
             return;
         }
         if (this.submissionAction === 'quick-submit') {
-            console.log('[Submission Action] Quick submit - triggering after 500ms');
+            console.log('[Submission Action] Quick submit - submitting after 500ms');
             setTimeout(() => {
                 this.submitNintexForm();
             }, 500);
@@ -2497,7 +2484,6 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
         }
         if (this.submissionAction === 'delayed-submit') {
             console.log('[Submission Action] Delayed submit - starting countdown timer');
-            // Start the countdown timer, and submit when it expires
             this.startDelayedSubmission();
             return;
         }
@@ -2586,8 +2572,8 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
             clearTimeout(this.cooldownTimerId);
             this.cooldownTimerId = null;
         }
-        // Reset validation mode
-        this.isValidating = false;
+        // Reset rule validation check flag
+        this.checkingRuleValidation = false;
     }
 };
 DafWebRequestPlugin.styles = css `
@@ -3279,11 +3265,11 @@ __decorate([
     property({ type: Boolean, reflect: true, attribute: 'btn-visible' })
 ], DafWebRequestPlugin.prototype, "btnVisible", null);
 __decorate([
-    property({ type: Boolean, reflect: true, attribute: 'form-validation' })
-], DafWebRequestPlugin.prototype, "formValidation", void 0);
+    property({ type: Boolean, reflect: true, attribute: 'field-validation' })
+], DafWebRequestPlugin.prototype, "fieldValidation", void 0);
 __decorate([
-    property({ type: Boolean, reflect: true, attribute: 'submit-validation' })
-], DafWebRequestPlugin.prototype, "submitValidation", void 0);
+    property({ type: Boolean, reflect: true, attribute: 'rule-validation' })
+], DafWebRequestPlugin.prototype, "ruleValidation", void 0);
 __decorate([
     property({ type: String, reflect: true, attribute: 'submission-action' })
 ], DafWebRequestPlugin.prototype, "submissionAction", void 0);
