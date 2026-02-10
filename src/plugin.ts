@@ -625,9 +625,9 @@ export class DafWebRequestPlugin extends LitElement {
   private formatterUseArrayNotation: boolean = true;
   private formatterMessageTitle: string = '';
 
-  @property({ type: String }) label!: string;
-  @property({ type: String }) description!: string;
-  @property({ type: Boolean }) readOnly!: boolean;
+  @property({ type: String }) label: string = '';
+  @property({ type: String }) description: string = '';
+  @property({ type: Boolean }) readOnly: boolean = false;
   
   // Custom accessor for value property with explicit change notification
   private _value: {
@@ -670,24 +670,24 @@ export class DafWebRequestPlugin extends LitElement {
     
     this.requestUpdate('value', oldValue);
   }
-  @property({ type: String }) requestBody!: string;
-  @property({ type: String }) apiUrl!: string;
-  @property({ type: String }) requestHeaders!: string;
-  @property({ type: String }) bearerToken!: string;
-  @property({ type: String }) tokenUrl!: string;
-  @property({ type: String }) clientId!: string;
-  @property({ type: String }) clientSecret!: string;
-  @property({ type: String }) outputValueKey!: string;
-  @property({ type: String }) contentType!: string;
-  @property({ type: Boolean, reflect: true }) debugMode!: boolean;
-  @property({ type: String }) method!: string;
-  @property({ type: String }) successMessage!: string;
-  @property({ type: String }) warningMessage!: string;
-  @property({ type: String }) errorMessage!: string;
-  @property({ type: Boolean, reflect: true, attribute: 'send-api-call' }) sendAPICall!: boolean;
-  @property({ type: Boolean, reflect: true, attribute: 'allow-multiple-api-calls' }) allowMultipleAPICalls!: boolean;
-  @property({ type: Boolean, reflect: true, attribute: 'countdown-enabled' }) countdownEnabled!: boolean;
-  @property({ type: Number }) countdownTimer!: number;
+  @property({ type: String }) requestBody: string = '';
+  @property({ type: String }) apiUrl: string = '';
+  @property({ type: String }) requestHeaders: string = '';
+  @property({ type: String }) bearerToken: string = '';
+  @property({ type: String }) tokenUrl: string = '';
+  @property({ type: String }) clientId: string = '';
+  @property({ type: String }) clientSecret: string = '';
+  @property({ type: String }) outputValueKey: string = '';
+  @property({ type: String }) contentType: string = 'application/json';
+  @property({ type: Boolean, reflect: true }) debugMode: boolean = false;
+  @property({ type: String }) method: string = 'POST';
+  @property({ type: String }) successMessage: string = 'API call completed successfully';
+  @property({ type: String }) warningMessage: string = 'API call completed with warnings';
+  @property({ type: String }) errorMessage: string = 'API call failed';
+  @property({ type: Boolean, reflect: true, attribute: 'send-api-call' }) sendAPICall: boolean = false;
+  @property({ type: Boolean, reflect: true, attribute: 'allow-multiple-api-calls' }) allowMultipleAPICalls: boolean = false;
+  @property({ type: Boolean, reflect: true, attribute: 'countdown-enabled' }) countdownEnabled: boolean = false;
+  @property({ type: Number }) countdownTimer: number = 5;
   
   // Custom accessors for btnEnabled with explicit change detection
   private _btnEnabled: boolean = true;
@@ -702,8 +702,8 @@ export class DafWebRequestPlugin extends LitElement {
     this.requestUpdate('btnEnabled', oldValue);
   }
   
-  @property({ type: String, reflect: true, attribute: 'btn-text' }) btnText!: string;
-  @property({ type: String, reflect: true, attribute: 'btn-alignment' }) btnAlignment!: string;
+  @property({ type: String, reflect: true, attribute: 'btn-text' }) btnText: string = 'Send API Request';
+  @property({ type: String, reflect: true, attribute: 'btn-alignment' }) btnAlignment: string = 'left';
   
   // Custom accessors for btnVisible with explicit change detection
   private _btnVisible: boolean = true;
@@ -718,12 +718,12 @@ export class DafWebRequestPlugin extends LitElement {
     this.requestUpdate('btnVisible', oldValue);
   }
   
-  @property({ type: Boolean, reflect: true, attribute: 'form-validation' }) formValidation!: boolean;
-  @property({ type: Boolean, reflect: true, attribute: 'submit-validation' }) submitValidation!: boolean;
-  @property({ type: String, reflect: true, attribute: 'submission-action' }) submissionAction!: string;
-  @property({ type: Boolean, reflect: true, attribute: 'submit-hidden' }) submitHidden!: boolean;
-  @property({ type: String, reflect: true, attribute: 'show-more-details' }) showMoreDetails!: string;
-  @property({ type: String, reflect: true, attribute: 'alert-position' }) alertPosition!: string;
+  @property({ type: Boolean, reflect: true, attribute: 'form-validation' }) formValidation: boolean = false;
+  @property({ type: Boolean, reflect: true, attribute: 'submit-validation' }) submitValidation: boolean = false;
+  @property({ type: String, reflect: true, attribute: 'submission-action' }) submissionAction: string = 'no-submit';
+  @property({ type: Boolean, reflect: true, attribute: 'submit-hidden' }) submitHidden: boolean = false;
+  @property({ type: String, reflect: true, attribute: 'show-more-details' }) showMoreDetails: string = 'Never';
+  @property({ type: String, reflect: true, attribute: 'alert-position' }) alertPosition: string = 'After';
 
   // Instance-specific state (not reactive properties - these are internal state only)
   private detailsExpanded: boolean = false;

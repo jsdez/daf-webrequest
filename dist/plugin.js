@@ -61,6 +61,9 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         this.formatterSelectedFields = new Map();
         this.formatterUseArrayNotation = true;
         this.formatterMessageTitle = '';
+        this.label = '';
+        this.description = '';
+        this.readOnly = false;
         // Custom accessor for value property with explicit change notification
         this._value = {
             success: null,
@@ -72,10 +75,36 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
             timestamp: '',
             executionTime: 0
         };
+        this.requestBody = '';
+        this.apiUrl = '';
+        this.requestHeaders = '';
+        this.bearerToken = '';
+        this.tokenUrl = '';
+        this.clientId = '';
+        this.clientSecret = '';
+        this.outputValueKey = '';
+        this.contentType = 'application/json';
+        this.debugMode = false;
+        this.method = 'POST';
+        this.successMessage = 'API call completed successfully';
+        this.warningMessage = 'API call completed with warnings';
+        this.errorMessage = 'API call failed';
+        this.sendAPICall = false;
+        this.allowMultipleAPICalls = false;
+        this.countdownEnabled = false;
+        this.countdownTimer = 5;
         // Custom accessors for btnEnabled with explicit change detection
         this._btnEnabled = true;
+        this.btnText = 'Send API Request';
+        this.btnAlignment = 'left';
         // Custom accessors for btnVisible with explicit change detection
         this._btnVisible = true;
+        this.formValidation = false;
+        this.submitValidation = false;
+        this.submissionAction = 'no-submit';
+        this.submitHidden = false;
+        this.showMoreDetails = 'Never';
+        this.alertPosition = 'After';
         // Instance-specific state (not reactive properties - these are internal state only)
         this.detailsExpanded = false;
         this.isLoading = false;
