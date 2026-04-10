@@ -923,14 +923,16 @@ export class DafWebRequestPlugin extends LitElement {
             }
           },
           defaultValue: {
-            success: null,
+            success: false,
             statusCode: 0,
             responseType: '',
             data: '',
             message: '',
             formattedResponse: '',
             timestamp: '',
-            executionTime: 0
+            executionTime: 0,
+            access_token: '',
+            output: ''
           },
         } as PropType,
         debugMode: {
