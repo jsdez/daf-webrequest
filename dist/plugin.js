@@ -118,7 +118,6 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         this.cooldownTimerId = null; // Track the timer for cleanup
         this.formValidationError = '';
         this.oauthTokenResponse = null;
-        this.checkingRuleValidation = false; // Track if we're checking rule validation
         this.submitBlockerAttached = false; // Track if submit blocker is active
         this.delayedSubmissionStartTime = 0; // Track when delayed submission countdown started
         this.allowFormSubmit = false; // Track when we explicitly allow form submission
@@ -144,14 +143,6 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         }
         // Attach a persistent submit blocker that runs in capture phase
         form.addEventListener('submit', (event) => {
-            // Block submit during rule validation check (when we trigger submit to check rules)
-            if (this.checkingRuleValidation) {
-                console.log('[Submit Blocker] Blocking submit - checking rule validation');
-                event.preventDefault();
-                event.stopPropagation();
-                event.stopImmediatePropagation();
-                return;
-            }
             // Allow submit if we explicitly triggered it via allowFormSubmit flag
             if (this.allowFormSubmit) {
                 console.log('[Submit Blocker] Allowing submit - explicitly triggered by plugin');
@@ -205,7 +196,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                 tokenUrl: {
                     type: 'string',
                     title: 'Token URL',
-                    description: 'Optional: OAuth token endpoint URL e.g. https://api.example.com/oauth2/v1/token',
+                    description: 'Optional: OAuth token endpoint URL',
                     defaultValue: '',
                 },
                 clientId: {
@@ -264,7 +255,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                         responseType: {
                             type: 'string',
                             title: 'Response Type',
-                            description: 'The categorized response type (success, warning, error)',
+                            description: 'The categorized response type',
                         },
                         data: {
                             type: 'string',
@@ -394,8 +385,8 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                 },
                 ruleValidation: {
                     type: 'boolean',
-                    title: 'Validate Rules Before API Call',
-                    description: 'If true, validates Nintex form rules by triggering submission logic (but blocking actual submit). This catches rule-based validation. Only proceeds if all rules pass.',
+                    title: 'Rule Validation Gate',
+                    description: 'When set to true by Nintex rule engine, blocks API calls and shows validation error. When false, allows API call to proceed. Use Nintex rules to control this value based on your validation logic.',
                     defaultValue: false,
                 },
                 submissionAction: {
@@ -949,57 +940,6 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
             }
         }
     }
-    validateNintexFormBySubmit() {
-        return __awaiter(this, void 0, void 0, function* () {
-            console.log('[Rule Validation] Starting rule-based validation...');
-            const form = document.querySelector('form');
-            if (!form) {
-                console.warn('[Rule Validation] No form found for validation');
-                return true; // If no form found, proceed anyway
-            }
-            return new Promise((resolve) => {
-                let validationBlocker = null;
-                // Create a one-time submit blocker that will DEFINITELY run when we click
-                validationBlocker = (event) => {
-                    console.log('[Rule Validation] Submit event intercepted - BLOCKING');
-                    event.preventDefault();
-                    event.stopPropagation();
-                    event.stopImmediatePropagation();
-                    // Remove this one-time listener immediately
-                    form.removeEventListener('submit', validationBlocker, true);
-                    // Wait for Nintex validation to complete and check results
-                    setTimeout(() => {
-                        console.log('[Rule Validation] Checking for validation errors...');
-                        // Check for validation errors using multiple methods
-                        const ariaInvalidFields = form.querySelectorAll('[aria-invalid="true"]');
-                        const html5InvalidFields = form.querySelectorAll(':invalid');
-                        const nintexErrorMessages = form.querySelectorAll('.ntx-form-error, [class*="error-message"], [role="alert"]');
-                        const totalInvalidCount = ariaInvalidFields.length + html5InvalidFields.length;
-                        const isValid = totalInvalidCount === 0 && nintexErrorMessages.length === 0;
-                        console.log('[Rule Validation] Validation check results:');
-                        console.log('  - aria-invalid:', ariaInvalidFields.length);
-                        console.log('  - HTML5 invalid:', html5InvalidFields.length);
-                        console.log('  - Error messages:', nintexErrorMessages.length);
-                        console.log('[Rule Validation] Form is valid:', isValid);
-                        resolve(isValid);
-                    }, 350); // Wait 350ms for Nintex validation to complete
-                };
-                // Attach the one-time blocker BEFORE clicking (capture phase, highest priority)
-                form.addEventListener('submit', validationBlocker, true);
-                console.log('[Rule Validation] One-time blocker attached, triggering submit...');
-                // Find and click the submit button to trigger Nintex rules
-                const submitBtn = form.querySelector('button[type="submit"]');
-                if (submitBtn instanceof HTMLElement) {
-                    submitBtn.click();
-                }
-                else {
-                    console.error('[Rule Validation] No submit button found');
-                    form.removeEventListener('submit', validationBlocker, true);
-                    resolve(true); // If no submit button, proceed anyway
-                }
-            });
-        });
-    }
     validateNintexForm() {
         return __awaiter(this, void 0, void 0, function* () {
             console.log('[Validation] Starting form validation...');
@@ -1078,22 +1018,14 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
             else {
                 console.log('[API Trigger] Field validation is DISABLED - skipping...');
             }
-            // === STEP 3: Rule Validation Check (if enabled) ===
+            // === STEP 3: Rule Validation Gate Check (set by Nintex) ===
             if (this.ruleValidation) {
-                console.log('[API Trigger] Rule validation is ENABLED, checking rules...');
-                const isRuleValid = yield this.validateNintexFormBySubmit();
-                console.log('[API Trigger] Rule validation result:', isRuleValid);
-                if (!isRuleValid) {
-                    console.log('[API Trigger] Rule validation FAILED - STOPPING');
-                    this.formValidationError = 'Please correct the form validation errors before proceeding.';
-                    this.requestUpdate();
-                    return; // STOP: Do not proceed to API call
-                }
-                console.log('[API Trigger] Rule validation PASSED - proceeding...');
+                console.log('[API Trigger] Rule validation gate is TRUE - BLOCKING API call');
+                this.formValidationError = 'Please correct the form errors before proceeding.';
+                this.requestUpdate();
+                return; // STOP: Nintex has indicated validation failure
             }
-            else {
-                console.log('[API Trigger] Rule validation is DISABLED - skipping...');
-            }
+            console.log('[API Trigger] Rule validation gate is FALSE - proceeding...');
             // === STEP 4: Check if multiple API calls are allowed ===
             if (!this.allowMultipleAPICalls && this.hasSuccessfulCall) {
                 console.log('[API Trigger] Multiple API calls not allowed and already had successful call - STOPPING');
@@ -2578,8 +2510,6 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
             clearTimeout(this.cooldownTimerId);
             this.cooldownTimerId = null;
         }
-        // Reset rule validation check flag
-        this.checkingRuleValidation = false;
     }
 };
 DafWebRequestPlugin.styles = css `
