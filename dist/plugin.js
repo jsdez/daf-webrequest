@@ -230,12 +230,6 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                     enum: ['application/json', 'application/x-www-form-urlencoded', 'text/plain'],
                     defaultValue: 'application/json',
                 },
-                waitForResponse: {
-                    type: 'boolean',
-                    title: 'Wait for Callback Response',
-                    description: 'If true, the plugin will wait for a callback post body once the workflow is completed.',
-                    defaultValue: false,
-                },
                 value: {
                     type: 'object',
                     title: 'API Response',
@@ -617,8 +611,6 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         if (this.lastCooldownAlertTime > this.lastApiCallTime)
             return '';
         const alertClass = `alert-${this.responseType}`;
-        const icon = this.getAlertIcon(this.responseType);
-        const typeLabel = this.responseType.charAt(0).toUpperCase() + this.responseType.slice(1);
         const messageData = this.getCustomMessage(this.responseType);
         const customTitle = messageData.title;
         const customMessage = messageData.message;
@@ -745,14 +737,6 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
             return line;
         });
         return formattedLines.join('<br>');
-    }
-    getAlertIcon(type) {
-        switch (type) {
-            case 'success': return '✓';
-            case 'warning': return '⚠';
-            case 'error': return '✗';
-            default: return '•';
-        }
     }
     shouldShowMoreDetails(responseType) {
         if (this.showMoreDetails === 'Never')
@@ -898,23 +882,18 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         // Log UI property changes for debugging
         if (changedProperties.has('btnVisible')) {
             console.log(`[UI Property Change] btnVisible changed to: ${this.btnVisible}`);
-            this.requestUpdate();
         }
         if (changedProperties.has('btnEnabled')) {
             console.log(`[UI Property Change] btnEnabled changed to: ${this.btnEnabled}`);
-            this.requestUpdate();
         }
         if (changedProperties.has('btnText')) {
             console.log(`[UI Property Change] btnText changed to: ${this.btnText}`);
-            this.requestUpdate();
         }
         if (changedProperties.has('btnAlignment')) {
             console.log(`[UI Property Change] btnAlignment changed to: ${this.btnAlignment}`);
-            this.requestUpdate();
         }
         if (changedProperties.has('debugMode')) {
             console.log(`[UI Property Change] debugMode changed to: ${this.debugMode}`);
-            this.requestUpdate();
         }
     }
     toggleSubmitButtonVisibility() {
@@ -1847,25 +1826,6 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         });
         return items.length > 0 ? items : html `<div style="color: var(--ntx-form-theme-color-secondary); font-style: italic;">No fields selected</div>`;
     }
-    generateResponseConfig() {
-        const config = {};
-        // Add title if provided
-        if (this.formatterMessageTitle && this.formatterMessageTitle.trim()) {
-            config.title = this.formatterMessageTitle.trim();
-        }
-        config.fields = [];
-        // Sort by order before generating config
-        const sortedFields = Array.from(this.formatterSelectedFields.entries())
-            .filter(([_, fieldConfig]) => fieldConfig.checked)
-            .sort((a, b) => a[1].order - b[1].order);
-        sortedFields.forEach(([key, fieldConfig]) => {
-            config.fields.push({
-                path: key,
-                title: fieldConfig.title || key
-            });
-        });
-        return JSON.stringify(config, null, 2);
-    }
     generateResponseConfigQuoted() {
         const config = {};
         // Add title if provided
@@ -1998,17 +1958,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
     handleJsonBlur(e) {
         // Auto-format valid JSON on blur
         if (this.isValidJson(this.requestBody) && this.requestBody.trim()) {
-            try {
-                const parsed = JSON.parse(this.requestBody);
-                const formatted = JSON.stringify(parsed, null, 2);
-                if (formatted !== this.requestBody) {
-                    this.requestBody = formatted;
-                    this.requestUpdate();
-                }
-            }
-            catch (_a) {
-                // Don't auto-format if invalid
-            }
+            this.formatJson();
         }
     }
     handleJsonPaste(e) {
@@ -2108,29 +2058,6 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
             return `<span class="json-syntax-punctuation">{</span>\n${items}\n${spaces}<span class="json-syntax-punctuation">}</span>`;
         }
         return String(obj);
-    }
-    // Recursively remove keys with instructional placeholder values
-    static removeInstructionalPlaceholders(obj) {
-        if (Array.isArray(obj)) {
-            return obj.map(item => this.removeInstructionalPlaceholders(item));
-        }
-        else if (obj && typeof obj === 'object') {
-            const result = {};
-            for (const [key, value] of Object.entries(obj)) {
-                if (typeof value === 'string' &&
-                    /^<.*>$/.test(value.trim())) {
-                    // skip this key (remove it)
-                    continue;
-                }
-                const cleaned = this.removeInstructionalPlaceholders(value);
-                if (cleaned !== undefined &&
-                    !(typeof cleaned === 'object' && cleaned !== null && Object.keys(cleaned).length === 0)) {
-                    result[key] = cleaned;
-                }
-            }
-            return result;
-        }
-        return obj;
     }
     fetchOAuthToken() {
         return __awaiter(this, void 0, void 0, function* () {
