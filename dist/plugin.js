@@ -923,51 +923,83 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
     }
     validateNintexForm() {
         return __awaiter(this, void 0, void 0, function* () {
-            console.log('[Validation] Starting form validation...');
+            console.log('[Validation] Starting Nintex form validation...');
             const form = document.querySelector('form');
             if (!form) {
-                console.warn('[Validation] No form found for validation');
-                return true; // If no form found, proceed anyway
+                // Fail closed — if we can't find the form we cannot verify it is valid
+                console.warn('[Validation] No form found — blocking to fail safely');
+                return false;
             }
-            // Trigger validation by programmatically calling reportValidity on form elements
-            // This validates without submitting the form
-            console.log('[Validation] Triggering validation on form inputs');
-            const formElements = form.querySelectorAll('input, textarea, select');
-            formElements.forEach((element) => {
-                if (element instanceof HTMLInputElement ||
-                    element instanceof HTMLTextAreaElement ||
-                    element instanceof HTMLSelectElement) {
-                    // Call reportValidity to trigger native HTML5 validation
-                    element.reportValidity();
+            // Trigger Angular/Nintex validation by marking all form controls as "touched".
+            // Dispatching blur/focusout on Angular form control elements calls their
+            // ControlValueAccessor's onTouched() handler, which causes Angular to run validators
+            // and set aria-invalid="true" on invalid controls — identical to what the native
+            // submit button does, but WITHOUT triggering any form submission.
+            //
+            // We target two levels:
+            //  1. Nintex component hosts (ntx-* elements) — their @HostListener('blur') calls onTouched()
+            //  2. Inner input/textarea/select elements — for Angular's built-in value accessors
+            //
+            // We also target all .ng-untouched elements to ensure any not yet interacted with get validated.
+            console.log('[Validation] Dispatching blur events to mark Angular controls as touched...');
+            // Pass 1: All elements with Angular's ng-untouched class (most targeted)
+            form.querySelectorAll('.ng-untouched').forEach((el) => {
+                if (el instanceof HTMLElement) {
+                    el.dispatchEvent(new FocusEvent('blur', { bubbles: true, cancelable: false }));
+                    el.dispatchEvent(new FocusEvent('focusout', { bubbles: true, cancelable: false }));
                 }
             });
-            // Wait briefly for Nintex's custom validation to update
-            console.log('[Validation] Waiting 200ms for validation state to update...');
-            yield new Promise(resolve => setTimeout(resolve, 200));
-            // Check for invalid fields using multiple methods
-            // Method 1: Nintex's aria-invalid attribute
+            // Pass 2: All inner input/textarea/select elements (covers native value accessors)
+            form.querySelectorAll('input:not([type="hidden"]), textarea, select').forEach((el) => {
+                if (el instanceof HTMLElement) {
+                    el.dispatchEvent(new FocusEvent('blur', { bubbles: true, cancelable: false }));
+                    el.dispatchEvent(new FocusEvent('focusout', { bubbles: true, cancelable: false }));
+                }
+            });
+            yield this.waitForValidationStability(form);
+            // Read validity from the DOM state updated by Nintex's validation engine
             const ariaInvalidFields = form.querySelectorAll('[aria-invalid="true"]');
-            // Method 2: HTML5 validation state
-            const html5InvalidFields = form.querySelectorAll(':invalid');
-            // Method 3: Nintex error messages
             const nintexErrorMessages = form.querySelectorAll('.ntx-form-error, [class*="error-message"]');
-            const totalInvalidCount = ariaInvalidFields.length + html5InvalidFields.length;
-            const isValid = totalInvalidCount === 0 && nintexErrorMessages.length === 0;
-            console.log('[Validation] Invalid fields found:');
-            console.log('  - aria-invalid:', ariaInvalidFields.length);
-            console.log('  - HTML5 invalid:', html5InvalidFields.length);
+            const isValid = ariaInvalidFields.length === 0 && nintexErrorMessages.length === 0;
+            console.log('[Validation] Results:');
+            console.log('  - aria-invalid fields:', ariaInvalidFields.length);
             console.log('  - Error messages:', nintexErrorMessages.length);
             console.log('[Validation] Form is valid:', isValid);
             if (!isValid) {
-                console.log('[Validation] Form validation FAILED. Invalid fields:');
                 ariaInvalidFields.forEach((field, index) => {
                     console.log(`  [aria-invalid ${index + 1}]`, field);
                 });
-                html5InvalidFields.forEach((field, index) => {
-                    console.log(`  [HTML5 invalid ${index + 1}]`, field);
-                });
             }
             return isValid;
+        });
+    }
+    /**
+     * Polls the form DOM until the count of aria-invalid fields has been stable for
+     * several consecutive checks, or until maxWait ms have elapsed.
+     * This replaces the fixed 200ms delay and handles slow/async Nintex rule engines.
+     */
+    waitForValidationStability(form_1) {
+        return __awaiter(this, arguments, void 0, function* (form, maxWait = 1500) {
+            const pollInterval = 50;
+            const stableRequired = 3; // must see the same count this many times in a row
+            const startTime = Date.now();
+            let previousCount = -1;
+            let stableChecks = 0;
+            while (Date.now() - startTime < maxWait) {
+                const invalidCount = form.querySelectorAll('[aria-invalid="true"]').length;
+                if (invalidCount === previousCount) {
+                    stableChecks++;
+                    if (stableChecks >= stableRequired) {
+                        console.log(`[Validation] DOM stable after ${Date.now() - startTime}ms`);
+                        break;
+                    }
+                }
+                else {
+                    stableChecks = 0;
+                    previousCount = invalidCount;
+                }
+                yield new Promise(resolve => setTimeout(resolve, pollInterval));
+            }
         });
     }
     handleAPICallTrigger() {
@@ -977,13 +1009,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
             this.sendAPICall = false;
             // Clear any previous validation error
             this.formValidationError = '';
-            // === STEP 1: Check if submission action is set to only-submit ===
-            if (this.submissionAction === 'only-submit') {
-                console.log('[API Trigger] Submission action is only-submit - skipping validation and API, submitting form directly');
-                this.submitNintexForm();
-                return;
-            }
-            // === STEP 2: Field Validation Check (if enabled) ===
+            // === STEP 1: Field Validation Check (applies to ALL submission paths including only-submit) ===
             if (this.fieldValidation) {
                 console.log('[API Trigger] Field validation is ENABLED, checking fields...');
                 const isFormValid = yield this.validateNintexForm();
@@ -992,21 +1018,27 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
                     console.log('[API Trigger] Field validation FAILED - STOPPING');
                     this.formValidationError = 'Please fill in all required fields correctly before submitting.';
                     this.requestUpdate();
-                    return; // STOP: Do not proceed to API call
+                    return; // STOP: Do not proceed regardless of submission action
                 }
                 console.log('[API Trigger] Field validation PASSED - proceeding...');
             }
             else {
                 console.log('[API Trigger] Field validation is DISABLED - skipping...');
             }
-            // === STEP 3: Rule Validation Gate Check (set by Nintex) ===
+            // === STEP 2: Rule Validation Gate Check (applies to ALL submission paths including only-submit) ===
             if (this.ruleValidation) {
-                console.log('[API Trigger] Rule validation gate is TRUE - BLOCKING API call');
+                console.log('[API Trigger] Rule validation gate is TRUE - BLOCKING');
                 this.formValidationError = 'Please correct the form errors before proceeding.';
                 this.requestUpdate();
                 return; // STOP: Nintex has indicated validation failure
             }
             console.log('[API Trigger] Rule validation gate is FALSE - proceeding...');
+            // === STEP 3: Check if submission action is only-submit (validation has already passed) ===
+            if (this.submissionAction === 'only-submit') {
+                console.log('[API Trigger] Submission action is only-submit - submitting form directly (validation passed)');
+                this.submitNintexForm();
+                return;
+            }
             // === STEP 4: Check if multiple API calls are allowed ===
             if (!this.allowMultipleAPICalls && this.hasSuccessfulCall) {
                 console.log('[API Trigger] Multiple API calls not allowed and already had successful call - STOPPING');
