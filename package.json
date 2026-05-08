@@ -5,8 +5,11 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc",
+    "build": "npm run bump:plugin-version && tsc",
+    "bump:plugin-version": "node scripts/bump-version.mjs",
     "bundle": "node build.mjs",
+    "bundle:plugin": "esbuild src/plugin.ts --bundle --minify --format=esm --target=es2017 --platform=browser --outfile=dist/plugin.bundle.js",
+    "build:plugin": "npm run build && npm run bundle:plugin",
     "deploy": "npm run build && npm run bundle"
   },
   "keywords": [],

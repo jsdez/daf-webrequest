@@ -2,7 +2,28 @@ import { html, LitElement, css } from 'lit';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { callApi } from './apiClient.js';
 import { customElement, property } from 'lit/decorators.js';
-import { PluginContract, PropType } from '@nintex/form-plugin-contract';
+import { PluginContract, PropType, pluginContractSchema } from '@nintex/form-plugin-contract';
+import { ValidationModule } from './validation.module.js';
+
+const PLUGIN_VERSION = '1.1.5';
+
+let contractValidationDone = false;
+
+function validateContractOnce(contract: PluginContract): void {
+  if (contractValidationDone) return;
+  contractValidationDone = true;
+
+  const result = pluginContractSchema.safeParse(contract);
+  if (result.success) {
+    console.log('[Plugin Contract] Contract validation passed');
+    return;
+  }
+
+  console.error('[Plugin Contract] Contract validation failed');
+  result.error.issues.forEach((issue, index) => {
+    console.error(`  [${index + 1}] path=${issue.path.join('.')} message=${issue.message}`);
+  });
+}
 
 @customElement('daf-webrequest-plugin')
 export class DafWebRequestPlugin extends LitElement {
@@ -374,6 +395,14 @@ export class DafWebRequestPlugin extends LitElement {
       margin-top: var(--ntx-form-theme-spacing-md, 16px);
     }
 
+    .debug-version {
+      margin-bottom: var(--ntx-form-theme-spacing-sm, 8px);
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 12px;
+      color: var(--ntx-form-theme-color-secondary, #6c757d);
+      opacity: 0.9;
+    }
+
     .debug-tab-nav {
       display: flex;
       border-bottom: 1px solid var(--ntx-form-theme-tab-border, #dee2e6);
@@ -632,6 +661,7 @@ export class DafWebRequestPlugin extends LitElement {
   // Custom accessor for value property with explicit change notification
   private _value: {
     success: boolean | null;
+    valid: boolean;
     statusCode: number;
     responseType: string;
     data: string;
@@ -643,6 +673,7 @@ export class DafWebRequestPlugin extends LitElement {
     output?: any;
   } = {
     success: null,
+    valid: false,
     statusCode: 0,
     responseType: '',
     data: '',
@@ -718,8 +749,6 @@ export class DafWebRequestPlugin extends LitElement {
     this.requestUpdate('btnVisible', oldValue);
   }
   
-  @property({ type: Boolean, reflect: true, attribute: 'form-validation' }) formValidation: boolean = false;
-  @property({ type: Boolean, reflect: true, attribute: 'submit-validation' }) submitValidation: boolean = false;
   @property({ type: String, reflect: true, attribute: 'submission-action' }) submissionAction: string = 'no-submit';
   @property({ type: Boolean, reflect: true, attribute: 'submit-hidden' }) submitHidden: boolean = false;
   @property({ type: String, reflect: true, attribute: 'show-more-details' }) showMoreDetails: string = 'Never';
@@ -736,12 +765,12 @@ export class DafWebRequestPlugin extends LitElement {
   private lastCooldownAlertTime = 0;
   private apiCallStartTime = 0;
   private cooldownTimerId: number | null = null; // Track the timer for cleanup
-  private formValidationError: string = '';
   private oauthTokenResponse: any = null;
-  private isValidating: boolean = false; // Track if we're in validation mode
   private submitBlockerAttached: boolean = false; // Track if submit blocker is active
   private delayedSubmissionStartTime: number = 0; // Track when delayed submission countdown started
   private allowFormSubmit: boolean = false; // Track when we explicitly allow form submission
+  private validationModule = new ValidationModule();
+  private isFinalizingSubmission: boolean = false; // Guard against API re-entry during native submit phase
 
   constructor() {
     super();
@@ -755,8 +784,10 @@ export class DafWebRequestPlugin extends LitElement {
     super.connectedCallback();
     // Apply submit button visibility on initial load
     this.toggleSubmitButtonVisibility();
-    // Attach submit blocker for validation mode
+    // Attach submit blocker for no-submit mode
     this.attachSubmitBlocker();
+    // Attach blur-revalidation listeners
+    this.validationModule.attach();
   }
 
   private attachSubmitBlocker(): void {
@@ -768,25 +799,14 @@ export class DafWebRequestPlugin extends LitElement {
       return;
     }
 
-    // Attach a persistent submit blocker that runs in capture phase
+    // For every mode except only-submit, the plugin owns submission timing.
+    // Keep native form submits blocked unless submitNintexForm explicitly allows one.
     form.addEventListener('submit', (event: Event) => {
-      // Block submit if we're validating
-      if (this.isValidating) {
-        console.log('[Submit Blocker] Blocking submit - validation in progress');
+      if (!this.allowFormSubmit && this.submissionAction !== 'only-submit') {
+        console.log('[Submit Blocker] Blocking submit - plugin-controlled submission mode is active');
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
-        return;
-      }
-      
-      // Block submit if submissionAction is no-submit (unless we explicitly allowed it via submitNintexForm)
-      // We'll use a flag to track when we intentionally trigger submission
-      if (!this.allowFormSubmit && this.submissionAction === 'no-submit') {
-        console.log('[Submit Blocker] Blocking submit - submissionAction is no-submit');
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
-        return;
       }
     }, true); // Capture phase to intercept early
 
@@ -795,10 +815,10 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   static getMetaConfig(): PluginContract {
-    return {
+    const contract: PluginContract = {
       controlName: 'Web Request Plugin',
       fallbackDisableSubmit: false,
-      version: '1.0.0',
+      version: PLUGIN_VERSION,
       description: 'A Nintex Form Plugin for making API calls.',
       properties: {
         apiUrl: {
@@ -823,13 +843,13 @@ export class DafWebRequestPlugin extends LitElement {
         bearerToken: {
           type: 'string',
           title: 'Bearer Token',
-          description: 'Optional: Bearer token value for Authorization header (used if Token URL is not provided)',
+          description: 'Optional bearer token value for authorization header used if token URL is not provided',
           defaultValue: '',
         } as PropType,
         tokenUrl: {
           type: 'string',
           title: 'Token URL',
-          description: 'Optional: OAuth token endpoint URL e.g. https://api.example.com/oauth2/v1/token',
+          description: 'Optional OAuth token endpoint URL',
           defaultValue: '',
         } as PropType,
         clientId: {
@@ -853,7 +873,7 @@ export class DafWebRequestPlugin extends LitElement {
         outputValueKey: {
           type: 'string',
           title: 'Output Value Key',
-          description: 'Optional: JSON key path to extract from response',
+          description: 'Optional JSON key path to extract from response',
           defaultValue: '',
         } as PropType,
         contentType: {
@@ -880,6 +900,11 @@ export class DafWebRequestPlugin extends LitElement {
               title: 'Success',
               description: 'Whether the API call was successful',
             },
+            valid: {
+              type: 'boolean',
+              title: 'Valid',
+              description: 'Validation flag used by form rules. True on successful API call and in only-submit mode.',
+            },
             statusCode: {
               type: 'integer',
               title: 'HTTP Status Code',
@@ -903,7 +928,7 @@ export class DafWebRequestPlugin extends LitElement {
             formattedResponse: {
               type: 'string',
               title: 'Formatted Response',
-              description: 'Formatted response message based on Success/Warning/Error Message configuration',
+              description: 'Formatted response message based on success warning and error message configuration',
             },
             timestamp: {
               type: 'string',
@@ -927,7 +952,8 @@ export class DafWebRequestPlugin extends LitElement {
             }
           },
           defaultValue: {
-            success: null,
+            success: false,
+            valid: false,
             statusCode: 0,
             responseType: '',
             data: '',
@@ -970,7 +996,7 @@ export class DafWebRequestPlugin extends LitElement {
         allowMultipleAPICalls: {
           type: 'boolean',
           title: 'Allow Multiple API Calls',
-          description: 'If true, allows repeated API calls. If false, disables further calls after first success/warning.',
+          description: 'If true allows repeated API calls If false disables further calls after first success or warning',
           defaultValue: false,
         } as PropType,
         countdownEnabled: {
@@ -1010,22 +1036,10 @@ export class DafWebRequestPlugin extends LitElement {
           enum: ['left', 'center', 'right'],
           defaultValue: 'left',
         } as PropType,
-        formValidation: {
-          type: 'boolean',
-          title: 'Validate Form Before API Call',
-          description: 'If true, validates the entire Nintex form before making the API call. Only proceeds if all required fields are valid.',
-          defaultValue: false,
-        } as PropType,
-        submitValidation: {
-          type: 'boolean',
-          title: 'Validate Form with Submit Rules',
-          description: 'If true, validates Nintex form rules by intercepting form submission. This catches rule-based validation that only runs on submit. More thorough but requires actual submit attempt.',
-          defaultValue: false,
-        } as PropType,
         submissionAction: {
           type: 'string',
           title: 'Submission Action',
-          description: 'Action to take after a successful API call. Set to "only-submit" to skip API call and directly submit the form.',
+          description: 'Action to take after a successful API call Set to only submit to skip API call and submit form directly',
           enum: ['no-submit', 'quick-submit', 'delayed-submit', 'only-submit'],
           defaultValue: 'no-submit',
         } as PropType,
@@ -1057,6 +1071,9 @@ export class DafWebRequestPlugin extends LitElement {
         defaultValue: false,
       },
     };
+
+    validateContractOnce(contract);
+    return contract;
   }
 
   render() {
@@ -1067,8 +1084,9 @@ export class DafWebRequestPlugin extends LitElement {
       return html`
         <div class="plugin-container">
           ${this.btnVisible ? this.renderButtonWithAlert('Calling API...') : ''}
-
+          
           <div class="debug-tabs">
+            <div class="debug-version">Plugin Version: ${PLUGIN_VERSION}</div>
             <div class="debug-tab-nav">
               <button 
                 class="debug-tab-button ${this.activeDebugTab === 'properties' ? 'active' : ''}"
@@ -1179,8 +1197,6 @@ export class DafWebRequestPlugin extends LitElement {
 
   private shouldShowAlert(): boolean {
     // Check if there's any alert content to show
-    if (this.formValidationError) return true;
-    
     const now = Date.now();
     const timeSinceLastCall = now - this.lastApiCallTime;
     const cooldownMs = this.countdownTimer * 1000;
@@ -1213,7 +1229,6 @@ export class DafWebRequestPlugin extends LitElement {
     // Clear the response to close the modal
     this.apiResponse = '';
     this.responseType = null;
-    this.formValidationError = '';
     this.showCooldownAlert = false;
     this.requestUpdate();
   }
@@ -1230,18 +1245,6 @@ export class DafWebRequestPlugin extends LitElement {
                                 (this.responseType === 'success' || this.responseType === 'warning');
     
     const beforeClass = isBefore ? 'alert-before' : '';
-    
-    // Show form validation error if present
-    if (this.formValidationError) {
-      return html`
-        <div class="alert alert-error ${beforeClass}" part="validation-alert">
-          <div>
-            <span class="alert-icon">✗</span>
-            <strong>Validation Error:</strong> ${this.formValidationError}
-          </div>
-        </div>
-      `;
-    }
     
     // Show cooldown message only if someone attempted to trigger during cooldown
     if (inCooldown && this.showCooldownAlert) {
@@ -1608,202 +1611,66 @@ export class DafWebRequestPlugin extends LitElement {
     }
   }
 
-  private async validateNintexFormBySubmit(): Promise<boolean> {
-    console.log('[Submit Validation] Starting submit-based form validation...');
-    const form = document.querySelector('form');
-    if (!form) {
-      console.warn('[Submit Validation] No form found for validation');
-      return true; // If no form found, proceed anyway
-    }
-
-    // Set validation mode to block submits
-    this.isValidating = true;
-    console.log('[Submit Validation] Validation mode ENABLED - submits will be blocked');
-
-    return new Promise<boolean>((resolve) => {
-      let validationResult = true;
-
-      // Find and click the submit button to trigger validation
-      const submitBtn = form.querySelector('button[type="submit"]');
-      if (submitBtn instanceof HTMLElement) {
-        console.log('[Submit Validation] Clicking submit button to trigger validation...');
-        submitBtn.click();
-        
-        // Wait for Nintex validation to complete and check results
-        setTimeout(() => {
-          console.log('[Submit Validation] Checking for validation errors...');
-          
-          // Check for validation errors using multiple methods
-          const ariaInvalidFields = form.querySelectorAll('[aria-invalid="true"]');
-          const html5InvalidFields = form.querySelectorAll(':invalid');
-          const nintexErrorMessages = form.querySelectorAll('.ntx-form-error, [class*="error-message"], [role="alert"]');
-          
-          const totalInvalidCount = ariaInvalidFields.length + html5InvalidFields.length;
-          const isValid = totalInvalidCount === 0 && nintexErrorMessages.length === 0;
-          
-          console.log('[Submit Validation] Validation check results:');
-          console.log('  - aria-invalid:', ariaInvalidFields.length);
-          console.log('  - HTML5 invalid:', html5InvalidFields.length);
-          console.log('  - Error messages:', nintexErrorMessages.length);
-          console.log('[Submit Validation] Form is valid:', isValid);
-          
-          if (!isValid) {
-            console.log('[Submit Validation] FAILED - validation errors found');
-            validationResult = false;
-            // Only disable validation mode if validation failed (we won't proceed with API call)
-            this.isValidating = false;
-            console.log('[Submit Validation] Validation mode DISABLED - validation failed');
-          } else {
-            console.log('[Submit Validation] PASSED - no validation errors');
-            validationResult = true;
-            // Keep isValidating = true to continue blocking submits during API call
-            console.log('[Submit Validation] Validation mode STILL ACTIVE - will proceed with API call');
-            
-            // Immediately call the API while validation mode is still active
-            console.log('[Submit Validation] Calling handleApiCall() directly to prevent premature submission');
-            this.handleApiCall();
-          }
-          
-          resolve(validationResult);
-        }, 350); // Wait 350ms for Nintex validation to complete
-      } else {
-        console.error('[Submit Validation] No submit button found');
-        this.isValidating = false;
-        resolve(true); // If no submit button, proceed anyway
-      }
-    });
-  }
-
-  private async validateNintexForm(): Promise<boolean> {
-    console.log('[Validation] Starting form validation...');
-    const form = document.querySelector('form');
-    if (!form) {
-      console.warn('[Validation] No form found for validation');
-      return true; // If no form found, proceed anyway
-    }
-    
-    // Trigger validation by programmatically calling reportValidity on form elements
-    // This validates without submitting the form
-    console.log('[Validation] Triggering validation on form inputs');
-    const formElements = form.querySelectorAll('input, textarea, select');
-    formElements.forEach((element: Element) => {
-      if (element instanceof HTMLInputElement || 
-          element instanceof HTMLTextAreaElement || 
-          element instanceof HTMLSelectElement) {
-        // Call reportValidity to trigger native HTML5 validation
-        element.reportValidity();
-      }
-    });
-    
-    // Wait briefly for Nintex's custom validation to update
-    console.log('[Validation] Waiting 200ms for validation state to update...');
-    await new Promise(resolve => setTimeout(resolve, 200));
-    
-    // Check for invalid fields using multiple methods
-    // Method 1: Nintex's aria-invalid attribute
-    const ariaInvalidFields = form.querySelectorAll('[aria-invalid="true"]');
-    
-    // Method 2: HTML5 validation state
-    const html5InvalidFields = form.querySelectorAll(':invalid');
-    
-    // Method 3: Nintex error messages
-    const nintexErrorMessages = form.querySelectorAll('.ntx-form-error, [class*="error-message"]');
-    
-    const totalInvalidCount = ariaInvalidFields.length + html5InvalidFields.length;
-    const isValid = totalInvalidCount === 0 && nintexErrorMessages.length === 0;
-    
-    console.log('[Validation] Invalid fields found:');
-    console.log('  - aria-invalid:', ariaInvalidFields.length);
-    console.log('  - HTML5 invalid:', html5InvalidFields.length);
-    console.log('  - Error messages:', nintexErrorMessages.length);
-    console.log('[Validation] Form is valid:', isValid);
-    
-    if (!isValid) {
-      console.log('[Validation] Form validation FAILED. Invalid fields:');
-      ariaInvalidFields.forEach((field, index) => {
-        console.log(`  [aria-invalid ${index + 1}]`, field);
-      });
-      html5InvalidFields.forEach((field, index) => {
-        console.log(`  [HTML5 invalid ${index + 1}]`, field);
-      });
-    }
-    
-    return isValid;
-  }
-
   private async handleAPICallTrigger() {
     console.log('[API Call] handleAPICallTrigger started');
-    // Immediately set sendAPICall to false to prevent multiple calls
     this.sendAPICall = false;
-    
-    // Clear any previous validation error
-    this.formValidationError = '';
-    
-    // Check if submission action is set to only-submit
+
+    // During post-success final native submit/validation, ignore any sendAPICall re-triggers.
+    if (this.isFinalizingSubmission) {
+      console.log('[API Call] Ignored - final native submission is in progress');
+      return;
+    }
+
+    // only-submit: proxy for the native Nintex submit button — no API call ever
     if (this.submissionAction === 'only-submit') {
-      console.log('[API Call] Submission action is only-submit - skipping API call and validation, submitting form directly');
+      console.log('[API Call] Submission action is only-submit — submitting form directly');
+
+      // Mark form-rule validity without changing API success semantics.
+      this.value = {
+        ...this.value,
+        valid: true,
+      };
+
       this.submitNintexForm();
       return;
     }
-    
-    // Check if form validation is required
-    if (this.submitValidation) {
-      console.log('[API Call] Submit validation is ENABLED, checking form with submit rules...');
-      const isFormValid = await this.validateNintexFormBySubmit();
-      console.log('[API Call] Submit validation result:', isFormValid);
-      
-      if (!isFormValid) {
-        console.log('[API Call] Submit validation FAILED - BLOCKING API call');
-        this.formValidationError = 'Please correct the form validation errors before proceeding.';
-        this.requestUpdate();
-        return;
-      }
-      console.log('[API Call] Submit validation PASSED - API call already triggered from validateNintexFormBySubmit()');
-      // Note: When submitValidation passes, handleApiCall() is called directly from validateNintexFormBySubmit()
-      // to prevent premature form submission. Return here to avoid calling it twice.
+
+    // All other submissionAction values: always validate via the validation module
+    console.log('[API Call] Running form validation via ValidationModule...');
+    const isFormValid = await this.validationModule.runHardValidation();
+    console.log('[API Call] Validation result:', isFormValid);
+
+    if (!isFormValid) {
+      console.log('[API Call] Validation FAILED — blocking API call');
       return;
-    } else if (this.formValidation) {
-      console.log('[API Call] Form validation is ENABLED, checking form...');
-      const isFormValid = await this.validateNintexForm();
-      console.log('[API Call] Validation result:', isFormValid);
-      
-      if (!isFormValid) {
-        console.log('[API Call] Form validation FAILED - BLOCKING API call');
-        this.formValidationError = 'Please fill in all required fields correctly before submitting.';
-        this.requestUpdate();
-        return;
-      }
-      console.log('[API Call] Form validation PASSED - proceeding with API call');
-    } else {
-      console.log('[API Call] Form validation is DISABLED');
     }
-    
+
+    console.log('[API Call] Validation PASSED — proceeding');
+
     // Check if multiple API calls are allowed
     if (!this.allowMultipleAPICalls && this.hasSuccessfulCall) {
-      console.log('[API Call] Multiple API calls not allowed and already had successful call - BLOCKING');
-      // Multiple calls not allowed and we've already had a successful call - prevent execution
+      console.log('[API Call] Multiple API calls not allowed and already had successful call — BLOCKING');
       return;
     }
-    
-    // Check cooldown timer - prevent API call if still in cooldown (only if countdown is enabled)
+
+    // Check cooldown timer
     if (this.countdownEnabled) {
       const now = Date.now();
       const timeSinceLastCall = now - this.lastApiCallTime;
       const cooldownMs = this.countdownTimer * 1000;
       const inCooldown = this.lastApiCallTime > 0 && timeSinceLastCall < cooldownMs;
-      
+
       if (inCooldown) {
-        console.log('[API Call] In cooldown period - BLOCKING');
-        // Show cooldown alert and don't proceed
+        console.log('[API Call] In cooldown period — BLOCKING');
         this.showCooldownAlert = true;
-        this.lastCooldownAlertTime = Date.now(); // Record when we showed the cooldown alert
+        this.lastCooldownAlertTime = Date.now();
         this.startCooldownTimer();
         return;
       }
     }
-    
-    // Proceed with API call
-    console.log('[API Call] All checks passed - calling handleApiCall()');
+
+    // All checks passed — make the API call
+    console.log('[API Call] All checks passed — calling handleApiCall()');
     this.handleApiCall();
   }
 
@@ -3022,6 +2889,7 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
         this.apiResponse = `OAuth token fetch failed: ${error instanceof Error ? error.message : String(error)}`;
         this.value = {
           success: false,
+          valid: false,
           statusCode: 401,
           responseType: 'error',
           data: this.apiResponse,
@@ -3138,6 +3006,7 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
         // Create structured value object
         this.value = {
           success: success !== false && (this.responseType === 'success' || this.responseType === 'warning'),
+          valid: success !== false && (this.responseType === 'success' || this.responseType === 'warning'),
           statusCode: statusCode !== undefined ? statusCode : (this.responseType === 'success' ? 200 : 500),
           responseType: this.responseType,
           data: response,
@@ -3270,10 +3139,6 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
   private handlePostSubmissionAction(): void {
     console.log('[Submission Action] Checking submission action:', this.submissionAction);
     
-    // Disable validation mode now that API call is complete
-    this.isValidating = false;
-    console.log('[Submission Action] Validation mode DISABLED after API call complete');
-    
     if (this.submissionAction === 'no-submit') {
       console.log('[Submission Action] No action configured');
       return;
@@ -3306,15 +3171,18 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
     const submitBtn = form.querySelector('button[type="submit"]');
     if (submitBtn instanceof HTMLElement) {
       console.log('[Submission Action] Clicking submit button');
+      this.isFinalizingSubmission = true;
       // Temporarily allow form submission
       this.allowFormSubmit = true;
       submitBtn.click();
-      // Reset flag after a short delay (submission should have happened by then)
+      // Reset flags after native submit cycle has had time to complete.
       setTimeout(() => {
         this.allowFormSubmit = false;
-      }, 100);
+        this.isFinalizingSubmission = false;
+      }, 1500);
     } else {
       console.error('[Submission Action] No submit button found');
+      this.isFinalizingSubmission = false;
     }
   }
 
@@ -3387,7 +3255,6 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
       clearTimeout(this.cooldownTimerId);
       this.cooldownTimerId = null;
     }
-    // Reset validation mode
-    this.isValidating = false;
+    this.validationModule.detach();
   }
 }
