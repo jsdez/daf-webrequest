@@ -5,7 +5,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { PluginContract, PropType, pluginContractSchema } from '@nintex/form-plugin-contract';
 import { ValidationModule } from './validation.module.js';
 
-const PLUGIN_VERSION = '1.1.5';
+const PLUGIN_VERSION = '1.1.7';
 
 let contractValidationDone = false;
 
@@ -672,7 +672,7 @@ export class DafWebRequestPlugin extends LitElement {
     access_token?: string;
     output?: any;
   } = {
-    success: null,
+    success: false,
     valid: false,
     statusCode: 0,
     responseType: '',
@@ -782,6 +782,13 @@ export class DafWebRequestPlugin extends LitElement {
   // Called when the element is added to the DOM
   connectedCallback() {
     super.connectedCallback();
+    // Normalize legacy/null incoming values from host state.
+    if (this.value?.valid !== true && this.value?.valid !== false) {
+      this.value = {
+        ...this.value,
+        valid: false,
+      };
+    }
     // Apply submit button visibility on initial load
     this.toggleSubmitButtonVisibility();
     // Attach submit blocker for no-submit mode
@@ -1686,9 +1693,9 @@ export class DafWebRequestPlugin extends LitElement {
       return this.isLoading;
     }
     
-    // If allowMultipleAPICalls is false, disable for loading, btnEnabled, OR after successful/warning call
-    // Note: Errors (this.responseType === 'error') still allow retry
-    const permanentlyDisabled = this.hasSuccessfulCall && (this.responseType === 'success' || this.responseType === 'warning');
+    // If allowMultipleAPICalls is false, disable for loading, btnEnabled, OR after a strict successful call.
+    // Errors/warnings should still allow retry.
+    const permanentlyDisabled = this.hasSuccessfulCall;
     return this.isLoading || !this.btnEnabled || permanentlyDisabled;
   }
 
@@ -3004,9 +3011,10 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
         const formattedResponseData = this.getCustomMessage(this.responseType);
         
         // Create structured value object
+        const isTrueSuccess = success === true && this.responseType === 'success';
         this.value = {
-          success: success !== false && (this.responseType === 'success' || this.responseType === 'warning'),
-          valid: success !== false && (this.responseType === 'success' || this.responseType === 'warning'),
+          success: isTrueSuccess,
+          valid: isTrueSuccess,
           statusCode: statusCode !== undefined ? statusCode : (this.responseType === 'success' ? 200 : 500),
           responseType: this.responseType,
           data: response,
@@ -3018,8 +3026,8 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
           ...(customOutput !== undefined && { output: customOutput })
         };
         
-        // Mark as successful call if success or warning
-        if (this.responseType === 'success' || this.responseType === 'warning') {
+        // Mark as successful call only on strict success.
+        if (isTrueSuccess) {
           this.hasSuccessfulCall = true;
         }
         
@@ -3030,7 +3038,7 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
         
         // After value change event is dispatched (happens in setter), wait for Nintex to process it
         // then trigger post-submission action if needed
-        const isSuccessResponse = this.responseType === 'success' || this.responseType === 'warning';
+        const isSuccessResponse = isTrueSuccess;
         if (isSuccessResponse) {
           // Wait 800ms to ensure ntx-value-change event is fully processed by Nintex
           // This gives Nintex adequate time to update form values before submission

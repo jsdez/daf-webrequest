@@ -20,7 +20,7 @@ import { callApi } from './apiClient.js';
 import { customElement, property } from 'lit/decorators.js';
 import { pluginContractSchema } from '@nintex/form-plugin-contract';
 import { ValidationModule } from './validation.module.js';
-const PLUGIN_VERSION = '1.1.5';
+const PLUGIN_VERSION = '1.1.7';
 let contractValidationDone = false;
 function validateContractOnce(contract) {
     if (contractValidationDone)
@@ -42,7 +42,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
     }
     set value(newValue) {
         const oldValue = this._value;
-        this._value = newValue;
+      this._value = newValue;
         console.log('[Value Setter] Value changed, dispatching ntx-value-change event', newValue);
         // Dispatch ntx-value-change event immediately when value is set
         this.dispatchEvent(new CustomEvent('ntx-value-change', {
@@ -84,7 +84,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         this.readOnly = false;
         // Custom accessor for value property with explicit change notification
         this._value = {
-            success: null,
+            success: false,
             valid: false,
             statusCode: 0,
             responseType: '',
@@ -145,7 +145,12 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
     }
     // Called when the element is added to the DOM
     connectedCallback() {
+        var _a, _b;
         super.connectedCallback();
+        // Normalize legacy/null incoming values from host state.
+        if (((_a = this.value) === null || _a === void 0 ? void 0 : _a.valid) !== true && ((_b = this.value) === null || _b === void 0 ? void 0 : _b.valid) !== false) {
+            this.value = Object.assign(Object.assign({}, this.value), { valid: false });
+        }
         // Apply submit button visibility on initial load
         this.toggleSubmitButtonVisibility();
         // Attach submit blocker for no-submit mode
@@ -996,9 +1001,9 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         if (this.allowMultipleAPICalls) {
             return this.isLoading;
         }
-        // If allowMultipleAPICalls is false, disable for loading, btnEnabled, OR after successful/warning call
-        // Note: Errors (this.responseType === 'error') still allow retry
-        const permanentlyDisabled = this.hasSuccessfulCall && (this.responseType === 'success' || this.responseType === 'warning');
+        // If allowMultipleAPICalls is false, disable for loading, btnEnabled, OR after a strict successful call.
+        // Errors/warnings should still allow retry.
+        const permanentlyDisabled = this.hasSuccessfulCall;
         return this.isLoading || !this.btnEnabled || permanentlyDisabled;
     }
     setActiveTab(tabName) {
@@ -2230,9 +2235,10 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
                     // Get formatted response message
                     const formattedResponseData = this.getCustomMessage(this.responseType);
                     // Create structured value object
-                    this.value = Object.assign(Object.assign({ success: success !== false && (this.responseType === 'success' || this.responseType === 'warning'), valid: success !== false && (this.responseType === 'success' || this.responseType === 'warning'), statusCode: statusCode !== undefined ? statusCode : (this.responseType === 'success' ? 200 : 500), responseType: this.responseType, data: response, message: responseMessage, formattedResponse: formattedResponseData.message, timestamp: timestamp, executionTime: executionTime }, (accessToken && { access_token: accessToken })), (customOutput !== undefined && { output: customOutput }));
-                    // Mark as successful call if success or warning
-                    if (this.responseType === 'success' || this.responseType === 'warning') {
+                    const isTrueSuccess = success === true && this.responseType === 'success';
+                    this.value = Object.assign(Object.assign({ success: isTrueSuccess, valid: isTrueSuccess, statusCode: statusCode !== undefined ? statusCode : (this.responseType === 'success' ? 200 : 500), responseType: this.responseType, data: response, message: responseMessage, formattedResponse: formattedResponseData.message, timestamp: timestamp, executionTime: executionTime }, (accessToken && { access_token: accessToken })), (customOutput !== undefined && { output: customOutput }));
+                    // Mark as successful call only on strict success.
+                    if (isTrueSuccess) {
                         this.hasSuccessfulCall = true;
                     }
                     // Note: ntx-value-change event is automatically dispatched by value setter
@@ -2240,7 +2246,7 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
                     this.requestUpdate();
                     // After value change event is dispatched (happens in setter), wait for Nintex to process it
                     // then trigger post-submission action if needed
-                    const isSuccessResponse = this.responseType === 'success' || this.responseType === 'warning';
+                    const isSuccessResponse = isTrueSuccess;
                     if (isSuccessResponse) {
                         // Wait 800ms to ensure ntx-value-change event is fully processed by Nintex
                         // This gives Nintex adequate time to update form values before submission
