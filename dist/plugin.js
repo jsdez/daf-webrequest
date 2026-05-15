@@ -20,7 +20,7 @@ import { callApi } from './apiClient.js';
 import { customElement, property } from 'lit/decorators.js';
 import { pluginContractSchema } from '@nintex/form-plugin-contract';
 import { ValidationModule } from './validation.module.js';
-const PLUGIN_VERSION = '1.1.7';
+const PLUGIN_VERSION = '1.1.8';
 let contractValidationDone = false;
 function validateContractOnce(contract) {
     if (contractValidationDone)
@@ -42,7 +42,7 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
     }
     set value(newValue) {
         const oldValue = this._value;
-      this._value = newValue;
+        this._value = newValue;
         console.log('[Value Setter] Value changed, dispatching ntx-value-change event', newValue);
         // Dispatch ntx-value-change event immediately when value is set
         this.dispatchEvent(new CustomEvent('ntx-value-change', {
@@ -157,6 +157,8 @@ let DafWebRequestPlugin = DafWebRequestPlugin_1 = class DafWebRequestPlugin exte
         this.attachSubmitBlocker();
         // Attach blur-revalidation listeners
         this.validationModule.attach();
+        // Suppress the Nintex-injected nx-error-message span for this plugin's form group
+        this.injectErrorMessageSuppressStyle();
     }
     attachSubmitBlocker() {
         if (this.submitBlockerAttached)
@@ -2458,6 +2460,22 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
             this.cooldownTimerId = null;
         }
         this.validationModule.detach();
+        this.removeErrorMessageSuppressStyle();
+    }
+    injectErrorMessageSuppressStyle() {
+        if (document.getElementById(DafWebRequestPlugin_1.ERROR_SUPPRESS_STYLE_ID))
+            return;
+        const style = document.createElement('style');
+        style.id = DafWebRequestPlugin_1.ERROR_SUPPRESS_STYLE_ID;
+        style.textContent = '.form-group:has(daf-webrequest-plugin) .nx-error-message { display: none !important; }';
+        document.head.appendChild(style);
+    }
+    removeErrorMessageSuppressStyle() {
+        var _a;
+        // Only remove if no other instances remain in the document
+        if (document.querySelectorAll('daf-webrequest-plugin').length === 0) {
+            (_a = document.getElementById(DafWebRequestPlugin_1.ERROR_SUPPRESS_STYLE_ID)) === null || _a === void 0 ? void 0 : _a.remove();
+        }
     }
 };
 DafWebRequestPlugin.styles = css `
@@ -3078,6 +3096,7 @@ DafWebRequestPlugin.styles = css `
     .json-syntax-key { color: #22863a; font-weight: 500; }
     .json-syntax-punctuation { color: #24292e; }
   `;
+DafWebRequestPlugin.ERROR_SUPPRESS_STYLE_ID = 'daf-webrequest-suppress-nx-error';
 __decorate([
     property({ type: String })
 ], DafWebRequestPlugin.prototype, "label", void 0);

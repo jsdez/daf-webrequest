@@ -5,7 +5,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { PluginContract, PropType, pluginContractSchema } from '@nintex/form-plugin-contract';
 import { ValidationModule } from './validation.module.js';
 
-const PLUGIN_VERSION = '1.1.7';
+const PLUGIN_VERSION = '1.1.8';
 
 let contractValidationDone = false;
 
@@ -795,6 +795,8 @@ export class DafWebRequestPlugin extends LitElement {
     this.attachSubmitBlocker();
     // Attach blur-revalidation listeners
     this.validationModule.attach();
+    // Suppress the Nintex-injected nx-error-message span for this plugin's form group
+    this.injectErrorMessageSuppressStyle();
   }
 
   private attachSubmitBlocker(): void {
@@ -3264,5 +3266,23 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
       this.cooldownTimerId = null;
     }
     this.validationModule.detach();
+    this.removeErrorMessageSuppressStyle();
+  }
+
+  private static readonly ERROR_SUPPRESS_STYLE_ID = 'daf-webrequest-suppress-nx-error';
+
+  private injectErrorMessageSuppressStyle(): void {
+    if (document.getElementById(DafWebRequestPlugin.ERROR_SUPPRESS_STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = DafWebRequestPlugin.ERROR_SUPPRESS_STYLE_ID;
+    style.textContent = '.form-group:has(daf-webrequest-plugin) .nx-error-message { display: none !important; }';
+    document.head.appendChild(style);
+  }
+
+  private removeErrorMessageSuppressStyle(): void {
+    // Only remove if no other instances remain in the document
+    if (document.querySelectorAll('daf-webrequest-plugin').length === 0) {
+      document.getElementById(DafWebRequestPlugin.ERROR_SUPPRESS_STYLE_ID)?.remove();
+    }
   }
 }
