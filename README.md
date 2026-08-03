@@ -1012,15 +1012,29 @@ src/
   plugin.ts       # Main plugin component (2,486 lines)
   apiClient.ts    # API call handler
   nintex.css      # Styles
-dist/             # Build output
+dist/             # Live build output — published to the production plugin URL
+test/             # Preview build output — published to the fixed test plugin URL
 ```
 
 ### Build Commands
 ```sh
-npm run build    # TypeScript compilation
-npm run bundle   # esbuild bundling
-npm run deploy   # Build + bundle
+# Preview build: type-checks without emitting TypeScript output, then writes only
+# test/plugin.bundle.js. It verifies dist/plugin.bundle.js was not changed.
+npm run build:test
+
+# Live build commands: these can update src/plugin.ts's version and write to dist/.
+npm run build          # Bump plugin version + TypeScript compilation to dist/
+npm run bundle         # Bundle to dist/plugin.bundle.js
+npm run deploy         # Live build + bundle
 ```
+
+For a Nintex test form, use the fixed preview URL:
+
+```text
+https://jsdez.github.io/daf-webrequest/test/plugin.bundle.js
+```
+
+Do not use the live build commands while preparing a preview; use `npm run build:test` instead.
 
 ### Key Technologies
 - **LitElement**: Web component framework
