@@ -28,7 +28,7 @@ import { renderFormattedPreview } from './debug/formatter-preview-view.js';
 import { renderSelectedFieldsList } from './debug/selected-fields-view.js';
 import { getAlertIcon, shouldShowAlert, shouldShowMoreDetails } from './debug/alert-utils.js';
 import { createSampleJson, formatJsonEditorValue, minifyJsonEditorValue } from './debug/json-editor.js';
-import { createConfigurationErrorValue, createPendingApiValue } from './nintex/value-state.js';
+import { createApiResponseValue, createConfigurationErrorValue, createPendingApiValue } from './nintex/value-state.js';
 import {
   collectAvailableFormatterFields,
   getSortedSelectedFields,
@@ -2204,19 +2204,18 @@ export class DafWebRequestPlugin extends LitElement {
         
         // Create structured value object
         const isTrueSuccess = success === true && this.responseType === 'success';
-        this.value = {
-          success: isTrueSuccess,
-          valid: isTrueSuccess,
-          statusCode: statusCode !== undefined ? statusCode : (this.responseType === 'success' ? 200 : 500),
+        this.value = createApiResponseValue({
+          success: success === true,
           responseType: this.responseType,
+          statusCode,
           data: response,
           message: responseMessage,
           formattedResponse: formattedResponseData.message,
-          timestamp: timestamp,
-          executionTime: executionTime,
-          ...(accessToken && { access_token: accessToken }),
-          ...(customOutput !== undefined && { output: customOutput })
-        };
+          timestamp,
+          executionTime,
+          accessToken,
+          output: customOutput,
+        });
         
         // Mark as successful call only on strict success.
         if (isTrueSuccess) {
