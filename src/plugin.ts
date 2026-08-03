@@ -10,6 +10,10 @@ import { formatJsonForDisplay, formatValue, getJsonStatus, isValidJson } from '.
 import { FormCoordinatorManager } from './forms/form-coordinator.js';
 import { SubmissionScheduler } from './forms/submission-scheduler.js';
 import { renderJsonOutput, renderJsonPreview } from './debug/json-tools-view.js';
+import {
+  generateResponseConfigQuoted,
+  type FormatterFieldSelection,
+} from './formatters/response-config.js';
 
 const PLUGIN_VERSION = '1.1.8';
 const SENSITIVE_DEBUG_PROPERTIES = new Set(['clientSecret']);
@@ -657,7 +661,7 @@ export class DafWebRequestPlugin extends LitElement {
   private activeDebugTab: string = 'properties';
   private activeFormatterTab: string = 'success';
   private formatterJsonInput: string = '';
-  private formatterSelectedFields: Map<string, { title: string; checked: boolean; order: number }> = new Map();
+  private formatterSelectedFields: Map<string, FormatterFieldSelection> = new Map();
   private formatterUseArrayNotation: boolean = true;
   private formatterMessageTitle: string = '';
 
@@ -2219,14 +2223,14 @@ export class DafWebRequestPlugin extends LitElement {
                 class="form-control" 
                 readonly
                 rows="4"
-                .value=${this.generateResponseConfigQuoted()}
+                .value=${generateResponseConfigQuoted(this.formatterSelectedFields, this.formatterMessageTitle)}
                 style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 12px; padding-right: 100px; background: ${color.bg}; color: ${color.text}; border-color: ${color.border};"
               ></textarea>
               <button 
                 class="btn" 
                 style="position: absolute; top: 8px; right: 8px; padding: 6px 16px; font-size: 13px; background: ${color.btnBg}; color: ${color.btnText || 'white'}; border: none; font-weight: 600;"
                 @click=${() => {
-                  const quoted = this.generateResponseConfigQuoted();
+                  const quoted = generateResponseConfigQuoted(this.formatterSelectedFields, this.formatterMessageTitle);
                   this.copyToClipboard(quoted);
                 }}
                 title="Copy configuration to paste into ${type.charAt(0).toUpperCase() + type.slice(1)} Message property"
@@ -2581,58 +2585,6 @@ export class DafWebRequestPlugin extends LitElement {
     });
     
     return items.length > 0 ? items : html`<div style="color: var(--ntx-form-theme-color-secondary); font-style: italic;">No fields selected</div>`;
-  }
-
-  private generateResponseConfig(): string {
-    const config: any = {};
-    
-    // Add title if provided
-    if (this.formatterMessageTitle && this.formatterMessageTitle.trim()) {
-      config.title = this.formatterMessageTitle.trim();
-    }
-    
-    config.fields = [];
-    
-    // Sort by order before generating config
-    const sortedFields = Array.from(this.formatterSelectedFields.entries())
-      .filter(([_, fieldConfig]) => fieldConfig.checked)
-      .sort((a, b) => a[1].order - b[1].order);
-    
-    sortedFields.forEach(([key, fieldConfig]) => {
-      config.fields.push({
-        path: key,
-        title: fieldConfig.title || key
-      });
-    });
-    
-    return JSON.stringify(config, null, 2);
-  }
-
-  private generateResponseConfigQuoted(): string {
-    const config: any = {};
-    
-    // Add title if provided
-    if (this.formatterMessageTitle && this.formatterMessageTitle.trim()) {
-      config.title = this.formatterMessageTitle.trim();
-    }
-    
-    config.fields = [];
-    
-    // Sort by order before generating config
-    const sortedFields = Array.from(this.formatterSelectedFields.entries())
-      .filter(([_, fieldConfig]) => fieldConfig.checked)
-      .sort((a, b) => a[1].order - b[1].order);
-    
-    sortedFields.forEach(([key, fieldConfig]) => {
-      config.fields.push({
-        path: key,
-        title: fieldConfig.title || key
-      });
-    });
-    
-    // Minify and wrap in double quotes
-    const minified = JSON.stringify(config);
-    return `"${minified.replace(/"/g, '\\"')}"`;
   }
 
   private formatJson(): void {
