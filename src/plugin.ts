@@ -4,6 +4,9 @@ import { callApi } from './apiClient.js';
 import { customElement, property } from 'lit/decorators.js';
 import { PluginContract, PropType, pluginContractSchema } from '@nintex/form-plugin-contract';
 import { ValidationModule } from './validation.module.js';
+import { prepareRequestBody, parseRequestHeaders } from './utils/request.js';
+import { determineResponseType, extractNestedValue } from './utils/response.js';
+import { formatJsonForDisplay, formatValue, getJsonStatus, isValidJson } from './utils/json.js';
 
 const PLUGIN_VERSION = '1.1.8';
 const SENSITIVE_DEBUG_PROPERTIES = new Set(['clientSecret']);
@@ -1600,7 +1603,7 @@ export class DafWebRequestPlugin extends LitElement {
     // Format each field according to config
     const lines: string[] = [];
     config.fields.forEach((field: any) => {
-      const value = this.extractNestedValue(responseData, field.path);
+      const value = extractNestedValue(responseData, field.path);
       
       // Handle arrays (like multiple error details)
       if (Array.isArray(value)) {
@@ -1871,7 +1874,7 @@ export class DafWebRequestPlugin extends LitElement {
           ${properties.map(prop => html`
             <tr>
               <td><code class="property-name">${prop.name}</code></td>
-              <td class="value-default">${this.formatValue(prop.default)}</td>
+              <td class="value-default">${formatValue(prop.default)}</td>
               <td class="value-current">${this.renderPropertyInput(prop.name, prop.config)}</td>
             </tr>
           `)}
@@ -1921,7 +1924,7 @@ export class DafWebRequestPlugin extends LitElement {
     }
 
     // Default fallback - just display the value
-    return html`<span>${this.formatValue(currentValue)}</span>`;
+    return html`<span>${formatValue(currentValue)}</span>`;
   }
 
   private renderRequestDetailsTab() {
@@ -1966,12 +1969,12 @@ export class DafWebRequestPlugin extends LitElement {
                 <div class="debug-json-container">
                   <button 
                     class="debug-json-copy-btn"
-                    @click=${() => this.copyToClipboard(this.formatJsonForDisplay(this.requestHeaders))}
+                    @click=${() => this.copyToClipboard(formatJsonForDisplay(this.requestHeaders))}
                     title="Copy to clipboard"
                   >
                     📋 Copy
                   </button>
-                  <pre class="debug-json">${this.formatJsonForDisplay(this.requestHeaders)}</pre>
+                  <pre class="debug-json">${formatJsonForDisplay(this.requestHeaders)}</pre>
                 </div>
               ` : '<not set>'}
             </td>
@@ -1983,12 +1986,12 @@ export class DafWebRequestPlugin extends LitElement {
                 <div class="debug-json-container">
                   <button 
                     class="debug-json-copy-btn"
-                    @click=${() => this.copyToClipboard(this.formatJsonForDisplay(this.requestBody))}
+                    @click=${() => this.copyToClipboard(formatJsonForDisplay(this.requestBody))}
                     title="Copy to clipboard"
                   >
                     📋 Copy
                   </button>
-                  <pre class="debug-json">${this.formatJsonForDisplay(this.requestBody)}</pre>
+                  <pre class="debug-json">${formatJsonForDisplay(this.requestBody)}</pre>
                 </div>
               ` : '<not set>'}
             </td>
@@ -2008,12 +2011,12 @@ export class DafWebRequestPlugin extends LitElement {
                 <div class="debug-json-container">
                   <button 
                     class="debug-json-copy-btn"
-                    @click=${() => this.copyToClipboard(this.formatJsonForDisplay(this.apiResponse))}
+                    @click=${() => this.copyToClipboard(formatJsonForDisplay(this.apiResponse))}
                     title="Copy to clipboard"
                   >
                     📋 Copy
                   </button>
-                  <pre class="debug-json">${this.formatJsonForDisplay(this.apiResponse)}</pre>
+                  <pre class="debug-json">${formatJsonForDisplay(this.apiResponse)}</pre>
                 </div>
               </td>
             </tr>
@@ -2024,8 +2027,8 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   private renderAPIToolsTab() {
-    const isValidJson = this.isValidJson(this.requestBody);
-    const jsonStatus = this.getJsonStatus(this.requestBody);
+    const requestBodyIsValid = isValidJson(this.requestBody);
+    const jsonStatus = getJsonStatus(this.requestBody);
 
     return html`
       <div class="debug-tools">
@@ -2037,7 +2040,7 @@ export class DafWebRequestPlugin extends LitElement {
                 <button 
                   class="json-editor-btn" 
                   @click=${this.formatJson}
-                  ?disabled=${!isValidJson}
+                  ?disabled=${!requestBodyIsValid}
                   title="Format and beautify JSON"
                 >
                   ✨ Format
@@ -2045,7 +2048,7 @@ export class DafWebRequestPlugin extends LitElement {
                 <button 
                   class="json-editor-btn" 
                   @click=${this.minifyJson}
-                  ?disabled=${!isValidJson}
+                  ?disabled=${!requestBodyIsValid}
                   title="Minify JSON to single line"
                 >
                   🗜️ Minify
@@ -2065,7 +2068,7 @@ export class DafWebRequestPlugin extends LitElement {
                   📝 Sample
                 </button>
               </div>
-              <div class="json-editor-status ${isValidJson ? 'valid' : 'invalid'}">
+              <div class="json-editor-status ${requestBodyIsValid ? 'valid' : 'invalid'}">
                 ${jsonStatus}
               </div>
             </div>
@@ -2090,7 +2093,7 @@ export class DafWebRequestPlugin extends LitElement {
 
   private renderResponseFormatterTab() {
     const hasJsonInput = this.formatterJsonInput.trim().length > 0;
-    const isValidJson = hasJsonInput && this.isValidJson(this.formatterJsonInput);
+    const formatterJsonIsValid = hasJsonInput && isValidJson(this.formatterJsonInput);
     
     let parsedJson: any = null;
     let jsonError = '';
@@ -2122,7 +2125,7 @@ export class DafWebRequestPlugin extends LitElement {
           ${jsonError ? html`<div class="text-danger" style="margin-top: 8px;">${jsonError}</div>` : ''}
         </div>
 
-        ${isValidJson && parsedJson ? html`
+        ${formatterJsonIsValid && parsedJson ? html`
           <!-- Message Type Tabs -->
           <div class="debug-tab-nav" style="margin-bottom: 0;">
             <button 
@@ -2639,7 +2642,7 @@ export class DafWebRequestPlugin extends LitElement {
     
     this.formatterSelectedFields.forEach((config, key) => {
       if (config.checked) {
-        const value = this.extractNestedValue(obj, key);
+        const value = extractNestedValue(obj, key);
         const displayTitle = config.title || key;
         
         items.push(html`
@@ -2705,64 +2708,8 @@ export class DafWebRequestPlugin extends LitElement {
     return `"${minified.replace(/"/g, '\\"')}"`;
   }
 
-  private formatValue(value: any): string {
-    if (typeof value === 'boolean') return value.toString();
-    if (typeof value === 'string') return `"${value}"`;
-    if (typeof value === 'number') return value.toString();
-    if (value === null) return 'null';
-    if (value === undefined) return 'undefined';
-    return JSON.stringify(value);
-  }
-
-  private formatJsonForDisplay(jsonString: string): string {
-    try {
-      // Try to parse and pretty-format the JSON
-      const parsed = JSON.parse(jsonString);
-      return JSON.stringify(parsed, null, 2);
-    } catch (e) {
-      // If it's not valid JSON, return as-is
-      return jsonString;
-    }
-  }
-
-  // JSON Editor Helper Methods
-  private isValidJson(jsonString: string): boolean {
-    if (!jsonString.trim()) return true; // Empty is valid
-    try {
-      JSON.parse(jsonString);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  private getJsonStatus(jsonString: string): string {
-    if (!jsonString.trim()) {
-      return 'Empty';
-    }
-    
-    try {
-      const parsed = JSON.parse(jsonString);
-      const charCount = jsonString.length;
-      const lineCount = jsonString.split('\n').length;
-      const keyCount = this.countJsonKeys(parsed);
-      
-      return `Valid JSON • ${charCount} chars • ${lineCount} lines • ${keyCount} keys`;
-    } catch (e) {
-      return `Invalid JSON • ${(e as Error).message}`;
-    }
-  }
-
-  private countJsonKeys(obj: any): number {
-    if (typeof obj !== 'object' || obj === null) return 0;
-    if (Array.isArray(obj)) {
-      return obj.reduce((count: number, item: any) => count + this.countJsonKeys(item), 0);
-    }
-    return Object.keys(obj).length + Object.values(obj).reduce((count: number, value: any) => count + this.countJsonKeys(value), 0);
-  }
-
   private formatJson(): void {
-    if (!this.isValidJson(this.requestBody)) return;
+    if (!isValidJson(this.requestBody)) return;
     try {
       const parsed = JSON.parse(this.requestBody);
       this.requestBody = JSON.stringify(parsed, null, 2);
@@ -2773,7 +2720,7 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   private minifyJson(): void {
-    if (!this.isValidJson(this.requestBody)) return;
+    if (!isValidJson(this.requestBody)) return;
     try {
       const parsed = JSON.parse(this.requestBody);
       this.requestBody = JSON.stringify(parsed);
@@ -2813,7 +2760,7 @@ export class DafWebRequestPlugin extends LitElement {
 
   private handleJsonBlur(e: Event): void {
     // Auto-format valid JSON on blur
-    if (this.isValidJson(this.requestBody) && this.requestBody.trim()) {
+    if (isValidJson(this.requestBody) && this.requestBody.trim()) {
       try {
         const parsed = JSON.parse(this.requestBody);
         const formatted = JSON.stringify(parsed, null, 2);
@@ -2830,7 +2777,7 @@ export class DafWebRequestPlugin extends LitElement {
   private handleJsonPaste(e: ClipboardEvent): void {
     // Auto-format pasted JSON after a short delay
     setTimeout(() => {
-      if (this.isValidJson(this.requestBody)) {
+      if (isValidJson(this.requestBody)) {
         this.formatJson();
       }
     }, 100);
@@ -2882,7 +2829,7 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   private renderJsonPreview() {
-    if (!this.requestBody.trim() || !this.isValidJson(this.requestBody)) return '';
+    if (!this.requestBody.trim() || !isValidJson(this.requestBody)) return '';
 
     try {
       const parsed = JSON.parse(this.requestBody);
@@ -3062,24 +3009,12 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
 
     // Validate and prepare the request body before obtaining credentials or
     // contacting the API. Invalid JSON must never become a silent empty body.
-    let actualBody: any;
-    if (this.contentType === 'application/x-www-form-urlencoded') {
-      actualBody = this.requestBody || '';
-    } else if (this.contentType === 'application/json') {
-      if (this.requestBody && this.requestBody.trim()) {
-        try {
-          actualBody = JSON.parse(this.requestBody);
-        } catch (error) {
-          const parserMessage = error instanceof Error ? error.message : String(error);
-          this.setRequestConfigurationError(`Request body is not valid JSON: ${parserMessage}`);
-          return;
-        }
-      } else {
-        actualBody = undefined;
-      }
-    } else {
-      actualBody = this.requestBody || '';
+    const preparedBody = prepareRequestBody(this.contentType, this.requestBody);
+    if (preparedBody.error) {
+      this.setRequestConfigurationError(`Request body is not valid JSON: ${preparedBody.error}`);
+      return;
     }
+    const actualBody = preparedBody.body;
     
     // If OAuth credentials are provided, fetch token first
     let accessToken = this.bearerToken;
@@ -3110,23 +3045,8 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
       }
     }
     
-    let url = this.apiUrl || '';
-    let headers: Record<string, string> = {};
-    if (this.requestHeaders) {
-      try {
-        headers = JSON.parse(this.requestHeaders);
-      } catch {
-        headers = {};
-        this.requestHeaders.split(/\r?\n/).forEach(line => {
-          const idx = line.indexOf(':');
-          if (idx > -1) {
-            const key = line.slice(0, idx).trim();
-            const value = line.slice(idx + 1).trim();
-            if (key) headers[key] = value;
-          }
-        });
-      }
-    }
+    const url = this.apiUrl || '';
+    const headers = parseRequestHeaders(this.requestHeaders);
     
     // Add Bearer token to Authorization header if provided
     if (accessToken && accessToken.trim()) {
@@ -3149,7 +3069,7 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
         const timestamp = new Date().toISOString();
         
         this.apiResponse = response;
-        this.responseType = success === false ? 'error' : this.determineResponseType(response);
+        this.responseType = success === false ? 'error' : determineResponseType(response);
         
         // Auto-populate Response Formatter with the API response
         this.formatterJsonInput = response;
@@ -3170,15 +3090,15 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
           
           // Extract custom output value if outputValueKey is specified
           if (this.outputValueKey && this.outputValueKey.trim()) {
-            customOutput = this.extractNestedValue(parsed, this.outputValueKey);
+            customOutput = extractNestedValue(parsed, this.outputValueKey);
           }
           
           // Extract response message from common paths (d.Message for SAP, message, Message, etc.)
-          responseMessage = this.extractNestedValue(parsed, 'd.Message') ||
-                           this.extractNestedValue(parsed, 'Message') ||
-                           this.extractNestedValue(parsed, 'message') ||
-                           this.extractNestedValue(parsed, 'msg') ||
-                           this.extractNestedValue(parsed, 'data.message') ||
+          responseMessage = extractNestedValue(parsed, 'd.Message') ||
+                           extractNestedValue(parsed, 'Message') ||
+                           extractNestedValue(parsed, 'message') ||
+                           extractNestedValue(parsed, 'msg') ||
+                           extractNestedValue(parsed, 'data.message') ||
                            '';
         } catch {
           // Response is not JSON, skip extraction
@@ -3227,89 +3147,6 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
         }
       }
     });
-  }
-
-  private determineResponseType(response: string): 'success' | 'warning' | 'error' {
-    // Check if response indicates an error
-    if (response.toLowerCase().includes('error:') || 
-        response.toLowerCase().includes('failed') ||
-        response.toLowerCase().includes('exception')) {
-      return 'error';
-    }
-    
-    // Try to parse as JSON to check for error status codes
-    try {
-      const parsed = JSON.parse(response);
-      if (parsed.error || parsed.status === 'error') {
-        return 'error';
-      }
-      if (parsed.warning || parsed.status === 'warning') {
-        return 'warning';
-      }
-    } catch {
-      // Not JSON, continue with other checks
-    }
-    
-    // Default to success for valid responses
-    return 'success';
-  }
-
-  private extractNestedValue(obj: any, path: string): any {
-    // First, try to find the exact key (for keys like "developer.email")
-    if (obj && typeof obj === 'object' && path in obj) {
-      return obj[path];
-    }
-    
-    // If not found, try nested path navigation (for paths like "data.user.name" or "error.innererror.errordetails[*].message")
-    const keys = path.split('.');
-    let current = obj;
-    let foundArrayWildcard = false;
-    
-    for (let i = 0; i < keys.length; i++) {
-      const key = keys[i];
-      // Handle array notation like "errordetails[0]" or "errordetails[*]" for all items
-      const arrayMatch = key.match(/^(.+)\[(\*|\d+)\]$/);
-      
-      if (arrayMatch) {
-        const arrayKey = arrayMatch[1];
-        const index = arrayMatch[2];
-        
-        if (current && typeof current === 'object' && arrayKey in current) {
-          const array = current[arrayKey];
-          
-          if (Array.isArray(array)) {
-            if (index === '*') {
-              // If there are more keys after this, we need to extract that property from all items
-              const remainingKeys = keys.slice(i + 1);
-              
-              if (remainingKeys.length > 0) {
-                // Extract the property from each array item
-                const remainingPath = remainingKeys.join('.');
-                current = array.map(item => this.extractNestedValue(item, remainingPath)).filter(val => val !== undefined);
-              } else {
-                // No more keys, return all items
-                current = array;
-              }
-              foundArrayWildcard = true;
-              break; // We've processed all remaining keys
-            } else {
-              // Return specific index
-              current = array[parseInt(index)];
-            }
-          } else {
-            return undefined;
-          }
-        } else {
-          return undefined;
-        }
-      } else if (current && typeof current === 'object' && key in current) {
-        current = current[key];
-      } else {
-        return undefined;
-      }
-    }
-    
-    return current;
   }
 
   private async copyToClipboard(text: string): Promise<void> {
