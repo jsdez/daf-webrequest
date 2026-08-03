@@ -1,5 +1,57 @@
 import type { FormatterFieldSelection } from './response-config.js';
 
+export type AvailableFormatterField = {
+  kind: 'array' | 'value';
+  path: string;
+  title: string;
+  preview: string;
+};
+
+export function collectAvailableFormatterFields(
+  obj: any,
+  path: string,
+  useArrayNotation: boolean,
+): AvailableFormatterField[] {
+  const fields: AvailableFormatterField[] = [];
+
+  const processObject = (current: any, currentPath: string): void => {
+    if (!current || typeof current !== 'object' || Array.isArray(current)) return;
+
+    Object.keys(current).forEach((key) => {
+      const fullPath = currentPath ? `${currentPath}.${key}` : key;
+      const value = current[key];
+
+      if (Array.isArray(value) && value.length > 0) {
+        if (useArrayNotation) {
+          fields.push({
+            kind: 'array',
+            path: `${fullPath}[*]`,
+            title: key,
+            preview: `Array with ${value.length} item${value.length > 1 ? 's' : ''}`,
+          });
+        }
+
+        if (typeof value[0] === 'object' && !Array.isArray(value[0])) {
+          processObject(value[0], useArrayNotation ? `${fullPath}[*]` : `${fullPath}[0]`);
+        }
+      } else if (value !== null && typeof value !== 'object') {
+        const displayValue = String(value);
+        fields.push({
+          kind: 'value',
+          path: fullPath,
+          title: fullPath.split('.').pop() || fullPath,
+          preview: displayValue.length > 50 ? `${displayValue.substring(0, 50)}...` : displayValue,
+        });
+      } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+        processObject(value, fullPath);
+      }
+    });
+  };
+
+  processObject(obj, path);
+  return fields;
+}
+
 export function getSortedSelectedFields(
   fields: ReadonlyMap<string, FormatterFieldSelection>,
 ): Array<[string, FormatterFieldSelection]> {

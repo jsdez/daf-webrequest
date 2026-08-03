@@ -6,6 +6,7 @@ import {
   reorderFormatterFields,
   toggleFormatterField,
   updateFormatterFieldTitle,
+  collectAvailableFormatterFields,
 } from '../src/formatters/field-selection.js';
 
 test('adds, updates, and removes formatter fields with sequential ordering', () => {
@@ -23,6 +24,22 @@ test('adds, updates, and removes formatter fields with sequential ordering', () 
   assert.deepEqual(getSortedSelectedFields(fields), [
     ['data.status', { title: 'Status', checked: true, order: 1 }],
   ]);
+});
+
+test('discovers primitive and array formatter fields with current path notation', () => {
+  const response = {
+    data: {
+      name: 'Ada',
+      entries: [{ code: 7, note: 'x'.repeat(51) }],
+    },
+  };
+
+  assert.deepEqual(collectAvailableFormatterFields(response, '', false), [
+    { kind: 'value', path: 'data.name', title: 'name', preview: 'Ada' },
+    { kind: 'value', path: 'data.entries[0].code', title: 'code', preview: '7' },
+    { kind: 'value', path: 'data.entries[0].note', title: 'note', preview: `${'x'.repeat(50)}...` },
+  ]);
+  assert.equal(collectAvailableFormatterFields(response, '', true)[1].path, 'data.entries[*]');
 });
 
 test('reorders selected formatter fields by drag indices', () => {

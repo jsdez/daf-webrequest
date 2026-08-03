@@ -26,6 +26,7 @@ import { renderApiToolsTab } from './debug/api-tools-view.js';
 import { renderResponseFormatterTab } from './debug/response-formatter-view.js';
 import { renderFormattedPreview } from './debug/formatter-preview-view.js';
 import {
+  collectAvailableFormatterFields,
   getSortedSelectedFields,
   removeFormatterField,
   reorderFormatterFields,
@@ -1950,90 +1951,37 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   private renderAvailableFields(obj: any, path: string): any {
-    const fields: any[] = [];
-    
-    const processObject = (current: any, currentPath: string) => {
-      if (current && typeof current === 'object' && !Array.isArray(current)) {
-        Object.keys(current).forEach(key => {
-          const fullPath = currentPath ? `${currentPath}.${key}` : key;
-          const value = current[key];
-          
-          // Handle arrays with [*] notation
-          if (Array.isArray(value) && value.length > 0) {
-            // Only show array notation option if the checkbox is enabled
-            if (this.formatterUseArrayNotation) {
-              const fieldKey = `${fullPath}[*]`;
-              const isChecked = this.formatterSelectedFields.get(fieldKey)?.checked || false;
-              const previewValue = `Array with ${value.length} item${value.length > 1 ? 's' : ''}`;
-              
-              fields.push(html`
-                <div style="display: flex; align-items: flex-start; margin-bottom: 10px; padding: 8px; border-radius: 4px; background: ${isChecked ? 'var(--ntx-form-theme-color-primary-light, #e3f2fd)' : 'transparent'}; transition: background 0.2s;">
-                  <input 
-                    type="checkbox" 
-                    .checked=${isChecked}
-                    @change=${(e: Event) => {
-                      const target = e.target as HTMLInputElement;
-                      toggleFormatterField(this.formatterSelectedFields, fieldKey, target.checked, key);
-                      this.requestUpdate();
-                    }}
-                    style="width: 18px; height: 18px; cursor: pointer; margin-top: 2px; flex-shrink: 0;"
-                  />
-                  <div style="flex: 1; margin-left: 10px; min-width: 0;">
-                    <div style="font-weight: 500; margin-bottom: 4px; word-break: break-word;">
-                      <code style="background: var(--ntx-form-theme-color-background-alt); padding: 2px 6px; border-radius: 3px; font-size: 12px;">${fieldKey}</code>
-                      <span style="margin-left: 6px; font-size: 11px; color: var(--ntx-form-theme-color-secondary);">📋 Array</span>
-                    </div>
-                    <div style="font-size: 11px; color: var(--ntx-form-theme-color-secondary); word-break: break-word;">
-                      ${previewValue}
-                    </div>
-                  </div>
-                </div>
-              `);
-            }
-            
-            // Always process first item to show available fields within array items
-            if (typeof value[0] === 'object' && !Array.isArray(value[0])) {
-              // For array items, show both [0] notation and [*] notation for nested fields
-              const arrayItemPath = this.formatterUseArrayNotation ? `${fullPath}[*]` : `${fullPath}[0]`;
-              processObject(value[0], arrayItemPath);
-            }
-          } else if (value !== null && typeof value !== 'object') {
-            // Show leaf values
-            const fieldKey = fullPath;
-            const isChecked = this.formatterSelectedFields.get(fieldKey)?.checked || false;
-            
-            fields.push(html`
-              <div style="display: flex; align-items: flex-start; margin-bottom: 10px; padding: 8px; border-radius: 4px; background: ${isChecked ? 'var(--ntx-form-theme-color-primary-light, #e3f2fd)' : 'transparent'}; transition: background 0.2s;">
-                <input 
-                  type="checkbox" 
-                  .checked=${isChecked}
-                  @change=${(e: Event) => {
-                    const target = e.target as HTMLInputElement;
-                    toggleFormatterField(this.formatterSelectedFields, fieldKey, target.checked, fieldKey.split('.').pop() || fieldKey);
-                    this.requestUpdate();
-                  }}
-                  style="width: 18px; height: 18px; cursor: pointer; margin-top: 2px; flex-shrink: 0;"
-                />
-                <div style="flex: 1; margin-left: 10px; min-width: 0;">
-                  <div style="font-weight: 500; margin-bottom: 4px; word-break: break-word;">
-                    <code style="background: var(--ntx-form-theme-color-background-alt); padding: 2px 6px; border-radius: 3px; font-size: 12px;">${fieldKey}</code>
-                  </div>
-                  <div style="font-size: 11px; color: var(--ntx-form-theme-color-secondary); word-break: break-word;">
-                    ${String(value).length > 50 ? String(value).substring(0, 50) + '...' : String(value)}
-                  </div>
-                </div>
-              </div>
-            `);
-          } else if (value && typeof value === 'object' && !Array.isArray(value)) {
-            // Recursively process nested objects
-            processObject(value, fullPath);
-          }
-        });
-      }
-    };
-    
-    processObject(obj, path);
-    return fields.length > 0 ? fields : html`<div style="color: var(--ntx-form-theme-color-secondary); font-style: italic; padding: 12px; text-align: center;">No fields available</div>`;
+    const fields = collectAvailableFormatterFields(obj, path, this.formatterUseArrayNotation);
+    if (fields.length === 0) {
+      return html`<div style="color: var(--ntx-form-theme-color-secondary); font-style: italic; padding: 12px; text-align: center;">No fields available</div>`;
+    }
+
+    return fields.map((field) => {
+      const isChecked = this.formatterSelectedFields.get(field.path)?.checked || false;
+      return html`
+        <div style="display: flex; align-items: flex-start; margin-bottom: 10px; padding: 8px; border-radius: 4px; background: ${isChecked ? 'var(--ntx-form-theme-color-primary-light, #e3f2fd)' : 'transparent'}; transition: background 0.2s;">
+          <input
+            type="checkbox"
+            .checked=${isChecked}
+            @change=${(event: Event) => {
+              const target = event.target as HTMLInputElement;
+              toggleFormatterField(this.formatterSelectedFields, field.path, target.checked, field.title);
+              this.requestUpdate();
+            }}
+            style="width: 18px; height: 18px; cursor: pointer; margin-top: 2px; flex-shrink: 0;"
+          />
+          <div style="flex: 1; margin-left: 10px; min-width: 0;">
+            <div style="font-weight: 500; margin-bottom: 4px; word-break: break-word;">
+              <code style="background: var(--ntx-form-theme-color-background-alt); padding: 2px 6px; border-radius: 3px; font-size: 12px;">${field.path}</code>
+              ${field.kind === 'array' ? html`<span style="margin-left: 6px; font-size: 11px; color: var(--ntx-form-theme-color-secondary);">📋 Array</span>` : ''}
+            </div>
+            <div style="font-size: 11px; color: var(--ntx-form-theme-color-secondary); word-break: break-word;">
+              ${field.preview}
+            </div>
+          </div>
+        </div>
+      `;
+    });
   }
 
   private renderSelectedFieldsList(): any {
