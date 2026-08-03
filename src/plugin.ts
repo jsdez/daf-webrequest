@@ -702,15 +702,16 @@ export class DafWebRequestPlugin extends LitElement {
     const oldValue = this._value;
     this._value = newValue;
     console.log('[Value Setter] Value changed, dispatching ntx-value-change event', newValue);
-    
-    // Dispatch ntx-value-change event immediately when value is set
+    this.dispatchNintexValueChange(newValue);
+    this.requestUpdate('value', oldValue);
+  }
+
+  private dispatchNintexValueChange(value: typeof this._value): void {
     this.dispatchEvent(new CustomEvent('ntx-value-change', {
-      detail: newValue,
+      detail: value,
       bubbles: true,
       composed: true,
     }));
-    
-    this.requestUpdate('value', oldValue);
   }
   @property({ type: String }) requestBody: string = '';
   @property({ type: String }) apiUrl: string = '';
@@ -1636,16 +1637,22 @@ export class DafWebRequestPlugin extends LitElement {
 
     // A previous successful response must never authorize a submission after
     // request configuration or submission behavior has changed.
-    if (configurationChanged) {
-      this.invalidatePreviousApiResult('configuration changed');
-    }
+    const configurationInvalidatedResult = configurationChanged
+      ? this.invalidatePreviousApiResult('configuration changed')
+      : false;
 
     // Watch for sendAPICall property changes to trigger API automatically.
     // Clear the output first so form-level Nintex rules cannot use a stale
     // success value while validation is checking the new request attempt.
     if (changedProperties.has('sendAPICall') && this.sendAPICall) {
-      this.invalidatePreviousApiResult('new API call requested');
-      this.handleAPICallTrigger();
+      const triggerInvalidatedResult = this.invalidatePreviousApiResult('new API call requested');
+      if (configurationInvalidatedResult || triggerInvalidatedResult) {
+        void this.publishPendingResultBeforeValidation();
+      } else {
+        void this.handleAPICallTrigger();
+      }
+    } else if (configurationInvalidatedResult) {
+      void this.publishPendingResultToNintex();
     }
 
     // Watch for submitHidden property changes to hide/show the Nintex submit button
@@ -1694,11 +1701,11 @@ export class DafWebRequestPlugin extends LitElement {
     this.applySubmitButtonVisibility(form, coordinator);
   }
 
-  private invalidatePreviousApiResult(reason: string): void {
+  private invalidatePreviousApiResult(reason: string): boolean {
     const hadPriorResult = this.hasSuccessfulCall || this.value?.success === true;
     this.hasSuccessfulCall = false;
 
-    if (!hadPriorResult) return;
+    if (!hadPriorResult) return false;
 
     const timestamp = new Date().toISOString();
     console.log(`[API Call] Invalidating previous API result: ${reason}`);
@@ -1715,6 +1722,21 @@ export class DafWebRequestPlugin extends LitElement {
       timestamp,
       executionTime: 0,
     };
+    return true;
+  }
+
+  private async publishPendingResultToNintex(): Promise<void> {
+    // The setter emits immediately, then Lit applies the changed value. Emit a
+    // second time after rendering and give Nintex time to update its form-rule
+    // state before a new validation cycle can trigger a native submit.
+    await this.updateComplete;
+    this.dispatchNintexValueChange(this.value);
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 800));
+  }
+
+  private async publishPendingResultBeforeValidation(): Promise<void> {
+    await this.publishPendingResultToNintex();
+    await this.handleAPICallTrigger();
   }
 
   private async handleAPICallTrigger() {
