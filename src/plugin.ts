@@ -8,6 +8,7 @@ import { prepareRequestBody, parseRequestHeaders } from './utils/request.js';
 import { determineResponseType, extractNestedValue } from './utils/response.js';
 import { formatJsonForDisplay, formatValue, getJsonStatus, isValidJson } from './utils/json.js';
 import { FormCoordinatorManager } from './forms/form-coordinator.js';
+import { SubmissionScheduler } from './forms/submission-scheduler.js';
 
 const PLUGIN_VERSION = '1.1.8';
 const SENSITIVE_DEBUG_PROPERTIES = new Set(['clientSecret']);
@@ -792,11 +793,18 @@ export class DafWebRequestPlugin extends LitElement {
   private showCooldownAlert = false;
   private lastCooldownAlertTime = 0;
   private apiCallStartTime = 0;
-  private cooldownTimerId: number | null = null; // Track the timer for cleanup
   private oauthTokenResponse: any = null;
   private containingForm: HTMLFormElement | null = null;
-  private delayedSubmissionStartTime: number = 0; // Track when delayed submission countdown started
   private validationModule = new ValidationModule();
+  private submissionScheduler = new SubmissionScheduler({
+    getCountdownSeconds: () => this.countdownTimer,
+    getLastApiCallTime: () => this.lastApiCallTime,
+    submit: () => this.submitNintexForm(),
+    requestUpdate: () => this.requestUpdate(),
+    onCooldownComplete: () => {
+      this.showCooldownAlert = false;
+    },
+  });
   private isFinalizingSubmission: boolean = false; // Guard against API re-entry during native submit phase
 
   constructor() {
@@ -1261,8 +1269,8 @@ export class DafWebRequestPlugin extends LitElement {
     const inCooldown = this.countdownEnabled && this.lastApiCallTime > 0 && timeSinceLastCall < cooldownMs;
     
     // Check if we're in delayed submission countdown
-    const isDelayedSubmission = this.submissionAction === 'delayed-submit' && 
-                                this.cooldownTimerId !== null && 
+    const isDelayedSubmission = this.submissionAction === 'delayed-submit' &&
+                                this.submissionScheduler.isTimerActive &&
                                 (this.responseType === 'success' || this.responseType === 'warning');
     
     const beforeClass = isBefore ? 'alert-before' : '';
@@ -1296,7 +1304,7 @@ export class DafWebRequestPlugin extends LitElement {
     // Calculate remaining seconds for delayed submission
     let submissionCountdown = 0;
     if (isDelayedSubmission) {
-      const elapsed = Date.now() - this.delayedSubmissionStartTime;
+      const elapsed = Date.now() - this.submissionScheduler.delayedSubmissionStartTime;
       const remaining = this.countdownTimer * 1000 - elapsed;
       submissionCountdown = Math.max(0, Math.ceil(remaining / 1000));
     }
@@ -1723,7 +1731,7 @@ export class DafWebRequestPlugin extends LitElement {
         console.log('[API Call] In cooldown period — BLOCKING');
         this.showCooldownAlert = true;
         this.lastCooldownAlertTime = Date.now();
-        this.startCooldownTimer();
+        this.submissionScheduler.startCooldownTimer();
         return;
       }
     }
@@ -3077,27 +3085,7 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
   }
 
   private handlePostSubmissionAction(): void {
-    console.log('[Submission Action] Checking submission action:', this.submissionAction);
-    
-    if (this.submissionAction === 'no-submit') {
-      console.log('[Submission Action] No action configured');
-      return;
-    }
-    
-    if (this.submissionAction === 'quick-submit') {
-      console.log('[Submission Action] Quick submit - triggering after 500ms');
-      setTimeout(() => {
-        this.submitNintexForm();
-      }, 500);
-      return;
-    }
-    
-    if (this.submissionAction === 'delayed-submit') {
-      console.log('[Submission Action] Delayed submit - starting countdown timer');
-      // Start the countdown timer, and submit when it expires
-      this.startDelayedSubmission();
-      return;
-    }
+    this.submissionScheduler.handlePostSubmissionAction(this.submissionAction);
   }
 
   private submitNintexForm(): void {
@@ -3119,75 +3107,10 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
     }
   }
 
-  private startDelayedSubmission(): void {
-    // Clear any existing timer first
-    if (this.cooldownTimerId !== null) {
-      clearTimeout(this.cooldownTimerId);
-      this.cooldownTimerId = null;
-    }
-    
-    const countdownMs = this.countdownTimer * 1000;
-    const startTime = Date.now();
-    this.delayedSubmissionStartTime = startTime; // Track when countdown started
-    
-    // Update the UI to show countdown
-    const updateCountdown = () => {
-      const elapsed = Date.now() - startTime;
-      const remaining = countdownMs - elapsed;
-      
-      if (remaining <= 0) {
-        // Countdown finished, submit the form
-        console.log('[Submission Action] Countdown complete - submitting form');
-        this.submitNintexForm();
-        this.cooldownTimerId = null;
-        this.delayedSubmissionStartTime = 0; // Reset countdown start time
-      } else {
-        // Still counting down, update UI
-        this.requestUpdate();
-        this.cooldownTimerId = window.setTimeout(updateCountdown, 100);
-      }
-    };
-    
-    console.log('[Submission Action] Starting delayed submission countdown for', this.countdownTimer, 'seconds');
-    updateCountdown();
-  }
-
-  private startCooldownTimer() {
-    // Clear any existing timer first
-    if (this.cooldownTimerId !== null) {
-      clearTimeout(this.cooldownTimerId);
-      this.cooldownTimerId = null;
-    }
-    
-    // Update the UI every second during cooldown to show remaining time
-    const updateTimer = () => {
-      const now = Date.now();
-      const timeSinceLastCall = now - this.lastApiCallTime;
-      const cooldownMs = this.countdownTimer * 1000;
-      
-      if (timeSinceLastCall < cooldownMs) {
-        // Still in cooldown, update in another second
-        this.requestUpdate();
-        this.cooldownTimerId = window.setTimeout(updateTimer, 1000);
-      } else {
-        // Cooldown period ended, hide the alert
-        this.showCooldownAlert = false;
-        this.cooldownTimerId = null;
-        this.requestUpdate();
-      }
-    };
-    
-    // Start the timer
-    this.cooldownTimerId = window.setTimeout(updateTimer, 1000);
-  }
-  
   // Cleanup timer when component is destroyed
   disconnectedCallback() {
     super.disconnectedCallback();
-    if (this.cooldownTimerId !== null) {
-      clearTimeout(this.cooldownTimerId);
-      this.cooldownTimerId = null;
-    }
+    this.submissionScheduler.dispose();
     this.validationModule.detach();
     this.unregisterFromContainingForm();
     this.removeErrorMessageSuppressStyle();
