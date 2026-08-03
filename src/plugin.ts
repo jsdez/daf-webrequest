@@ -21,6 +21,7 @@ import {
 } from './formatters/response-message.js';
 import { renderDebugPropertiesTab } from './debug/properties-view.js';
 import { renderRequestDetailsTab } from './debug/request-details-view.js';
+import { resolveConfiguredMessage } from './formatters/configured-message.js';
 import { fetchOAuthToken as requestOAuthToken } from './services/oauth-token-service.js';
 
 const PLUGIN_VERSION = '1.1.8';
@@ -1456,50 +1457,11 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   private getCustomMessage(type: 'success' | 'warning' | 'error'): { title: string | null, message: string } {
-    let messageConfig: string;
-    switch (type) {
-      case 'success': messageConfig = this.successMessage; break;
-      case 'warning': messageConfig = this.warningMessage; break;
-      case 'error': messageConfig = this.errorMessage; break;
-      default: messageConfig = 'Unknown response type';
-    }
-    
-    // Check if messageConfig is a Response Format Configuration JSON (quoted format: "{...}")
-    if (messageConfig.startsWith('"{') && messageConfig.endsWith('}"')) {
-      try {
-        // Remove outer quotes and unescape
-        const unquoted = messageConfig.slice(1, -1).replace(/\\"/g, '"');
-        const config = JSON.parse(unquoted);
-        
-        // Format response using config
-        return {
-          title: config.title || null,
-          message: formatResponseWithConfig(config, this.value.data)
-        };
-      } catch (e) {
-        console.error('[Message Formatting] Failed to parse quoted config:', e);
-        return { title: null, message: messageConfig }; // Fall back to showing the raw message
-      }
-    }
-    
-    // Check if messageConfig is a Response Format Configuration JSON (unquoted format: {...})
-    if (messageConfig.trim().startsWith('{"')) {
-      try {
-        const config = JSON.parse(messageConfig);
-        
-        // Format response using config
-        return {
-          title: config.title || null,
-          message: formatResponseWithConfig(config, this.value.data)
-        };
-      } catch (e) {
-        console.error('[Message Formatting] Failed to parse unquoted config:', e);
-        return { title: null, message: messageConfig }; // Fall back to showing the raw message
-      }
-    }
-    
-    // Return plain text message with no custom title
-    return { title: null, message: messageConfig };
+    return resolveConfiguredMessage(type, {
+      success: this.successMessage,
+      warning: this.warningMessage,
+      error: this.errorMessage,
+    }, this.value.data);
   }
 
   // Handle property changes from the host application
