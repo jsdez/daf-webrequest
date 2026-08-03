@@ -21,6 +21,7 @@ import {
 } from './formatters/response-message.js';
 import { renderDebugPropertiesTab } from './debug/properties-view.js';
 import { renderRequestDetailsTab } from './debug/request-details-view.js';
+import { fetchOAuthToken as requestOAuthToken } from './services/oauth-token-service.js';
 
 const PLUGIN_VERSION = '1.1.8';
 const SENSITIVE_DEBUG_PROPERTIES = new Set(['clientSecret']);
@@ -2452,62 +2453,6 @@ export class DafWebRequestPlugin extends LitElement {
     return Number.isFinite(timeout) && timeout > 0 ? timeout : null;
   }
 
-  private async fetchOAuthToken(): Promise<string> {
-    const timeoutSeconds = this.getRequestTimeoutSeconds();
-    const controller = new AbortController();
-    let timedOut = false;
-    const timeoutId = timeoutSeconds === null
-      ? null
-      : window.setTimeout(() => {
-        timedOut = true;
-        controller.abort();
-      }, timeoutSeconds * 1000);
-
-    try {
-      const response = await fetch(this.tokenUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          grant_type: 'client_credentials',
-          client_id: this.clientId,
-          client_secret: this.clientSecret,
-        }),
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        throw new Error(`Token request failed with status ${response.status}`);
-      }
-
-      const data = await response.json();
-      if (!data.access_token) {
-        throw new Error('No access_token in response');
-      }
-
-      // Store only non-sensitive OAuth metadata for debugging.
-      this.oauthTokenResponse = {
-        token_type: data.token_type || 'Bearer',
-        expires_in: data.expires_in,
-        scope: data.scope,
-        fetched_at: new Date().toISOString(),
-        expires_at: data.expires_in ? new Date(Date.now() + (data.expires_in * 1000)).toISOString() : null
-      };
-
-      return data.access_token;
-    } catch (error) {
-      if (timedOut && timeoutSeconds !== null) {
-        throw new Error(`OAuth token request timed out after ${timeoutSeconds} seconds.`);
-      }
-      throw error;
-    } finally {
-      if (timeoutId !== null) {
-        window.clearTimeout(timeoutId);
-      }
-    }
-  }
-
   private setRequestConfigurationError(message: string): void {
     const executionTime = Date.now() - this.apiCallStartTime;
     const timestamp = new Date().toISOString();
@@ -2551,7 +2496,14 @@ export class DafWebRequestPlugin extends LitElement {
     let accessToken = this.bearerToken;
     if (this.tokenUrl && this.clientId && this.clientSecret) {
       try {
-        accessToken = await this.fetchOAuthToken();
+        const tokenResult = await requestOAuthToken({
+          tokenUrl: this.tokenUrl,
+          clientId: this.clientId,
+          clientSecret: this.clientSecret,
+          timeoutSeconds: this.getRequestTimeoutSeconds(),
+        });
+        accessToken = tokenResult.accessToken;
+        this.oauthTokenResponse = tokenResult.debugMetadata;
       } catch (error) {
         // Token fetch failed, set error response
         const executionTime = Date.now() - this.apiCallStartTime;
