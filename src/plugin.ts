@@ -39,6 +39,7 @@ import {
 } from './formatters/field-selection.js';
 import { resolveConfiguredMessage } from './formatters/configured-message.js';
 import { fetchOAuthToken as requestOAuthToken } from './services/oauth-token-service.js';
+import { interpretApiResponse } from './services/api-response-interpreter.js';
 
 const PLUGIN_VERSION = '1.1.8';
 const SENSITIVE_DEBUG_PROPERTIES = new Set(['clientSecret']);
@@ -2170,34 +2171,10 @@ export class DafWebRequestPlugin extends LitElement {
         this.formatterJsonInput = response;
         this.formatterSelectedFields.clear(); // Clear previous selections
         
-        // Try to parse response and extract values
-        let accessToken: string | undefined;
-        let customOutput: any = undefined;
-        let responseMessage = '';
-        
-        try {
-          const parsed = JSON.parse(response);
-          
-          // Extract access_token if present
-          if (parsed.access_token) {
-            accessToken = parsed.access_token;
-          }
-          
-          // Extract custom output value if outputValueKey is specified
-          if (this.outputValueKey && this.outputValueKey.trim()) {
-            customOutput = extractNestedValue(parsed, this.outputValueKey);
-          }
-          
-          // Extract response message from common paths (d.Message for SAP, message, Message, etc.)
-          responseMessage = extractNestedValue(parsed, 'd.Message') ||
-                           extractNestedValue(parsed, 'Message') ||
-                           extractNestedValue(parsed, 'message') ||
-                           extractNestedValue(parsed, 'msg') ||
-                           extractNestedValue(parsed, 'data.message') ||
-                           '';
-        } catch {
-          // Response is not JSON, skip extraction
-        }
+        // Interpret optional JSON fields without changing response publication timing.
+        const interpretedResponse = interpretApiResponse(response, success, this.outputValueKey);
+        const { accessToken, output: customOutput, message: responseMessage } = interpretedResponse;
+        this.responseType = interpretedResponse.responseType;
         
         // Get formatted response message
         const formattedResponseData = this.getCustomMessage(this.responseType);
