@@ -28,6 +28,7 @@ import { renderFormattedPreview } from './debug/formatter-preview-view.js';
 import { renderSelectedFieldsList } from './debug/selected-fields-view.js';
 import { getAlertIcon, shouldShowAlert, shouldShowMoreDetails } from './debug/alert-utils.js';
 import { createSampleJson, formatJsonEditorValue, minifyJsonEditorValue } from './debug/json-editor.js';
+import { createConfigurationErrorValue, createPendingApiValue } from './nintex/value-state.js';
 import {
   collectAvailableFormatterFields,
   getSortedSelectedFields,
@@ -1546,17 +1547,7 @@ export class DafWebRequestPlugin extends LitElement {
     console.log(`[API Call] Clearing API output: ${reason}`);
     this.responseType = null;
     this.apiResponse = '';
-    this.value = {
-      success: false,
-      valid: false,
-      statusCode: 0,
-      responseType: 'pending',
-      data: '',
-      message: '',
-      formattedResponse: '',
-      timestamp,
-      executionTime: 0,
-    };
+    this.value = createPendingApiValue(timestamp);
   }
 
   private async publishPendingResultToNintex(): Promise<void> {
@@ -2090,17 +2081,7 @@ export class DafWebRequestPlugin extends LitElement {
     this.responseType = 'error';
     this.apiResponse = message;
     const formattedResponse = this.getCustomMessage('error').message;
-    this.value = {
-      success: false,
-      valid: false,
-      statusCode: 0,
-      responseType: 'error',
-      data: message,
-      message,
-      formattedResponse,
-      timestamp,
-      executionTime,
-    };
+    this.value = createConfigurationErrorValue(message, formattedResponse, timestamp, executionTime);
     this.requestUpdate();
   }
 
