@@ -7,16 +7,10 @@ import { ValidationModule } from './validation.module.js';
 import { prepareRequestBody, parseRequestHeaders } from './utils/request.js';
 import { determineResponseType, extractNestedValue } from './utils/response.js';
 import { formatJsonForDisplay, formatValue, getJsonStatus, isValidJson } from './utils/json.js';
+import { FormCoordinatorManager } from './forms/form-coordinator.js';
 
 const PLUGIN_VERSION = '1.1.8';
 const SENSITIVE_DEBUG_PROPERTIES = new Set(['clientSecret']);
-
-type FormCoordinator = {
-  instances: Set<DafWebRequestPlugin>;
-  hiddenSubmitRequesters: Set<DafWebRequestPlugin>;
-  allowNativeSubmission: boolean;
-  submitListener: (event: Event) => void;
-};
 
 let contractValidationDone = false;
 
@@ -38,9 +32,6 @@ function validateContractOnce(contract: PluginContract): void {
 
 @customElement('daf-webrequest-plugin')
 export class DafWebRequestPlugin extends LitElement {
-  private static readonly formCoordinators = new WeakMap<HTMLFormElement, FormCoordinator>();
-  private static readonly SUBMIT_HIDDEN_STYLE_ID = 'daf-webrequest-submit-hidden-style';
-
   static styles = css`
     .plugin-container {
       font-family: var(--ntx-form-theme-font-family);
@@ -832,80 +823,16 @@ export class DafWebRequestPlugin extends LitElement {
     this.injectErrorMessageSuppressStyle();
   }
 
-  private getContainingForm(): HTMLFormElement | null {
-    const form = this.closest('form');
-    return form instanceof HTMLFormElement ? form : null;
-  }
-
   private registerWithContainingForm(): void {
-    const form = this.getContainingForm();
-    if (!form) {
-      console.warn('[Form Coordinator] Plugin is not inside a form');
-      return;
-    }
-
-    this.containingForm = form;
-    let coordinator = DafWebRequestPlugin.formCoordinators.get(form);
-    if (!coordinator) {
-      let newCoordinator: FormCoordinator;
-      const submitListener = (event: Event) => {
-        const hasPluginControlledSubmission = Array.from(newCoordinator.instances)
-          .some((instance) => instance.submissionAction !== 'only-submit');
-        if (!newCoordinator.allowNativeSubmission && hasPluginControlledSubmission) {
-          console.log('[Form Coordinator] Blocking native submit until a plugin explicitly permits it');
-          event.preventDefault();
-          event.stopPropagation();
-          event.stopImmediatePropagation();
-        }
-      };
-      newCoordinator = {
-        instances: new Set(),
-        hiddenSubmitRequesters: new Set(),
-        allowNativeSubmission: false,
-        submitListener,
-      };
-      form.addEventListener('submit', submitListener, true);
-      DafWebRequestPlugin.formCoordinators.set(form, newCoordinator);
-      coordinator = newCoordinator;
-    }
-
-    coordinator.instances.add(this);
+    this.containingForm = FormCoordinatorManager.register(this, this);
     this.toggleSubmitButtonVisibility();
   }
 
   private unregisterFromContainingForm(): void {
-    const form = this.containingForm;
-    if (!form) return;
-
-    const coordinator = DafWebRequestPlugin.formCoordinators.get(form);
-    if (coordinator) {
-      coordinator.instances.delete(this);
-      coordinator.hiddenSubmitRequesters.delete(this);
-      this.applySubmitButtonVisibility(form, coordinator);
-      if (coordinator.instances.size === 0) {
-        form.removeEventListener('submit', coordinator.submitListener, true);
-        DafWebRequestPlugin.formCoordinators.delete(form);
-      }
+    if (this.containingForm) {
+      FormCoordinatorManager.unregister(this.containingForm, this);
     }
-
     this.containingForm = null;
-  }
-
-  private ensureSubmitHiddenStyle(): void {
-    if (document.getElementById(DafWebRequestPlugin.SUBMIT_HIDDEN_STYLE_ID)) return;
-    const style = document.createElement('style');
-    style.id = DafWebRequestPlugin.SUBMIT_HIDDEN_STYLE_ID;
-    style.textContent = '.daf-webrequest-submit-hidden button[data-e2e="btn-submit"] { display: none !important; }';
-    document.head.appendChild(style);
-  }
-
-  private applySubmitButtonVisibility(form: HTMLFormElement, coordinator: FormCoordinator): void {
-    form.classList.toggle('daf-webrequest-submit-hidden', coordinator.hiddenSubmitRequesters.size > 0);
-    if (coordinator.hiddenSubmitRequesters.size > 0) {
-      this.ensureSubmitHiddenStyle();
-    } else if (document.querySelectorAll('form.daf-webrequest-submit-hidden').length === 0) {
-      document.getElementById(DafWebRequestPlugin.SUBMIT_HIDDEN_STYLE_ID)?.remove();
-    }
   }
 
   static getMetaConfig(): PluginContract {
@@ -1705,17 +1632,8 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   private toggleSubmitButtonVisibility(): void {
-    const form = this.containingForm;
-    const coordinator = form ? DafWebRequestPlugin.formCoordinators.get(form) : null;
-    if (!form || !coordinator) return;
-
-    if (this.submitHidden) {
-      coordinator.hiddenSubmitRequesters.add(this);
-    } else {
-      coordinator.hiddenSubmitRequesters.delete(this);
-    }
-
-    this.applySubmitButtonVisibility(form, coordinator);
+    if (!this.containingForm) return;
+    FormCoordinatorManager.setSubmitHidden(this.containingForm, this, this.submitHidden);
   }
 
   private clearApiOutput(reason: string): void {
@@ -3184,26 +3102,18 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
 
   private submitNintexForm(): void {
     console.log('[Submission Action] Attempting to submit Nintex form');
-    const form = this.containingForm ?? this.getContainingForm();
-    const coordinator = form ? DafWebRequestPlugin.formCoordinators.get(form) : null;
-    if (!form || !coordinator) {
+    if (!this.containingForm) {
       console.error('[Submission Action] No coordinated form found');
       return;
     }
-    
-    const submitBtn = form.querySelector('button[type="submit"]');
-    if (submitBtn instanceof HTMLElement) {
-      console.log('[Submission Action] Clicking submit button');
-      this.isFinalizingSubmission = true;
-      // Permit the shared form coordinator to allow this native submit.
-      coordinator.allowNativeSubmission = true;
-      submitBtn.click();
-      // Reset flags after native submit cycle has had time to complete.
-      setTimeout(() => {
-        coordinator.allowNativeSubmission = false;
-        this.isFinalizingSubmission = false;
-      }, 1500);
-    } else {
+
+    console.log('[Submission Action] Clicking submit button');
+    this.isFinalizingSubmission = true;
+    const submitted = FormCoordinatorManager.submit(this.containingForm, () => {
+      this.isFinalizingSubmission = false;
+    });
+
+    if (!submitted) {
       console.error('[Submission Action] No submit button found');
       this.isFinalizingSubmission = false;
     }
