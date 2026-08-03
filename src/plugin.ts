@@ -14,6 +14,11 @@ import {
   generateResponseConfigQuoted,
   type FormatterFieldSelection,
 } from './formatters/response-config.js';
+import {
+  formatMessageWithBoldLabels,
+  formatRawResponse,
+  formatResponseWithConfig,
+} from './formatters/response-message.js';
 
 const PLUGIN_VERSION = '1.1.8';
 const SENSITIVE_DEBUG_PROPERTIES = new Set(['clientSecret']);
@@ -1358,7 +1363,7 @@ export class DafWebRequestPlugin extends LitElement {
             ${this.detailsExpanded && this.shouldShowMoreDetails('success') ? html`
               <div class="alert-more-details-wrapper">
                 <span class="alert-more-details-copy" @click=${() => this.copyRawResponseToClipboard()}>copy</span>
-                <div class="alert-more-details-content">${this.formatRawResponse()}</div>
+                <div class="alert-more-details-content">${formatRawResponse(this.apiResponse)}</div>
               </div>
             ` : ''}
           ` : ''}
@@ -1387,7 +1392,7 @@ export class DafWebRequestPlugin extends LitElement {
         `}
         ${this.value?.message ? html`
           <div class="alert-response">
-            ${unsafeHTML(this.formatMessageWithBoldLabels(this.value.message))}
+            ${unsafeHTML(formatMessageWithBoldLabels(this.value.message))}
           </div>
         ` : ''}
         ${showFooter ? html`
@@ -1411,31 +1416,12 @@ export class DafWebRequestPlugin extends LitElement {
           ${this.detailsExpanded && this.shouldShowMoreDetails(this.responseType) ? html`
             <div class="alert-more-details-wrapper">
               <span class="alert-more-details-copy" @click=${() => this.copyRawResponseToClipboard()}>copy</span>
-              <div class="alert-more-details-content">${this.formatRawResponse()}</div>
+              <div class="alert-more-details-content">${formatRawResponse(this.apiResponse)}</div>
             </div>
           ` : ''}
         ` : ''}
       </div>
     `;
-  }
-
-  private formatMessageWithBoldLabels(message: string): string {
-    if (!message) return '';
-    
-    // Split by lines and process each line
-    const lines = message.split('\n');
-    const formattedLines = lines.map(line => {
-      // Match pattern "Label: Value" where label is at the start of the line
-      const match = line.match(/^([^:]+):\s*(.*)$/);
-      if (match) {
-        const label = match[1].trim();
-        const value = match[2];
-        return `<strong>${label}:</strong> ${value}`;
-      }
-      return line;
-    });
-    
-    return formattedLines.join('<br>');
   }
 
   private getAlertIcon(type: 'success' | 'warning' | 'error'): string {
@@ -1461,21 +1447,8 @@ export class DafWebRequestPlugin extends LitElement {
     this.requestUpdate();
   }
 
-  private formatRawResponse(): string {
-    if (!this.apiResponse) return '';
-    
-    try {
-      // Try to parse as JSON and pretty-print with indentation
-      const parsed = JSON.parse(this.apiResponse);
-      return JSON.stringify(parsed, null, 2);
-    } catch (e) {
-      // If not valid JSON, return as-is
-      return this.apiResponse;
-    }
-  }
-
   private copyRawResponseToClipboard() {
-    const content = this.formatRawResponse();
+    const content = formatRawResponse(this.apiResponse);
     this.copyToClipboard(content);
   }
 
@@ -1498,7 +1471,7 @@ export class DafWebRequestPlugin extends LitElement {
         // Format response using config
         return {
           title: config.title || null,
-          message: this.formatResponseWithConfig(config)
+          message: formatResponseWithConfig(config, this.value.data)
         };
       } catch (e) {
         console.error('[Message Formatting] Failed to parse quoted config:', e);
@@ -1514,7 +1487,7 @@ export class DafWebRequestPlugin extends LitElement {
         // Format response using config
         return {
           title: config.title || null,
-          message: this.formatResponseWithConfig(config)
+          message: formatResponseWithConfig(config, this.value.data)
         };
       } catch (e) {
         console.error('[Message Formatting] Failed to parse unquoted config:', e);
@@ -1524,58 +1497,6 @@ export class DafWebRequestPlugin extends LitElement {
     
     // Return plain text message with no custom title
     return { title: null, message: messageConfig };
-  }
-
-  private formatResponseWithConfig(config: any): string {
-    if (!config.fields || !Array.isArray(config.fields)) {
-      return 'Invalid configuration format';
-    }
-    
-    // Parse the response data
-    let responseData: any;
-    try {
-      responseData = JSON.parse(this.value.data);
-    } catch (e) {
-      console.error('[Message Formatting] Failed to parse response data:', e);
-      return 'Unable to parse response data';
-    }
-    
-    // Format each field according to config
-    const lines: string[] = [];
-    config.fields.forEach((field: any) => {
-      const value = extractNestedValue(responseData, field.path);
-      
-      // Handle arrays (like multiple error details)
-      if (Array.isArray(value)) {
-        if (value.length > 0) {
-          // Check if array contains objects or primitives
-          const firstItem = value[0];
-          const isPrimitiveArray = typeof firstItem !== 'object' || firstItem === null;
-          
-          if (isPrimitiveArray) {
-            // Array of primitive values (strings, numbers, etc.)
-            lines.push(`${field.title}:`);
-            value.forEach((item, index) => {
-              lines.push(`  ${index + 1}. ${String(item)}`);
-            });
-          } else {
-            // Array of objects - show as JSON
-            lines.push(`${field.title}:`);
-            value.forEach((item, index) => {
-              const displayValue = JSON.stringify(item);
-              lines.push(`  ${index + 1}. ${displayValue}`);
-            });
-          }
-        } else {
-          lines.push(`${field.title}: (empty)`);
-        }
-      } else {
-        const displayValue = value !== undefined && value !== null ? String(value) : 'N/A';
-        lines.push(`${field.title}: ${displayValue}`);
-      }
-    });
-    
-    return lines.join('\n');
   }
 
   // Handle property changes from the host application
@@ -2275,7 +2196,7 @@ export class DafWebRequestPlugin extends LitElement {
         } else {
           parsedConfig = JSON.parse(config);
         }
-        preview = this.formatResponseWithConfig(parsedConfig);
+        preview = formatResponseWithConfig(parsedConfig, this.value.data);
       } catch (e) {
         preview = config; // Fall back to plain text
       }
