@@ -21,6 +21,7 @@ import {
 } from './formatters/response-message.js';
 import { renderDebugPropertiesTab } from './debug/properties-view.js';
 import { renderRequestDetailsTab } from './debug/request-details-view.js';
+import { renderApiToolsTab } from './debug/api-tools-view.js';
 import { resolveConfiguredMessage } from './formatters/configured-message.js';
 import { fetchOAuthToken as requestOAuthToken } from './services/oauth-token-service.js';
 
@@ -1679,68 +1680,15 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   private renderAPIToolsTab() {
-    const requestBodyIsValid = isValidJson(this.requestBody);
-    const jsonStatus = getJsonStatus(this.requestBody);
-
-    return html`
-      <div class="debug-tools">
-        <div class="form-group">
-          <label class="control-label">JSON Request Body Editor</label>
-          <div class="json-editor-container">
-            <div class="json-editor-toolbar">
-              <div class="json-editor-actions">
-                <button 
-                  class="json-editor-btn" 
-                  @click=${this.formatJson}
-                  ?disabled=${!requestBodyIsValid}
-                  title="Format and beautify JSON"
-                >
-                  ✨ Format
-                </button>
-                <button 
-                  class="json-editor-btn" 
-                  @click=${this.minifyJson}
-                  ?disabled=${!requestBodyIsValid}
-                  title="Minify JSON to single line"
-                >
-                  🗜️ Minify
-                </button>
-                <button 
-                  class="json-editor-btn" 
-                  @click=${this.clearJson}
-                  title="Clear JSON content"
-                >
-                  🗑️ Clear
-                </button>
-                <button 
-                  class="json-editor-btn" 
-                  @click=${this.insertSampleJson}
-                  title="Insert sample JSON"
-                >
-                  📝 Sample
-                </button>
-              </div>
-              <div class="json-editor-status ${requestBodyIsValid ? 'valid' : 'invalid'}">
-                ${jsonStatus}
-              </div>
-            </div>
-            <textarea 
-              class="form-control json-editor-textarea" 
-              .value=${this.requestBody} 
-              @input=${this.handleJsonInput}
-              @blur=${this.handleJsonBlur}
-              @paste=${this.handleJsonPaste}
-              placeholder="Enter JSON request body here..."
-              spellcheck="false"
-            ></textarea>
-          </div>
-        </div>
-
-        ${renderJsonOutput(this.requestBody)}
-        
-        ${renderJsonPreview(this.requestBody)}
-      </div>
-    `;
+    return renderApiToolsTab(this.requestBody, {
+      onFormat: () => this.formatJson(),
+      onMinify: () => this.minifyJson(),
+      onClear: () => this.clearJson(),
+      onInsertSample: () => this.insertSampleJson(),
+      onInput: (event) => this.handleJsonInput(event),
+      onBlur: (event) => this.handleJsonBlur(event),
+      onPaste: (event) => this.handleJsonPaste(event),
+    });
   }
 
   private renderResponseFormatterTab() {
