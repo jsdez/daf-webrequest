@@ -9,6 +9,7 @@ import { determineResponseType, extractNestedValue } from './utils/response.js';
 import { formatJsonForDisplay, formatValue, getJsonStatus, isValidJson } from './utils/json.js';
 import { FormCoordinatorManager } from './forms/form-coordinator.js';
 import { SubmissionScheduler } from './forms/submission-scheduler.js';
+import { renderJsonOutput, renderJsonPreview } from './debug/json-tools-view.js';
 
 const PLUGIN_VERSION = '1.1.8';
 const SENSITIVE_DEBUG_PROPERTIES = new Set(['clientSecret']);
@@ -2010,9 +2011,9 @@ export class DafWebRequestPlugin extends LitElement {
           </div>
         </div>
 
-        ${this.renderJsonOutput()}
+        ${renderJsonOutput(this.requestBody)}
         
-        ${this.renderJsonPreview()}
+        ${renderJsonPreview(this.requestBody)}
       </div>
     `;
   }
@@ -2707,112 +2708,6 @@ export class DafWebRequestPlugin extends LitElement {
         this.formatJson();
       }
     }, 100);
-  }
-
-  private renderJsonOutput() {
-    if (!this.requestBody.trim()) return '';
-
-    let minified = '';
-    let escaped = '';
-    let error = '';
-
-    try {
-      const parsed = JSON.parse(this.requestBody);
-      minified = JSON.stringify(parsed);
-      escaped = '"' + minified.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
-    } catch (e) {
-      error = (e as Error).message;
-    }
-
-    return html`
-      <div class="form-group">
-        <label class="control-label">Generated Output</label>
-        <div style="display: flex; gap: 16px;">
-          <div style="flex: 1;">
-            <label class="control-label" style="font-size: 12px; color: #6c757d;">Minified JSON</label>
-            <textarea 
-              class="form-control" 
-              readonly 
-              rows="3"
-              .value=${minified}
-              style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 12px;"
-            ></textarea>
-          </div>
-          <div style="flex: 1;">
-            <label class="control-label" style="font-size: 12px; color: #6c757d;">Escaped for Code</label>
-            <textarea 
-              class="form-control" 
-              readonly 
-              rows="3"
-              .value=${escaped}
-              style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 12px;"
-            ></textarea>
-          </div>
-        </div>
-        ${error ? html`<div class="text-danger" style="margin-top: 8px; font-size: 12px;">${error}</div>` : ''}
-      </div>
-    `;
-  }
-
-  private renderJsonPreview() {
-    if (!this.requestBody.trim() || !isValidJson(this.requestBody)) return '';
-
-    try {
-      const parsed = JSON.parse(this.requestBody);
-      return html`
-        <div class="form-group">
-          <label class="control-label">JSON Structure Preview</label>
-          <div class="json-viewer">
-${this.renderJsonWithSyntaxHighlight(parsed, 0)}
-          </div>
-        </div>
-      `;
-    } catch {
-      return '';
-    }
-  }
-
-  private renderJsonWithSyntaxHighlight(obj: any, indent: number = 0): string {
-    const spaces = '  '.repeat(indent);
-    
-    if (obj === null) {
-      return `<span class="json-syntax-null">null</span>`;
-    }
-    
-    if (typeof obj === 'string') {
-      return `<span class="json-syntax-string">"${obj}"</span>`;
-    }
-    
-    if (typeof obj === 'number') {
-      return `<span class="json-syntax-number">${obj}</span>`;
-    }
-    
-    if (typeof obj === 'boolean') {
-      return `<span class="json-syntax-boolean">${obj}</span>`;
-    }
-    
-    if (Array.isArray(obj)) {
-      if (obj.length === 0) return '<span class="json-syntax-punctuation">[]</span>';
-      
-      const items = obj.map(item => 
-        `${spaces}  ${this.renderJsonWithSyntaxHighlight(item, indent + 1)}`
-      ).join(',\n');
-      
-      return `<span class="json-syntax-punctuation">[</span>\n${items}\n${spaces}<span class="json-syntax-punctuation">]</span>`;
-    }
-    
-    if (typeof obj === 'object') {
-      const keys = Object.keys(obj);
-      if (keys.length === 0) return '<span class="json-syntax-punctuation">{}</span>';
-      
-      const items = keys.map(key => 
-        `${spaces}  <span class="json-syntax-key">"${key}"</span><span class="json-syntax-punctuation">:</span> ${this.renderJsonWithSyntaxHighlight(obj[key], indent + 1)}`
-      ).join(',\n');
-      
-      return `<span class="json-syntax-punctuation">{</span>\n${items}\n${spaces}<span class="json-syntax-punctuation">}</span>`;
-    }
-    
-    return String(obj);
   }
 
   // Recursively remove keys with instructional placeholder values

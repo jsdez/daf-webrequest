@@ -7,6 +7,7 @@ import {
   getJsonStatus,
   isValidJson,
 } from '../src/utils/json.js';
+import { renderJsonWithSyntaxHighlight } from '../src/debug/json-tools-view.js';
 
 test('formats values consistently for formatter output', () => {
   assert.equal(formatValue(true), 'true');
@@ -24,4 +25,15 @@ test('formats, validates, and reports JSON editor status', () => {
   assert.equal(countJsonKeys({ id: 1, child: { enabled: true }, list: [{ item: 1 }] }), 5);
   assert.match(getJsonStatus('{"id":1}'), /^Valid JSON • 8 chars • 1 lines • 1 keys$/);
   assert.equal(getJsonStatus(''), 'Empty');
+});
+
+test('renders JSON syntax highlighting consistently', () => {
+  assert.equal(renderJsonWithSyntaxHighlight({ enabled: true, items: [1] }), [
+    '<span class="json-syntax-punctuation">{</span>',
+    '  <span class="json-syntax-key">"enabled"</span><span class="json-syntax-punctuation">:</span> <span class="json-syntax-boolean">true</span>,',
+    '  <span class="json-syntax-key">"items"</span><span class="json-syntax-punctuation">:</span> <span class="json-syntax-punctuation">[</span>',
+    '    <span class="json-syntax-number">1</span>',
+    '  <span class="json-syntax-punctuation">]</span>',
+    '<span class="json-syntax-punctuation">}</span>',
+  ].join('\n'));
 });
