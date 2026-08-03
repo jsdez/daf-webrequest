@@ -24,6 +24,7 @@ import { renderDebugPropertiesTab } from './debug/properties-view.js';
 import { renderRequestDetailsTab } from './debug/request-details-view.js';
 import { renderApiToolsTab } from './debug/api-tools-view.js';
 import { renderResponseFormatterTab } from './debug/response-formatter-view.js';
+import { renderFormattedPreview } from './debug/formatter-preview-view.js';
 import { resolveConfiguredMessage } from './formatters/configured-message.js';
 import { fetchOAuthToken as requestOAuthToken } from './services/oauth-token-service.js';
 
@@ -2165,23 +2166,8 @@ export class DafWebRequestPlugin extends LitElement {
     `);
   }
 
-  private renderFormattedPreview(obj: any): any {
-    const items: any[] = [];
-    
-    this.formatterSelectedFields.forEach((config, key) => {
-      if (config.checked) {
-        const value = extractNestedValue(obj, key);
-        const displayTitle = config.title || key;
-        
-        items.push(html`
-          <div style="margin-bottom: 8px;">
-            <strong>${displayTitle}:</strong> ${value !== undefined ? String(value) : 'N/A'}
-          </div>
-        `);
-      }
-    });
-    
-    return items.length > 0 ? items : html`<div style="color: var(--ntx-form-theme-color-secondary); font-style: italic;">No fields selected</div>`;
+  private renderFormattedPreview(obj: any) {
+    return renderFormattedPreview(this.formatterSelectedFields, obj);
   }
 
   private formatJson(): void {
