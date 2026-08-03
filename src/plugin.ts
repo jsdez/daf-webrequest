@@ -25,6 +25,13 @@ import { renderRequestDetailsTab } from './debug/request-details-view.js';
 import { renderApiToolsTab } from './debug/api-tools-view.js';
 import { renderResponseFormatterTab } from './debug/response-formatter-view.js';
 import { renderFormattedPreview } from './debug/formatter-preview-view.js';
+import {
+  getSortedSelectedFields,
+  removeFormatterField,
+  reorderFormatterFields,
+  toggleFormatterField,
+  updateFormatterFieldTitle,
+} from './formatters/field-selection.js';
 import { resolveConfiguredMessage } from './formatters/configured-message.js';
 import { fetchOAuthToken as requestOAuthToken } from './services/oauth-token-service.js';
 
@@ -1966,19 +1973,7 @@ export class DafWebRequestPlugin extends LitElement {
                     .checked=${isChecked}
                     @change=${(e: Event) => {
                       const target = e.target as HTMLInputElement;
-                      if (target.checked) {
-                        let maxOrder = -1;
-                        this.formatterSelectedFields.forEach(field => {
-                          if (field.order > maxOrder) maxOrder = field.order;
-                        });
-                        this.formatterSelectedFields.set(fieldKey, { 
-                          title: key, 
-                          checked: true,
-                          order: maxOrder + 1
-                        });
-                      } else {
-                        this.formatterSelectedFields.delete(fieldKey);
-                      }
+                      toggleFormatterField(this.formatterSelectedFields, fieldKey, target.checked, key);
                       this.requestUpdate();
                     }}
                     style="width: 18px; height: 18px; cursor: pointer; margin-top: 2px; flex-shrink: 0;"
@@ -2014,19 +2009,7 @@ export class DafWebRequestPlugin extends LitElement {
                   .checked=${isChecked}
                   @change=${(e: Event) => {
                     const target = e.target as HTMLInputElement;
-                    if (target.checked) {
-                      let maxOrder = -1;
-                      this.formatterSelectedFields.forEach(field => {
-                        if (field.order > maxOrder) maxOrder = field.order;
-                      });
-                      this.formatterSelectedFields.set(fieldKey, { 
-                        title: fieldKey.split('.').pop() || fieldKey, 
-                        checked: true,
-                        order: maxOrder + 1
-                      });
-                    } else {
-                      this.formatterSelectedFields.delete(fieldKey);
-                    }
+                    toggleFormatterField(this.formatterSelectedFields, fieldKey, target.checked, fieldKey.split('.').pop() || fieldKey);
                     this.requestUpdate();
                   }}
                   style="width: 18px; height: 18px; cursor: pointer; margin-top: 2px; flex-shrink: 0;"
@@ -2055,9 +2038,7 @@ export class DafWebRequestPlugin extends LitElement {
 
   private renderSelectedFieldsList(): any {
     // Sort fields by order
-    const sortedFields = Array.from(this.formatterSelectedFields.entries())
-      .filter(([_, config]) => config.checked)
-      .sort((a, b) => a[1].order - b[1].order);
+    const sortedFields = getSortedSelectedFields(this.formatterSelectedFields);
 
     if (sortedFields.length === 0) {
       return html`<div style="color: var(--ntx-form-theme-color-secondary); font-style: italic; padding: 12px; text-align: center;">No fields selected. Check fields from the left panel.</div>`;
@@ -2080,16 +2061,7 @@ export class DafWebRequestPlugin extends LitElement {
           const toIndex = index;
           
           if (fromIndex !== toIndex) {
-            // Reorder the fields
-            const reorderedFields = Array.from(sortedFields);
-            const [movedItem] = reorderedFields.splice(fromIndex, 1);
-            reorderedFields.splice(toIndex, 0, movedItem);
-            
-            // Update orders
-            reorderedFields.forEach(([key, cfg], idx) => {
-              this.formatterSelectedFields.set(key, { ...cfg, order: idx });
-            });
-            
+            reorderFormatterFields(this.formatterSelectedFields, fromIndex, toIndex);
             this.requestUpdate();
           }
         }}
@@ -2131,7 +2103,7 @@ export class DafWebRequestPlugin extends LitElement {
             .value=${config.title}
             @input=${(e: Event) => {
               const target = e.target as HTMLInputElement;
-              this.formatterSelectedFields.set(fieldKey, { ...config, title: target.value });
+              updateFormatterFieldTitle(this.formatterSelectedFields, fieldKey, target.value);
               this.requestUpdate();
             }}
             style="font-size: 13px; padding: 6px 8px; height: auto;"
@@ -2139,7 +2111,7 @@ export class DafWebRequestPlugin extends LitElement {
         </div>
         <button
           @click=${() => {
-            this.formatterSelectedFields.delete(fieldKey);
+            removeFormatterField(this.formatterSelectedFields, fieldKey);
             this.requestUpdate();
           }}
           style="
