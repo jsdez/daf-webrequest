@@ -1065,7 +1065,7 @@ export class DafWebRequestPlugin extends LitElement {
         allowMultipleAPICalls: {
           type: 'boolean',
           title: 'Allow Multiple API Calls',
-          description: 'If true allows repeated API calls If false disables further calls after first success or warning',
+          description: 'If true allows repeated API calls. If false blocks repeated calls after success until request configuration or submission behavior changes.',
           defaultValue: false,
         } as PropType,
         countdownEnabled: {
@@ -1616,9 +1616,35 @@ export class DafWebRequestPlugin extends LitElement {
   // Handle property changes from the host application
   updated(changedProperties: Map<string, any>) {
     // Note: value change event is now dispatched in the value setter, not here
-    
-    // Watch for sendAPICall property changes to trigger API automatically
+
+    const resultInvalidatingProperties = [
+      'submissionAction',
+      'apiUrl',
+      'method',
+      'requestBody',
+      'requestHeaders',
+      'bearerToken',
+      'tokenUrl',
+      'clientId',
+      'clientSecret',
+      'contentType',
+      'outputValueKey',
+      'requestTimeout',
+    ];
+    const configurationChanged = resultInvalidatingProperties
+      .some((property) => changedProperties.has(property));
+
+    // A previous successful response must never authorize a submission after
+    // request configuration or submission behavior has changed.
+    if (configurationChanged) {
+      this.invalidatePreviousApiResult('configuration changed');
+    }
+
+    // Watch for sendAPICall property changes to trigger API automatically.
+    // Clear the output first so form-level Nintex rules cannot use a stale
+    // success value while validation is checking the new request attempt.
     if (changedProperties.has('sendAPICall') && this.sendAPICall) {
+      this.invalidatePreviousApiResult('new API call requested');
       this.handleAPICallTrigger();
     }
 
@@ -1666,6 +1692,29 @@ export class DafWebRequestPlugin extends LitElement {
     }
 
     this.applySubmitButtonVisibility(form, coordinator);
+  }
+
+  private invalidatePreviousApiResult(reason: string): void {
+    const hadPriorResult = this.hasSuccessfulCall || this.value?.success === true;
+    this.hasSuccessfulCall = false;
+
+    if (!hadPriorResult) return;
+
+    const timestamp = new Date().toISOString();
+    console.log(`[API Call] Invalidating previous API result: ${reason}`);
+    this.responseType = null;
+    this.apiResponse = '';
+    this.value = {
+      success: false,
+      valid: false,
+      statusCode: 0,
+      responseType: 'pending',
+      data: '',
+      message: '',
+      formattedResponse: '',
+      timestamp,
+      executionTime: 0,
+    };
   }
 
   private async handleAPICallTrigger() {

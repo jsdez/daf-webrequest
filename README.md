@@ -264,6 +264,11 @@ https://cdn.jsdelivr.net/npm/<your-package-name>@<version>/dist/plugin.js
 
 ### Submission Actions
 
+#### Result Freshness
+- Before every new API request, and whenever request configuration or submission behavior changes, the plugin clears a prior successful result and publishes `success: false`.
+- This prevents Nintex form rules from authorizing a new submission using a previous API call's success value.
+- The temporary output state uses `responseType: "pending"` until the new request completes.
+
 #### Submission Action
 - **Type**: Dropdown | **Default**: `no-submit`
 - **Options**:
