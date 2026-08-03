@@ -20,6 +20,7 @@ import {
   formatResponseWithConfig,
 } from './formatters/response-message.js';
 import { renderDebugPropertiesTab } from './debug/properties-view.js';
+import { renderRequestDetailsTab } from './debug/request-details-view.js';
 
 const PLUGIN_VERSION = '1.1.8';
 const SENSITIVE_DEBUG_PROPERTIES = new Set(['clientSecret']);
@@ -1701,102 +1702,17 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   private renderRequestDetailsTab() {
-    return html`
-      <table class="debug-table">
-        <thead>
-          <tr>
-            <th>Property</th>
-            <th>Value</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><code>apiUrl</code></td>
-            <td style="word-break: break-all;">${this.apiUrl || '<not set>'}</td>
-          </tr>
-          <tr>
-            <td><code>method</code></td>
-            <td>${this.method}</td>
-          </tr>
-          ${this.oauthTokenResponse ? html`
-            <tr>
-              <td><code>OAuth Token</code></td>
-              <td>
-                <div class="debug-json-container">
-                  <button 
-                    class="debug-json-copy-btn"
-                    @click=${() => this.copyToClipboard(JSON.stringify(this.oauthTokenResponse, null, 2))}
-                    title="Copy to clipboard"
-                  >
-                    📋 Copy
-                  </button>
-                  <pre class="debug-json">${JSON.stringify(this.oauthTokenResponse, null, 2)}</pre>
-                </div>
-              </td>
-            </tr>
-          ` : ''}
-          <tr>
-            <td><code>requestHeaders</code></td>
-            <td>
-              ${this.requestHeaders ? html`
-                <div class="debug-json-container">
-                  <button 
-                    class="debug-json-copy-btn"
-                    @click=${() => this.copyToClipboard(formatJsonForDisplay(this.requestHeaders))}
-                    title="Copy to clipboard"
-                  >
-                    📋 Copy
-                  </button>
-                  <pre class="debug-json">${formatJsonForDisplay(this.requestHeaders)}</pre>
-                </div>
-              ` : '<not set>'}
-            </td>
-          </tr>
-          <tr>
-            <td><code>requestBody</code></td>
-            <td>
-              ${this.requestBody ? html`
-                <div class="debug-json-container">
-                  <button 
-                    class="debug-json-copy-btn"
-                    @click=${() => this.copyToClipboard(formatJsonForDisplay(this.requestBody))}
-                    title="Copy to clipboard"
-                  >
-                    📋 Copy
-                  </button>
-                  <pre class="debug-json">${formatJsonForDisplay(this.requestBody)}</pre>
-                </div>
-              ` : '<not set>'}
-            </td>
-          </tr>
-          <tr>
-            <td><code>State</code></td>
-            <td>
-              <strong>Loading:</strong> ${this.isLoading}<br>
-              <strong>Has Successful Call:</strong> ${this.hasSuccessfulCall}<br>
-              <strong>Button Disabled:</strong> ${this.isButtonDisabled()}
-            </td>
-          </tr>
-          ${this.apiResponse ? html`
-            <tr>
-              <td><code>Response</code></td>
-              <td>
-                <div class="debug-json-container">
-                  <button 
-                    class="debug-json-copy-btn"
-                    @click=${() => this.copyToClipboard(formatJsonForDisplay(this.apiResponse))}
-                    title="Copy to clipboard"
-                  >
-                    📋 Copy
-                  </button>
-                  <pre class="debug-json">${formatJsonForDisplay(this.apiResponse)}</pre>
-                </div>
-              </td>
-            </tr>
-          ` : ''}
-        </tbody>
-      </table>
-    `;
+    return renderRequestDetailsTab({
+      apiUrl: this.apiUrl,
+      method: this.method,
+      oauthTokenResponse: this.oauthTokenResponse,
+      requestHeaders: this.requestHeaders,
+      requestBody: this.requestBody,
+      isLoading: this.isLoading,
+      hasSuccessfulCall: this.hasSuccessfulCall,
+      isButtonDisabled: this.isButtonDisabled(),
+      apiResponse: this.apiResponse,
+    }, (text) => this.copyToClipboard(text));
   }
 
   private renderAPIToolsTab() {
