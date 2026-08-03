@@ -26,6 +26,7 @@ import { renderApiToolsTab } from './debug/api-tools-view.js';
 import { renderResponseFormatterTab } from './debug/response-formatter-view.js';
 import { renderFormattedPreview } from './debug/formatter-preview-view.js';
 import { renderSelectedFieldsList } from './debug/selected-fields-view.js';
+import { getAlertIcon, shouldShowAlert, shouldShowMoreDetails } from './debug/alert-utils.js';
 import {
   collectAvailableFormatterFields,
   getSortedSelectedFields,
@@ -1252,17 +1253,16 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   private shouldShowAlert(): boolean {
-    // Check if there's any alert content to show
-    const now = Date.now();
-    const timeSinceLastCall = now - this.lastApiCallTime;
-    const cooldownMs = this.countdownTimer * 1000;
-    const inCooldown = this.countdownEnabled && this.lastApiCallTime > 0 && timeSinceLastCall < cooldownMs;
-    
-    if (inCooldown && this.showCooldownAlert) return true;
-    if (!this.apiResponse || !this.responseType) return false;
-    if (this.lastCooldownAlertTime > this.lastApiCallTime) return false;
-    
-    return true;
+    return shouldShowAlert({
+      now: Date.now(),
+      lastApiCallTime: this.lastApiCallTime,
+      countdownTimer: this.countdownTimer,
+      countdownEnabled: this.countdownEnabled,
+      showCooldownAlert: this.showCooldownAlert,
+      apiResponse: this.apiResponse,
+      responseType: this.responseType,
+      lastCooldownAlertTime: this.lastCooldownAlertTime,
+    });
   }
 
   private renderModal(alertContent: any) {
@@ -1442,21 +1442,11 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   private getAlertIcon(type: 'success' | 'warning' | 'error'): string {
-    switch (type) {
-      case 'success': return '✓';
-      case 'warning': return '⚠';
-      case 'error': return '✗';
-      default: return '•';
-    }
+    return getAlertIcon(type);
   }
 
   private shouldShowMoreDetails(responseType: string): boolean {
-    if (this.showMoreDetails === 'Never') return false;
-    if (this.showMoreDetails === 'Always') return true;
-    if (this.showMoreDetails === 'On Error/Warning') {
-      return responseType === 'error' || responseType === 'warning';
-    }
-    return false;
+    return shouldShowMoreDetails(this.showMoreDetails, responseType);
   }
 
   private toggleDetailsExpanded() {
