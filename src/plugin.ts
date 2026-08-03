@@ -22,6 +22,7 @@ import {
 import { renderDebugPropertiesTab } from './debug/properties-view.js';
 import { renderRequestDetailsTab } from './debug/request-details-view.js';
 import { renderApiToolsTab } from './debug/api-tools-view.js';
+import { renderResponseFormatterTab } from './debug/response-formatter-view.js';
 import { resolveConfiguredMessage } from './formatters/configured-message.js';
 import { fetchOAuthToken as requestOAuthToken } from './services/oauth-token-service.js';
 
@@ -1692,91 +1693,26 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   private renderResponseFormatterTab() {
-    const hasJsonInput = this.formatterJsonInput.trim().length > 0;
-    const formatterJsonIsValid = hasJsonInput && isValidJson(this.formatterJsonInput);
-    
-    let parsedJson: any = null;
-    let jsonError = '';
-    
-    if (hasJsonInput) {
-      try {
-        parsedJson = JSON.parse(this.formatterJsonInput);
-      } catch (e) {
-        jsonError = (e as Error).message;
-      }
-    }
-
-    return html`
-      <div class="debug-tools">
-        <div class="form-group">
-          <label class="control-label">Paste Response JSON</label>
-          <textarea 
-            class="form-control" 
-            rows="8"
-            .value=${this.formatterJsonInput}
-            @input=${(e: Event) => {
-              const target = e.target as HTMLTextAreaElement;
-              this.formatterJsonInput = target.value;
-              this.requestUpdate();
-            }}
-            placeholder="Paste your API response JSON here (for success, error, or warning responses)..."
-            style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 13px;"
-          ></textarea>
-          ${jsonError ? html`<div class="text-danger" style="margin-top: 8px;">${jsonError}</div>` : ''}
-        </div>
-
-        ${formatterJsonIsValid && parsedJson ? html`
-          <!-- Message Type Tabs -->
-          <div class="debug-tab-nav" style="margin-bottom: 0;">
-            <button 
-              class="debug-tab-button ${this.activeFormatterTab === 'success' ? 'active' : ''}"
-              @click=${() => {
-                this.activeFormatterTab = 'success';
-                this.loadConfigIntoFields('success');
-                this.requestUpdate();
-              }}
-            >
-              ✓ Success Message
-            </button>
-            <button 
-              class="debug-tab-button ${this.activeFormatterTab === 'warning' ? 'active' : ''}"
-              @click=${() => {
-                this.activeFormatterTab = 'warning';
-                this.loadConfigIntoFields('warning');
-                this.requestUpdate();
-              }}
-            >
-              ⚠ Warning Message
-            </button>
-            <button 
-              class="debug-tab-button ${this.activeFormatterTab === 'error' ? 'active' : ''}"
-              @click=${() => {
-                this.activeFormatterTab = 'error';
-                this.loadConfigIntoFields('error');
-                this.requestUpdate();
-              }}
-            >
-              ✕ Error Message
-            </button>
-          </div>
-
-          <!-- Success Tab Content -->
-          <div class="debug-tab-content ${this.activeFormatterTab === 'success' ? 'active' : ''}">
-            ${this.renderMessageTypeConfig('success', this.successMessage, parsedJson)}
-          </div>
-
-          <!-- Warning Tab Content -->
-          <div class="debug-tab-content ${this.activeFormatterTab === 'warning' ? 'active' : ''}">
-            ${this.renderMessageTypeConfig('warning', this.warningMessage, parsedJson)}
-          </div>
-
-          <!-- Error Tab Content -->
-          <div class="debug-tab-content ${this.activeFormatterTab === 'error' ? 'active' : ''}">
-            ${this.renderMessageTypeConfig('error', this.errorMessage, parsedJson)}
-          </div>
-        ` : ''}
-      </div>
-    `;
+    return renderResponseFormatterTab({
+      formatterJsonInput: this.formatterJsonInput,
+      activeFormatterTab: this.activeFormatterTab as 'success' | 'warning' | 'error',
+      successMessage: this.successMessage,
+      warningMessage: this.warningMessage,
+      errorMessage: this.errorMessage,
+    }, {
+      onJsonInput: (event) => {
+        const target = event.target as HTMLTextAreaElement;
+        this.formatterJsonInput = target.value;
+        this.requestUpdate();
+      },
+      onTabChange: (type) => {
+        this.activeFormatterTab = type;
+        this.loadConfigIntoFields(type);
+        this.requestUpdate();
+      },
+      renderMessageTypeConfig: (type, currentConfig, parsedJson) =>
+        this.renderMessageTypeConfig(type, currentConfig, parsedJson),
+    });
   }
 
   private renderMessageTypeConfig(type: 'success' | 'warning' | 'error', currentConfig: string, parsedJson: any) {
