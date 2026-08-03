@@ -25,6 +25,7 @@ import { renderRequestDetailsTab } from './debug/request-details-view.js';
 import { renderApiToolsTab } from './debug/api-tools-view.js';
 import { renderResponseFormatterTab } from './debug/response-formatter-view.js';
 import { renderFormattedPreview } from './debug/formatter-preview-view.js';
+import { renderSelectedFieldsList } from './debug/selected-fields-view.js';
 import {
   collectAvailableFormatterFields,
   getSortedSelectedFields,
@@ -1985,105 +1986,20 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   private renderSelectedFieldsList(): any {
-    // Sort fields by order
-    const sortedFields = getSortedSelectedFields(this.formatterSelectedFields);
-
-    if (sortedFields.length === 0) {
-      return html`<div style="color: var(--ntx-form-theme-color-secondary); font-style: italic; padding: 12px; text-align: center;">No fields selected. Check fields from the left panel.</div>`;
-    }
-
-    return sortedFields.map(([fieldKey, config], index) => html`
-      <div 
-        draggable="true"
-        @dragstart=${(e: DragEvent) => {
-          e.dataTransfer!.effectAllowed = 'move';
-          e.dataTransfer!.setData('text/plain', index.toString());
-        }}
-        @dragover=${(e: DragEvent) => {
-          e.preventDefault();
-          e.dataTransfer!.dropEffect = 'move';
-        }}
-        @drop=${(e: DragEvent) => {
-          e.preventDefault();
-          const fromIndex = parseInt(e.dataTransfer!.getData('text/plain'));
-          const toIndex = index;
-          
-          if (fromIndex !== toIndex) {
-            reorderFormatterFields(this.formatterSelectedFields, fromIndex, toIndex);
-            this.requestUpdate();
-          }
-        }}
-        style="
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 10px;
-          padding: 10px;
-          background: var(--ntx-form-theme-color-background);
-          border: 1px solid var(--ntx-form-theme-color-border);
-          border-radius: 4px;
-          cursor: move;
-          transition: all 0.2s;
-        "
-        @mouseenter=${(e: MouseEvent) => {
-          (e.currentTarget as HTMLElement).style.borderColor = 'var(--ntx-form-theme-color-primary)';
-          (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-        }}
-        @mouseleave=${(e: MouseEvent) => {
-          (e.currentTarget as HTMLElement).style.borderColor = 'var(--ntx-form-theme-color-border)';
-          (e.currentTarget as HTMLElement).style.boxShadow = 'none';
-        }}
-      >
-        <div style="font-size: 16px; color: var(--ntx-form-theme-color-secondary); cursor: grab;" title="Drag to reorder">
-          ⋮⋮
-        </div>
-        <div style="font-weight: 600; color: var(--ntx-form-theme-color-primary); min-width: 30px;">
-          ${index + 1}.
-        </div>
-        <div style="flex: 1; min-width: 0;">
-          <div style="font-size: 11px; color: var(--ntx-form-theme-color-secondary); margin-bottom: 4px; word-break: break-all;">
-            <code style="font-size: 10px;">${fieldKey}</code>
-          </div>
-          <input 
-            type="text" 
-            class="form-control"
-            placeholder="Display title"
-            .value=${config.title}
-            @input=${(e: Event) => {
-              const target = e.target as HTMLInputElement;
-              updateFormatterFieldTitle(this.formatterSelectedFields, fieldKey, target.value);
-              this.requestUpdate();
-            }}
-            style="font-size: 13px; padding: 6px 8px; height: auto;"
-          />
-        </div>
-        <button
-          @click=${() => {
-            removeFormatterField(this.formatterSelectedFields, fieldKey);
-            this.requestUpdate();
-          }}
-          style="
-            background: var(--ntx-form-theme-color-error, #dc3545);
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 6px 10px;
-            cursor: pointer;
-            font-size: 12px;
-            transition: filter 0.2s;
-          "
-          @mouseenter=${(e: MouseEvent) => {
-            (e.currentTarget as HTMLElement).style.filter = 'brightness(0.9)';
-          }}
-          @mouseleave=${(e: MouseEvent) => {
-            (e.currentTarget as HTMLElement).style.filter = 'brightness(1)';
-          }}
-          title="Remove field"
-        >
-          ✕
-        </button>
-      </div>
-    `);
+    return renderSelectedFieldsList(getSortedSelectedFields(this.formatterSelectedFields), {
+      onReorder: (fromIndex, toIndex) => {
+        reorderFormatterFields(this.formatterSelectedFields, fromIndex, toIndex);
+        this.requestUpdate();
+      },
+      onTitleChange: (fieldKey, title) => {
+        updateFormatterFieldTitle(this.formatterSelectedFields, fieldKey, title);
+        this.requestUpdate();
+      },
+      onRemove: (fieldKey) => {
+        removeFormatterField(this.formatterSelectedFields, fieldKey);
+        this.requestUpdate();
+      },
+    });
   }
 
   private renderFormattedPreview(obj: any) {
