@@ -27,6 +27,7 @@ import { renderResponseFormatterTab } from './debug/response-formatter-view.js';
 import { renderFormattedPreview } from './debug/formatter-preview-view.js';
 import { renderSelectedFieldsList } from './debug/selected-fields-view.js';
 import { getAlertIcon, shouldShowAlert, shouldShowMoreDetails } from './debug/alert-utils.js';
+import { createSampleJson, formatJsonEditorValue, minifyJsonEditorValue } from './debug/json-editor.js';
 import {
   collectAvailableFormatterFields,
   getSortedSelectedFields,
@@ -1997,25 +1998,17 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   private formatJson(): void {
-    if (!isValidJson(this.requestBody)) return;
-    try {
-      const parsed = JSON.parse(this.requestBody);
-      this.requestBody = JSON.stringify(parsed, null, 2);
-      this.requestUpdate();
-    } catch {
-      // Already validated, shouldn't happen
-    }
+    const formatted = formatJsonEditorValue(this.requestBody);
+    if (formatted === null) return;
+    this.requestBody = formatted;
+    this.requestUpdate();
   }
 
   private minifyJson(): void {
-    if (!isValidJson(this.requestBody)) return;
-    try {
-      const parsed = JSON.parse(this.requestBody);
-      this.requestBody = JSON.stringify(parsed);
-      this.requestUpdate();
-    } catch {
-      // Already validated, shouldn't happen
-    }
+    const minified = minifyJsonEditorValue(this.requestBody);
+    if (minified === null) return;
+    this.requestBody = minified;
+    this.requestUpdate();
   }
 
   private clearJson(): void {
@@ -2024,19 +2017,7 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   private insertSampleJson(): void {
-    const sample = {
-      "startData": {
-        "se_input": "This is a test",
-        "options": {
-          "callbackUrl": "optionally add a callback URL here. Must be https",
-          "metadata": {
-            "userId": "12345",
-            "requestId": "req-" + Date.now()
-          }
-        }
-      }
-    };
-    this.requestBody = JSON.stringify(sample, null, 2);
+    this.requestBody = createSampleJson(Date.now());
     this.requestUpdate();
   }
 
