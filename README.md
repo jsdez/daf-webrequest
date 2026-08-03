@@ -12,6 +12,8 @@ A comprehensive Nintex Form Plugin for making API calls with advanced features i
 - [Response Object](#response-object)
 - [Troubleshooting](#troubleshooting)
 - [Development Architecture](#development-architecture)
+- [Deployment and Release](#deployment-and-release)
+- [Changelog](CHANGELOG.md)
 
 ## Features
 
@@ -30,29 +32,22 @@ A comprehensive Nintex Form Plugin for making API calls with advanced features i
 
 ## Installation
 
-### Option 1: CDN (Recommended)
+### Hosted plugin URLs
 
-Once published to npm, load the plugin via jsDelivr:
+| Environment | Plugin URL | Use |
+| --- | --- | --- |
+| **Live** | `https://jsdez.github.io/daf-webrequest/dist/plugin.bundle.js` | Production Nintex forms. Do not overwrite while validating a change. |
+| **Preview** | `https://jsdez.github.io/daf-webrequest/test/plugin.bundle.js` | Nintex test forms and refactor/feature validation. |
 
-```html
-https://cdn.jsdelivr.net/npm/<your-package-name>@<version>/dist/plugin.js
+### Local setup
+
+```sh
+npm install
+npm test
+npm run typecheck
 ```
 
-### Option 2: Local Development
-
-1. Clone this repository
-2. Install dependencies:
-   ```sh
-   npm install
-   ```
-3. Build the plugin:
-   ```sh
-   npm run build
-   ```
-4. Deploy to your hosting:
-   ```sh
-   npm run deploy
-   ```
+Use `npm run build:test` for preview work. It writes only the preview artifact and verifies that the live artifact remains unchanged.
 
 ## Setup in Nintex Forms
 
@@ -62,7 +57,7 @@ https://cdn.jsdelivr.net/npm/<your-package-name>@<version>/dist/plugin.js
 2. Go to **Form Settings** > **Custom Plugins**
 3. Add a new plugin with the following details:
    - **Name**: `daf-webrequest-plugin`
-   - **URL**: Your CDN or hosted URL
+   - **URL**: Use the live or preview URL from the table above, depending on the form environment.
 
 ### 2. Add the Control to Your Form
 
@@ -962,7 +957,7 @@ The plugin returns a structured response object in the `value` property:
 - Client ID and Client Secret are valid
 - Token endpoint supports `client_credentials` grant type
 - Use Debug Mode > Request Details to inspect error
-- Verify OAuth Token Response section shows access_token
+- Debug Mode exposes sanitised OAuth metadata only; verify the token request status, expiry metadata, and resulting API response instead of expecting an access token to be shown.
 
 ### Authentication Failures
 **Symptoms**: 401 or 403 errors from API
@@ -1073,6 +1068,38 @@ npm run build:test
 
 `build:test` must leave `dist/plugin.bundle.js` unchanged and writes the test artifact to `test/plugin.bundle.js`. Use the fixed preview URL for Nintex smoke tests before a live release.
 
+
+### Deployment and Release
+
+#### Preview validation
+
+1. Make the change on a feature/refactor branch or local working tree.
+2. Run the complete automated validation:
+   ```sh
+   npm test
+   npm run typecheck
+   npm run build:test
+   ```
+3. Confirm the preview artifact is available at:
+   ```text
+   https://jsdez.github.io/daf-webrequest/test/plugin.bundle.js
+   ```
+4. Point a **Nintex test form** at the preview URL and smoke-test the changed behavior.
+5. Confirm that `dist/plugin.bundle.js` has not changed during preview validation.
+
+#### Live release
+
+Only after preview validation is accepted:
+
+1. Run the repository's approved live build process, which updates the production artifact.
+2. Review the resulting change to `dist/plugin.bundle.js` separately from source changes.
+3. Push the approved release through the normal `main`/CDN workflow.
+4. Verify the live Nintex form uses:
+   ```text
+   https://jsdez.github.io/daf-webrequest/dist/plugin.bundle.js
+   ```
+
+> **Important:** Preview work must use `npm run build:test`; do not overwrite `dist/plugin.bundle.js` while validating an unreleased change.
 
 ### Build Commands
 ```sh
