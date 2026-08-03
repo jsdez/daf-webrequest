@@ -12,6 +12,7 @@ import { SubmissionScheduler } from './forms/submission-scheduler.js';
 import { renderJsonOutput, renderJsonPreview } from './debug/json-tools-view.js';
 import {
   generateResponseConfigQuoted,
+  parseResponseFormatterConfig,
   type FormatterFieldSelection,
 } from './formatters/response-config.js';
 import {
@@ -1911,17 +1912,8 @@ export class DafWebRequestPlugin extends LitElement {
     
     // Try to parse the config
     try {
-      let parsedConfig;
-      
-      // Handle quoted format
-      if (config.startsWith('"{') && config.endsWith('}"')) {
-        const unquoted = config.slice(1, -1).replace(/\\"/g, '"');
-        parsedConfig = JSON.parse(unquoted);
-      } 
-      // Handle unquoted format
-      else if (config.trim().startsWith('{"')) {
-        parsedConfig = JSON.parse(config);
-      } else {
+      const parsedConfig = parseResponseFormatterConfig(config);
+      if (!parsedConfig) {
         // Plain text, nothing to load
         this.requestUpdate();
         return;

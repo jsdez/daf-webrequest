@@ -4,6 +4,7 @@ import {
   buildResponseFormatterConfig,
   generateResponseConfig,
   generateResponseConfigQuoted,
+  parseResponseFormatterConfig,
 } from '../src/formatters/response-config.js';
 
 test('builds formatter config from checked fields in display order', () => {
@@ -33,4 +34,18 @@ test('omits blank titles and preserves current quoted serialization', () => {
     fields: [{ path: 'status', title: 'status' }],
   });
   assert.equal(JSON.parse(quoted), '{"fields":[{"path":"status","title":"status"}]}');
+});
+
+test('parses quoted and unquoted formatter configurations while leaving plain text alone', () => {
+  const config = '{"title":"Result","fields":[{"path":"status","title":"Status"}]}';
+  assert.deepEqual(parseResponseFormatterConfig(config), {
+    title: 'Result',
+    fields: [{ path: 'status', title: 'Status' }],
+  });
+  assert.deepEqual(parseResponseFormatterConfig(`"${config.replace(/"/g, '\\"')}"`), {
+    title: 'Result',
+    fields: [{ path: 'status', title: 'Status' }],
+  });
+  assert.equal(parseResponseFormatterConfig('Plain message'), null);
+  assert.throws(() => parseResponseFormatterConfig('{"title":'));
 });

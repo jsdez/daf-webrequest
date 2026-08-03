@@ -36,6 +36,18 @@ export function buildResponseFormatterConfig(
   return config;
 }
 
+export function parseResponseFormatterConfig(config: string): ResponseFormatterConfig | null {
+  if (config.startsWith('"{') && config.endsWith('}"')) {
+    return JSON.parse(config.slice(1, -1).replace(/\\"/g, '"')) as ResponseFormatterConfig;
+  }
+
+  if (config.trim().startsWith('{"')) {
+    return JSON.parse(config) as ResponseFormatterConfig;
+  }
+
+  return null;
+}
+
 export function generateResponseConfig(
   selectedFields: ReadonlyMap<string, FormatterFieldSelection>,
   messageTitle: string,
