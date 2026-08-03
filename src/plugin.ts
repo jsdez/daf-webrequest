@@ -19,6 +19,7 @@ import {
   formatRawResponse,
   formatResponseWithConfig,
 } from './formatters/response-message.js';
+import { renderDebugPropertiesTab } from './debug/properties-view.js';
 
 const PLUGIN_VERSION = '1.1.8';
 const SENSITIVE_DEBUG_PROPERTIES = new Set(['clientSecret']);
@@ -1691,92 +1692,12 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   private renderPropertiesTab() {
-    // Get all properties dynamically from the metadata
     const metadata = (this.constructor as typeof DafWebRequestPlugin).getMetaConfig();
-    const properties: Array<{ name: string; default: any; config: any }> = [];
-    
-    // Iterate through all properties defined in the metadata
-    // Properties are maintained in declaration order (order from getMetaConfig)
-    if (metadata.properties) {
-      for (const [propName, propConfig] of Object.entries(metadata.properties)) {
-        // Skip output-only values and secrets from the debug UI.
-        if (propName === 'value' || SENSITIVE_DEBUG_PROPERTIES.has(propName)) continue;
-        
-        properties.push({
-          name: propName,
-          default: (propConfig as any).defaultValue,
-          config: propConfig
-        });
-      }
-    }
-    
-    // NOTE: Properties are displayed in declaration order (as defined in getMetaConfig)
-    // This groups related properties together for better UX
-
-    return html`
-      <table class="debug-table">
-        <thead>
-          <tr>
-            <th>Property</th>
-            <th>Default Value</th>
-            <th>Current Value</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${properties.map(prop => html`
-            <tr>
-              <td><code class="property-name">${prop.name}</code></td>
-              <td class="value-default">${formatValue(prop.default)}</td>
-              <td class="value-current">${this.renderPropertyInput(prop.name, prop.config)}</td>
-            </tr>
-          `)}
-        </tbody>
-      </table>
-    `;
-  }
-
-  private renderPropertyInput(propName: string, propConfig: any) {
-    const currentValue = (this as any)[propName];
-    const propType = propConfig.type;
-
-    // Boolean type - display as Yes/No
-    if (propType === 'boolean') {
-      return html`
-        <span style="font-weight: 500; color: ${currentValue ? '#28a745' : '#dc3545'};">
-          ${currentValue ? '✓ Yes' : '✗ No'}
-        </span>
-      `;
-    }
-
-    // String type - mask sensitive properties and display
-    if (propType === 'string') {
-      const displayValue = (propName === 'bearerToken' || propName === 'clientSecret') && currentValue && currentValue.length > 0
-        ? '***' + currentValue.slice(-4)
-        : currentValue;
-
-      // Truncate long strings
-      const truncated = displayValue && displayValue.length > 100 
-        ? displayValue.substring(0, 100) + '...' 
-        : displayValue;
-
-      return html`
-        <span style="font-family: 'Courier New', monospace; font-size: 12px; word-break: break-all;">
-          ${truncated || '<empty>'}
-        </span>
-      `;
-    }
-
-    // Number type - display as number
-    if (propType === 'number' || propType === 'integer') {
-      return html`
-        <span style="font-weight: 500;">
-          ${currentValue}
-        </span>
-      `;
-    }
-
-    // Default fallback - just display the value
-    return html`<span>${formatValue(currentValue)}</span>`;
+    return renderDebugPropertiesTab(
+      metadata.properties as unknown as Record<string, any> | undefined,
+      this as unknown as Record<string, unknown>,
+      SENSITIVE_DEBUG_PROPERTIES,
+    );
   }
 
   private renderRequestDetailsTab() {
