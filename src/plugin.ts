@@ -1618,8 +1618,9 @@ export class DafWebRequestPlugin extends LitElement {
   updated(changedProperties: Map<string, any>) {
     // Note: value change event is now dispatched in the value setter, not here
 
-    const resultInvalidatingProperties = [
+    const apiConfigurationProperties = [
       'submissionAction',
+      'allowMultipleAPICalls',
       'apiUrl',
       'method',
       'requestBody',
@@ -1632,27 +1633,20 @@ export class DafWebRequestPlugin extends LitElement {
       'outputValueKey',
       'requestTimeout',
     ];
-    const configurationChanged = resultInvalidatingProperties
+    const configurationChanged = apiConfigurationProperties
       .some((property) => changedProperties.has(property));
+    const newApiCallRequested = changedProperties.has('sendAPICall') && this.sendAPICall;
 
-    // A previous successful response must never authorize a submission after
-    // request configuration or submission behavior has changed.
-    const configurationInvalidatedResult = configurationChanged
-      ? this.invalidatePreviousApiResult('configuration changed')
-      : false;
-
-    // Watch for sendAPICall property changes to trigger API automatically.
-    // Clear the output first so form-level Nintex rules cannot use a stale
-    // success value while validation is checking the new request attempt.
-    if (changedProperties.has('sendAPICall') && this.sendAPICall) {
-      const triggerInvalidatedResult = this.invalidatePreviousApiResult('new API call requested');
-      if (configurationInvalidatedResult || triggerInvalidatedResult) {
+    // Any request-defining configuration change or new trigger clears the
+    // output unconditionally. Form-level Nintex rules must never see a prior
+    // result while evaluating the next request or submission attempt.
+    if (configurationChanged || newApiCallRequested) {
+      this.clearApiOutput(configurationChanged ? 'configuration changed' : 'new API call requested');
+      if (newApiCallRequested) {
         void this.publishPendingResultBeforeValidation();
       } else {
-        void this.handleAPICallTrigger();
+        void this.publishPendingResultToNintex();
       }
-    } else if (configurationInvalidatedResult) {
-      void this.publishPendingResultToNintex();
     }
 
     // Watch for submitHidden property changes to hide/show the Nintex submit button
@@ -1701,14 +1695,11 @@ export class DafWebRequestPlugin extends LitElement {
     this.applySubmitButtonVisibility(form, coordinator);
   }
 
-  private invalidatePreviousApiResult(reason: string): boolean {
-    const hadPriorResult = this.hasSuccessfulCall || this.value?.success === true;
+  private clearApiOutput(reason: string): void {
     this.hasSuccessfulCall = false;
 
-    if (!hadPriorResult) return false;
-
     const timestamp = new Date().toISOString();
-    console.log(`[API Call] Invalidating previous API result: ${reason}`);
+    console.log(`[API Call] Clearing API output: ${reason}`);
     this.responseType = null;
     this.apiResponse = '';
     this.value = {
@@ -1722,7 +1713,6 @@ export class DafWebRequestPlugin extends LitElement {
       timestamp,
       executionTime: 0,
     };
-    return true;
   }
 
   private async publishPendingResultToNintex(): Promise<void> {
