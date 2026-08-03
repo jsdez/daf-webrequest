@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@nintex/form-plugin-contract": "^1.0.5",
-    "lit": "^3.3.0"
+    "lit": "^3.3.0",
+    "tslib": "^2.8.1"
   }
 }
