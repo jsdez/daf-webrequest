@@ -762,7 +762,28 @@ export class DafWebRequestPlugin extends LitElement {
     this.requestUpdate('btnVisible', oldValue);
   }
   
-  @property({ type: String, reflect: true, attribute: 'submission-action' }) submissionAction: string = 'no-submit';
+  // Use an explicit accessor because Nintex can update this property after the
+  // initial render. Clear the output at the exact moment its value changes,
+  // rather than relying only on Lit's deferred updated() lifecycle.
+  private _submissionAction: string = 'no-submit';
+  @property({ type: String, reflect: true, attribute: 'submission-action' })
+  get submissionAction(): string {
+    return this._submissionAction;
+  }
+  set submissionAction(value: string) {
+    const nextValue = value || 'no-submit';
+    const oldValue = this._submissionAction;
+    if (oldValue === nextValue) return;
+
+    this._submissionAction = nextValue;
+    console.log(`[Property Setter] submissionAction changed from ${oldValue} to ${nextValue}`);
+    this.requestUpdate('submissionAction', oldValue);
+
+    if (this.isConnected) {
+      this.clearApiOutput('submission action changed');
+      void this.publishPendingResultToNintex();
+    }
+  }
   @property({ type: Boolean, reflect: true, attribute: 'submit-hidden' }) submitHidden: boolean = false;
   @property({ type: String, reflect: true, attribute: 'show-more-details' }) showMoreDetails: string = 'Never';
   @property({ type: String, reflect: true, attribute: 'alert-position' }) alertPosition: string = 'After';
@@ -1619,7 +1640,6 @@ export class DafWebRequestPlugin extends LitElement {
     // Note: value change event is now dispatched in the value setter, not here
 
     const apiConfigurationProperties = [
-      'submissionAction',
       'allowMultipleAPICalls',
       'apiUrl',
       'method',
