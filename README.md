@@ -11,6 +11,7 @@ A comprehensive Nintex Form Plugin for making API calls with advanced features i
 - [Usage Examples](#usage-examples)
 - [Response Object](#response-object)
 - [Troubleshooting](#troubleshooting)
+- [Development Architecture](#development-architecture)
 
 ## Features
 
@@ -1017,12 +1018,61 @@ The plugin returns a structured response object in the `value` property:
 ### Project Structure
 ```
 src/
-  plugin.ts       # Main plugin component (2,486 lines)
-  apiClient.ts    # API call handler
-  nintex.css      # Styles
-dist/             # Live build output — published to the production plugin URL
-test/             # Preview build output — published to the fixed test plugin URL
+  plugin.ts                    # Lit/Nintex orchestration and public contract
+  apiClient.ts                 # Browser API transport
+  validation.module.ts         # Nintex form validation adapter
+  request/                     # Request body and header preparation
+  response/                    # Response classification and path extraction
+  services/                    # OAuth and API-response interpretation
+  nintex/                      # Tested output value-state factories
+  forms/                       # Form coordination and submission scheduling
+  formatters/                  # Response message/configuration/field helpers
+  debug/                       # Debug Mode presentation and JSON editor views
+  utils/                       # Shared JSON and primitive formatting utilities
+tests/                         # Node/tsx unit tests for extracted behavior
+dist/                          # Live build output — production plugin URL
+test/                          # Preview build output — fixed Nintex test URL
 ```
+
+### Development Architecture
+
+`plugin.ts` is intentionally the integration boundary. It owns the Nintex plugin contract, Lit lifecycle, component state, `ntx-value-change` dispatch, validation/API/submission sequencing, and top-level view composition.
+
+The extracted modules own deterministic behavior that can be unit tested independently:
+
+| Area | Module location | Responsibility |
+| --- | --- | --- |
+| Request preparation | `src/request/` | Body validation and custom header parsing |
+| Response interpretation | `src/response/`, `src/services/api-response-interpreter.ts` | Response classification, JSON path extraction, optional token/output/message extraction |
+| OAuth | `src/services/oauth-token-service.ts` | Client-credentials transport, timeout, and sanitised debug metadata |
+| Nintex values | `src/nintex/value-state.ts` | Pending, local-error, and strict API-result output shapes |
+| Form behavior | `src/forms/` | Shared per-form submit coordination and timer-based submission scheduling |
+| Formatter behavior | `src/formatters/` | Configuration parsing/building, field selection, response messages, and previews |
+| Debug Mode | `src/debug/` | Presentation-only views, JSON editor operations, and alert decisions |
+
+#### Stable Nintex-facing behavior
+
+Do not change these without a dedicated integration test and Nintex smoke test:
+
+- custom element name and metadata returned by `getMetaConfig()`;
+- property names, attributes, defaults, and output shape;
+- `ntx-value-change` event name, detail, bubbling, and composition;
+- pending-result publication sequence and its processing delay;
+- validation-before-request and native-submit permission sequencing;
+- production bundle path: `dist/plugin.bundle.js`.
+
+#### Verification workflow
+
+Run automated checks for every change:
+
+```sh
+npm test
+npm run typecheck
+npm run build:test
+```
+
+`build:test` must leave `dist/plugin.bundle.js` unchanged and writes the test artifact to `test/plugin.bundle.js`. Use the fixed preview URL for Nintex smoke tests before a live release.
+
 
 ### Build Commands
 ```sh
