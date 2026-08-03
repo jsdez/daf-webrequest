@@ -6,6 +6,7 @@ export async function callApi({
   headers = {},
   requestBody,
   contentType = 'application/json',
+  timeoutSeconds = 30,
   setLoading,
   setResponse,
 }: {
@@ -14,9 +15,22 @@ export async function callApi({
   headers?: Record<string, string>;
   requestBody?: any;
   contentType?: string;
+  timeoutSeconds?: number;
   setLoading: (loading: boolean) => void;
   setResponse: (response: string, statusCode?: number, success?: boolean) => void;
 }) {
+  const normalizedTimeoutSeconds = Number.isFinite(timeoutSeconds) && timeoutSeconds > 0
+    ? timeoutSeconds
+    : null;
+  const controller = new AbortController();
+  let timedOut = false;
+  const timeoutId = normalizedTimeoutSeconds === null
+    ? null
+    : window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, normalizedTimeoutSeconds * 1000);
+
   setLoading(true);
   try {
     // Prepare the body based on content type
@@ -56,13 +70,20 @@ export async function callApi({
       method,
       headers: requestHeaders,
       body,
+      signal: controller.signal,
     });
     
     const text = await res.text();
     setResponse(text, res.status, res.ok);
   } catch (e: any) {
-    setResponse('Error: ' + (e?.message || e), 0, false);
+    const message = timedOut && normalizedTimeoutSeconds !== null
+      ? `Request timed out after ${normalizedTimeoutSeconds} seconds.`
+      : 'Error: ' + (e?.message || e);
+    setResponse(message, 0, false);
   } finally {
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId);
+    }
     setLoading(false);
   }
 }

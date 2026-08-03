@@ -1,0 +1,3 @@
+# Minified bundles may contain semantically significant whitespace in embedded strings.
+dist/plugin.bundle.js -whitespace
+test/plugin.bundle.js -whitespace

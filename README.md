@@ -97,6 +97,12 @@ https://cdn.jsdelivr.net/npm/<your-package-name>@<version>/dist/plugin.js
   - `application/x-www-form-urlencoded`: Traditional form submissions
   - `text/plain`: Raw text data
 
+#### Request Timeout
+- **Type**: Number | **Default**: `30`
+- **Description**: Maximum number of seconds to wait for either the OAuth token request or the API request.
+- **Set to `0`**: Disable the timeout.
+- **On timeout**: The active request is cancelled and the control returns an error response with status code `0`.
+
 #### Request Headers
 - **Type**: String (JSON format) | **Default**: `''`
 - **Format**: `{"Header-Name": "value"}`
@@ -122,6 +128,7 @@ https://cdn.jsdelivr.net/npm/<your-package-name>@<version>/dist/plugin.js
   "department": "Engineering"
 }
 ```
+- **Validation**: For `application/json`, the body must be valid JSON. Invalid JSON blocks the request before OAuth or API traffic is sent and displays the parser error in Debug Mode.
 - **Tip**: Use Debug Mode > API Tools tab for JSON editing with validation
 
 ---
@@ -153,7 +160,7 @@ https://cdn.jsdelivr.net/npm/<your-package-name>@<version>/dist/plugin.js
 1. Plugin sends POST to Token URL with client credentials
 2. Token endpoint returns `access_token`
 3. Plugin uses token in `Authorization: Bearer <token>` header for API call
-4. Token is automatically included in response object for reuse
+4. The token is used only for the API request and is not shown in Debug Mode or added to the control response value.
 
 #### Manual Bearer Token
 
@@ -264,7 +271,8 @@ https://cdn.jsdelivr.net/npm/<your-package-name>@<version>/dist/plugin.js
   - **quick-submit**: Immediately submit Nintex form after successful API call
   - **delayed-submit**: Show countdown, then submit form (respects Countdown Timer value)
   - **only-submit**: Skip API call and directly submit the form
-- **Triggers on**: Success (200-299) and Warning (300-399) responses only
+- **Triggers on**: Strict successful responses only: HTTP 2xx and a response classified as `success`.
+- **Warnings**: Display the warning and leave the form open; they do not trigger automatic submission.
 
 #### Hide Submit Button
 - **Type**: Boolean | **Default**: `false`
@@ -309,11 +317,6 @@ https://cdn.jsdelivr.net/npm/<your-package-name>@<version>/dist/plugin.js
 
 ### Advanced Configuration
 
-#### Wait for Callback Response
-- **Type**: Boolean | **Default**: `false`
-- **Description**: Wait for callback POST body after workflow completion
-- **Use case**: Long-running workflows that send results asynchronously
-
 #### Debug Mode
 - **Type**: Boolean | **Default**: `false`
 - **When true**: Replaces button with tabbed debugging interface
@@ -354,8 +357,8 @@ Enable comprehensive debugging by setting **Debug Mode** to `true`. This reveals
 
 **Features**:
 - API configuration display (URL, method)
-- OAuth Token Response (if using OAuth)
-- Request Headers (with Authorization)
+- OAuth token metadata (if using OAuth; access tokens and client secrets are not displayed)
+- Configured request headers
 - Request Body (complete payload)
 - Response Data (complete API response)
 - State information (loading, success, button state)
@@ -373,16 +376,15 @@ Enable comprehensive debugging by setting **Debug Mode** to `true`. This reveals
 
 **Example Output**:
 ```json
-// OAuth Token Response
+// OAuth Token Metadata
 {
-  "access_token": "eyJhbGciOiJSUzI1NiIsInR5...",
   "token_type": "Bearer",
-  "expires_in": 3600
+  "expires_in": 3600,
+  "fetched_at": "2026-08-03T12:00:00.000Z"
 }
 
 // Request Headers
 {
-  "Authorization": "Bearer eyJhbGciOiJSUzI1NiIsInR5...",
   "Content-Type": "application/json"
 }
 ```
@@ -910,7 +912,8 @@ The plugin returns a structured response object in the `value` property:
 
 ```typescript
 {
-  success: boolean,           // true if HTTP 200-299
+  success: boolean,           // true only for HTTP 2xx responses classified as success
+  valid: boolean,             // form-rule validity; true on strict success or only-submit mode
   statusCode: number,         // HTTP status code (200, 404, 500, etc.)
   responseType: string,       // 'success', 'warning', or 'error'
   data: string,              // Raw response data (stringified JSON)
@@ -930,7 +933,7 @@ The plugin returns a structured response object in the `value` property:
 - `{Control:WebRequest.message}` - Actual message from API
 - `{Control:WebRequest.formattedResponse}` - Formatted display message
 - `{Control:WebRequest.output}` - Extracted value (from outputValueKey)
-- `{Control:WebRequest.access_token}` - OAuth token (for reuse)
+- `{Control:WebRequest.access_token}` - Access token only when the API response itself contains `access_token`
 
 ---
 

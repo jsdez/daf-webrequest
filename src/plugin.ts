@@ -6,6 +6,14 @@ import { PluginContract, PropType, pluginContractSchema } from '@nintex/form-plu
 import { ValidationModule } from './validation.module.js';
 
 const PLUGIN_VERSION = '1.1.8';
+const SENSITIVE_DEBUG_PROPERTIES = new Set(['clientSecret']);
+
+type FormCoordinator = {
+  instances: Set<DafWebRequestPlugin>;
+  hiddenSubmitRequesters: Set<DafWebRequestPlugin>;
+  allowNativeSubmission: boolean;
+  submitListener: (event: Event) => void;
+};
 
 let contractValidationDone = false;
 
@@ -27,6 +35,9 @@ function validateContractOnce(contract: PluginContract): void {
 
 @customElement('daf-webrequest-plugin')
 export class DafWebRequestPlugin extends LitElement {
+  private static readonly formCoordinators = new WeakMap<HTMLFormElement, FormCoordinator>();
+  private static readonly SUBMIT_HIDDEN_STYLE_ID = 'daf-webrequest-submit-hidden-style';
+
   static styles = css`
     .plugin-container {
       font-family: var(--ntx-form-theme-font-family);
@@ -710,6 +721,7 @@ export class DafWebRequestPlugin extends LitElement {
   @property({ type: String }) clientSecret: string = '';
   @property({ type: String }) outputValueKey: string = '';
   @property({ type: String }) contentType: string = 'application/json';
+  @property({ type: Number }) requestTimeout: number = 30;
   @property({ type: Boolean, reflect: true }) debugMode: boolean = false;
   @property({ type: String }) method: string = 'POST';
   @property({ type: String }) successMessage: string = 'API call completed successfully';
@@ -766,9 +778,8 @@ export class DafWebRequestPlugin extends LitElement {
   private apiCallStartTime = 0;
   private cooldownTimerId: number | null = null; // Track the timer for cleanup
   private oauthTokenResponse: any = null;
-  private submitBlockerAttached: boolean = false; // Track if submit blocker is active
+  private containingForm: HTMLFormElement | null = null;
   private delayedSubmissionStartTime: number = 0; // Track when delayed submission countdown started
-  private allowFormSubmit: boolean = false; // Track when we explicitly allow form submission
   private validationModule = new ValidationModule();
   private isFinalizingSubmission: boolean = false; // Guard against API re-entry during native submit phase
 
@@ -789,38 +800,87 @@ export class DafWebRequestPlugin extends LitElement {
         valid: false,
       };
     }
-    // Apply submit button visibility on initial load
-    this.toggleSubmitButtonVisibility();
-    // Attach submit blocker for no-submit mode
-    this.attachSubmitBlocker();
+    this.registerWithContainingForm();
     // Attach blur-revalidation listeners
     this.validationModule.attach();
     // Suppress the Nintex-injected nx-error-message span for this plugin's form group
     this.injectErrorMessageSuppressStyle();
   }
 
-  private attachSubmitBlocker(): void {
-    if (this.submitBlockerAttached) return;
-    
-    const form = document.querySelector('form');
+  private getContainingForm(): HTMLFormElement | null {
+    const form = this.closest('form');
+    return form instanceof HTMLFormElement ? form : null;
+  }
+
+  private registerWithContainingForm(): void {
+    const form = this.getContainingForm();
     if (!form) {
-      console.warn('[Submit Blocker] No form found to attach blocker');
+      console.warn('[Form Coordinator] Plugin is not inside a form');
       return;
     }
 
-    // For every mode except only-submit, the plugin owns submission timing.
-    // Keep native form submits blocked unless submitNintexForm explicitly allows one.
-    form.addEventListener('submit', (event: Event) => {
-      if (!this.allowFormSubmit && this.submissionAction !== 'only-submit') {
-        console.log('[Submit Blocker] Blocking submit - plugin-controlled submission mode is active');
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
-      }
-    }, true); // Capture phase to intercept early
+    this.containingForm = form;
+    let coordinator = DafWebRequestPlugin.formCoordinators.get(form);
+    if (!coordinator) {
+      let newCoordinator: FormCoordinator;
+      const submitListener = (event: Event) => {
+        const hasPluginControlledSubmission = Array.from(newCoordinator.instances)
+          .some((instance) => instance.submissionAction !== 'only-submit');
+        if (!newCoordinator.allowNativeSubmission && hasPluginControlledSubmission) {
+          console.log('[Form Coordinator] Blocking native submit until a plugin explicitly permits it');
+          event.preventDefault();
+          event.stopPropagation();
+          event.stopImmediatePropagation();
+        }
+      };
+      newCoordinator = {
+        instances: new Set(),
+        hiddenSubmitRequesters: new Set(),
+        allowNativeSubmission: false,
+        submitListener,
+      };
+      form.addEventListener('submit', submitListener, true);
+      DafWebRequestPlugin.formCoordinators.set(form, newCoordinator);
+      coordinator = newCoordinator;
+    }
 
-    this.submitBlockerAttached = true;
-    console.log('[Submit Blocker] Persistent submit blocker attached');
+    coordinator.instances.add(this);
+    this.toggleSubmitButtonVisibility();
+  }
+
+  private unregisterFromContainingForm(): void {
+    const form = this.containingForm;
+    if (!form) return;
+
+    const coordinator = DafWebRequestPlugin.formCoordinators.get(form);
+    if (coordinator) {
+      coordinator.instances.delete(this);
+      coordinator.hiddenSubmitRequesters.delete(this);
+      this.applySubmitButtonVisibility(form, coordinator);
+      if (coordinator.instances.size === 0) {
+        form.removeEventListener('submit', coordinator.submitListener, true);
+        DafWebRequestPlugin.formCoordinators.delete(form);
+      }
+    }
+
+    this.containingForm = null;
+  }
+
+  private ensureSubmitHiddenStyle(): void {
+    if (document.getElementById(DafWebRequestPlugin.SUBMIT_HIDDEN_STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = DafWebRequestPlugin.SUBMIT_HIDDEN_STYLE_ID;
+    style.textContent = '.daf-webrequest-submit-hidden button[data-e2e="btn-submit"] { display: none !important; }';
+    document.head.appendChild(style);
+  }
+
+  private applySubmitButtonVisibility(form: HTMLFormElement, coordinator: FormCoordinator): void {
+    form.classList.toggle('daf-webrequest-submit-hidden', coordinator.hiddenSubmitRequesters.size > 0);
+    if (coordinator.hiddenSubmitRequesters.size > 0) {
+      this.ensureSubmitHiddenStyle();
+    } else if (document.querySelectorAll('form.daf-webrequest-submit-hidden').length === 0) {
+      document.getElementById(DafWebRequestPlugin.SUBMIT_HIDDEN_STYLE_ID)?.remove();
+    }
   }
 
   static getMetaConfig(): PluginContract {
@@ -892,11 +952,11 @@ export class DafWebRequestPlugin extends LitElement {
           enum: ['application/json', 'application/x-www-form-urlencoded', 'text/plain'],
           defaultValue: 'application/json',
         } as PropType,
-        waitForResponse: {
-          type: 'boolean',
-          title: 'Wait for Callback Response',
-          description: 'If true, the plugin will wait for a callback post body once the workflow is completed.',
-          defaultValue: false,
+        requestTimeout: {
+          type: 'number',
+          title: 'Request Timeout',
+          description: 'Maximum seconds to wait for the OAuth token or API request. Set to 0 to disable the timeout.',
+          defaultValue: 30,
         } as PropType,
         value: {
           type: 'object',
@@ -1595,29 +1655,17 @@ export class DafWebRequestPlugin extends LitElement {
   }
 
   private toggleSubmitButtonVisibility(): void {
-    const styleId = 'ntx-submit-button-hidden-style';
-    
+    const form = this.containingForm;
+    const coordinator = form ? DafWebRequestPlugin.formCoordinators.get(form) : null;
+    if (!form || !coordinator) return;
+
     if (this.submitHidden) {
-      // Hide the submit button by injecting CSS
-      if (!document.getElementById(styleId)) {
-        const style = document.createElement('style');
-        style.id = styleId;
-        style.textContent = `
-          button[data-e2e="btn-submit"] {
-            display: none !important;
-          }
-        `;
-        document.head.appendChild(style);
-        console.log('[Submit Button] Hidden via CSS');
-      }
+      coordinator.hiddenSubmitRequesters.add(this);
     } else {
-      // Show the submit button by removing the CSS
-      const existingStyle = document.getElementById(styleId);
-      if (existingStyle) {
-        existingStyle.remove();
-        console.log('[Submit Button] Made visible by removing CSS');
-      }
+      coordinator.hiddenSubmitRequesters.delete(this);
     }
+
+    this.applySubmitButtonVisibility(form, coordinator);
   }
 
   private async handleAPICallTrigger() {
@@ -1715,8 +1763,8 @@ export class DafWebRequestPlugin extends LitElement {
     // Properties are maintained in declaration order (order from getMetaConfig)
     if (metadata.properties) {
       for (const [propName, propConfig] of Object.entries(metadata.properties)) {
-        // Skip the value property as it's output-only and complex
-        if (propName === 'value') continue;
+        // Skip output-only values and secrets from the debug UI.
+        if (propName === 'value' || SENSITIVE_DEBUG_PROPERTIES.has(propName)) continue;
         
         properties.push({
           name: propName,
@@ -2840,39 +2888,85 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
     return obj;
   }
 
+  private getRequestTimeoutSeconds(): number | null {
+    const timeout = Number(this.requestTimeout);
+    return Number.isFinite(timeout) && timeout > 0 ? timeout : null;
+  }
+
   private async fetchOAuthToken(): Promise<string> {
-    const response = await fetch(this.tokenUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        grant_type: 'client_credentials',
-        client_id: this.clientId,
-        client_secret: this.clientSecret,
-      }),
-    });
+    const timeoutSeconds = this.getRequestTimeoutSeconds();
+    const controller = new AbortController();
+    let timedOut = false;
+    const timeoutId = timeoutSeconds === null
+      ? null
+      : window.setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, timeoutSeconds * 1000);
 
-    if (!response.ok) {
-      throw new Error(`Token request failed with status ${response.status}`);
+    try {
+      const response = await fetch(this.tokenUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'client_credentials',
+          client_id: this.clientId,
+          client_secret: this.clientSecret,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Token request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (!data.access_token) {
+        throw new Error('No access_token in response');
+      }
+
+      // Store only non-sensitive OAuth metadata for debugging.
+      this.oauthTokenResponse = {
+        token_type: data.token_type || 'Bearer',
+        expires_in: data.expires_in,
+        scope: data.scope,
+        fetched_at: new Date().toISOString(),
+        expires_at: data.expires_in ? new Date(Date.now() + (data.expires_in * 1000)).toISOString() : null
+      };
+
+      return data.access_token;
+    } catch (error) {
+      if (timedOut && timeoutSeconds !== null) {
+        throw new Error(`OAuth token request timed out after ${timeoutSeconds} seconds.`);
+      }
+      throw error;
+    } finally {
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
     }
+  }
 
-    const data = await response.json();
-    if (!data.access_token) {
-      throw new Error('No access_token in response');
-    }
-
-    // Store the full token response for debugging
-    this.oauthTokenResponse = {
-      access_token: data.access_token,
-      token_type: data.token_type || 'Bearer',
-      expires_in: data.expires_in,
-      scope: data.scope,
-      fetched_at: new Date().toISOString(),
-      expires_at: data.expires_in ? new Date(Date.now() + (data.expires_in * 1000)).toISOString() : null
+  private setRequestConfigurationError(message: string): void {
+    const executionTime = Date.now() - this.apiCallStartTime;
+    const timestamp = new Date().toISOString();
+    this.responseType = 'error';
+    this.apiResponse = message;
+    const formattedResponse = this.getCustomMessage('error').message;
+    this.value = {
+      success: false,
+      valid: false,
+      statusCode: 0,
+      responseType: 'error',
+      data: message,
+      message,
+      formattedResponse,
+      timestamp,
+      executionTime,
     };
-
-    return data.access_token;
+    this.requestUpdate();
   }
 
   private async handleApiCall() {
@@ -2884,6 +2978,27 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
     
     this.responseType = null;
     this.apiResponse = '';
+
+    // Validate and prepare the request body before obtaining credentials or
+    // contacting the API. Invalid JSON must never become a silent empty body.
+    let actualBody: any;
+    if (this.contentType === 'application/x-www-form-urlencoded') {
+      actualBody = this.requestBody || '';
+    } else if (this.contentType === 'application/json') {
+      if (this.requestBody && this.requestBody.trim()) {
+        try {
+          actualBody = JSON.parse(this.requestBody);
+        } catch (error) {
+          const parserMessage = error instanceof Error ? error.message : String(error);
+          this.setRequestConfigurationError(`Request body is not valid JSON: ${parserMessage}`);
+          return;
+        }
+      } else {
+        actualBody = undefined;
+      }
+    } else {
+      actualBody = this.requestBody || '';
+    }
     
     // If OAuth credentials are provided, fetch token first
     let accessToken = this.bearerToken;
@@ -2937,34 +3052,13 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
       headers['Authorization'] = `Bearer ${accessToken.trim()}`;
     }
     
-    // Determine the actual body to use based on contentType
-    let actualBody: any;
-    if (this.contentType === 'application/x-www-form-urlencoded') {
-      // For URL-encoded, use the raw requestBody string as-is
-      actualBody = this.requestBody || '';
-    } else if (this.contentType === 'application/json') {
-      // For JSON, parse requestBody if provided, otherwise send nothing
-      if (this.requestBody && this.requestBody.trim()) {
-        try {
-          actualBody = JSON.parse(this.requestBody);
-        } catch (e) {
-          // If parsing fails, treat as empty
-          actualBody = undefined;
-        }
-      } else {
-        actualBody = undefined;
-      }
-    } else {
-      // For other types (text/plain, etc.), use raw string
-      actualBody = this.requestBody || '';
-    }
-    
     await callApi({
       url,
       method: this.method || 'POST',
       headers,
       requestBody: actualBody,
       contentType: this.contentType,
+      timeoutSeconds: this.getRequestTimeoutSeconds() ?? 0,
       setLoading: (loading: boolean) => { 
         this.isLoading = loading; 
         this.requestUpdate(); 
@@ -3172,9 +3266,10 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
 
   private submitNintexForm(): void {
     console.log('[Submission Action] Attempting to submit Nintex form');
-    const form = document.querySelector('form');
-    if (!form) {
-      console.error('[Submission Action] No form found');
+    const form = this.containingForm ?? this.getContainingForm();
+    const coordinator = form ? DafWebRequestPlugin.formCoordinators.get(form) : null;
+    if (!form || !coordinator) {
+      console.error('[Submission Action] No coordinated form found');
       return;
     }
     
@@ -3182,12 +3277,12 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
     if (submitBtn instanceof HTMLElement) {
       console.log('[Submission Action] Clicking submit button');
       this.isFinalizingSubmission = true;
-      // Temporarily allow form submission
-      this.allowFormSubmit = true;
+      // Permit the shared form coordinator to allow this native submit.
+      coordinator.allowNativeSubmission = true;
       submitBtn.click();
       // Reset flags after native submit cycle has had time to complete.
       setTimeout(() => {
-        this.allowFormSubmit = false;
+        coordinator.allowNativeSubmission = false;
         this.isFinalizingSubmission = false;
       }, 1500);
     } else {
@@ -3266,6 +3361,7 @@ ${this.renderJsonWithSyntaxHighlight(parsed, 0)}
       this.cooldownTimerId = null;
     }
     this.validationModule.detach();
+    this.unregisterFromContainingForm();
     this.removeErrorMessageSuppressStyle();
   }
 
