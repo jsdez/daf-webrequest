@@ -8,6 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..');
 const liveBundlePath = path.join(repoRoot, 'dist', 'plugin.bundle.js');
+// Preview builds are written separately so they never replace the live bundle.
 const testBundlePath = path.join(repoRoot, 'test', 'plugin.bundle.js');
 
 function checksum(filePath) {
@@ -29,6 +30,11 @@ await esbuild.build({
   target: ['es2017'],
   platform: 'browser',
   sourcemap: false,
+  define: {
+    // These names differ from the live build, allowing test and live controls to coexist in Nintex.
+    __DAF_WEBREQUEST_PLUGIN_TAG__: JSON.stringify('daf-webrequest-plugin-test'),
+    __DAF_WEBREQUEST_CONTROL_NAME__: JSON.stringify('Web Request Plugin Test'),
+  },
 });
 
 const liveBundleChecksumAfter = checksum(liveBundlePath);

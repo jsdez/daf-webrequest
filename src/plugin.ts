@@ -42,10 +42,13 @@ import { interpretApiResponse } from './services/api-response-interpreter.js';
 import { pluginStyles } from './styles/plugin.styles.js';
 import { getPluginContract } from './nintex/plugin-contract.js';
 
+declare const __DAF_WEBREQUEST_PLUGIN_TAG__: string;
+
 const PLUGIN_VERSION = '1.1.8';
+const PLUGIN_ELEMENT_NAME = __DAF_WEBREQUEST_PLUGIN_TAG__;
 const SENSITIVE_DEBUG_PROPERTIES = new Set(['clientSecret']);
 
-@customElement('daf-webrequest-plugin')
+@customElement(PLUGIN_ELEMENT_NAME)
 export class DafWebRequestPlugin extends LitElement {
   static styles = pluginStyles;
 
@@ -1377,13 +1380,13 @@ export class DafWebRequestPlugin extends LitElement {
     if (document.getElementById(DafWebRequestPlugin.ERROR_SUPPRESS_STYLE_ID)) return;
     const style = document.createElement('style');
     style.id = DafWebRequestPlugin.ERROR_SUPPRESS_STYLE_ID;
-    style.textContent = '.form-group:has(daf-webrequest-plugin) .nx-error-message { display: none !important; }';
+    style.textContent = `.form-group:has(${PLUGIN_ELEMENT_NAME}) .nx-error-message { display: none !important; }`;
     document.head.appendChild(style);
   }
 
   private removeErrorMessageSuppressStyle(): void {
     // Only remove if no other instances remain in the document
-    if (document.querySelectorAll('daf-webrequest-plugin').length === 0) {
+    if (document.querySelectorAll(PLUGIN_ELEMENT_NAME).length === 0) {
       document.getElementById(DafWebRequestPlugin.ERROR_SUPPRESS_STYLE_ID)?.remove();
     }
   }

@@ -1103,7 +1103,7 @@ Only after preview validation is accepted:
 
 ### Build Commands
 ```sh
-# Preview build: type-checks without emitting TypeScript output, then writes only
+# Test build: type-checks without emitting TypeScript output, then writes only
 # test/plugin.bundle.js. It verifies dist/plugin.bundle.js was not changed.
 npm run build:test
 
@@ -1112,6 +1112,17 @@ npm run build          # Bump plugin version + TypeScript compilation to dist/
 npm run bundle         # Bundle to dist/plugin.bundle.js
 npm run deploy         # Live build + bundle
 ```
+
+#### Build artifact and Nintex identities
+
+The test artifact has its own file path and plugin identities, so it can be registered alongside the live plugin in the same Nintex environment.
+
+| Build target | Command | Generated file | Custom element name | Nintex control name |
+| --- | --- | --- | --- | --- |
+| Test / preview | `npm run build:test` | `test/plugin.bundle.js` | `daf-webrequest-plugin-test` | `Web Request Plugin Test` |
+| Live / production | `npm run build:plugin` or `npm run deploy` | `dist/plugin.bundle.js` | `daf-webrequest-plugin` | `Web Request Plugin` |
+
+Use the **test** bundle URL on a Nintex test form. Use the **live** bundle URL only after the live build and release process are complete.
 
 For a Nintex test form, use the fixed preview URL:
 

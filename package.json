@@ -9,7 +9,7 @@
     "build": "npm run bump:plugin-version && tsc",
     "bump:plugin-version": "node scripts/bump-version.mjs",
     "bundle": "node build.mjs",
-    "bundle:plugin": "esbuild src/plugin.ts --bundle --minify --format=esm --target=es2017 --platform=browser --outfile=dist/plugin.bundle.js",
+    "bundle:plugin": "node build.mjs",
     "build:plugin": "npm run build && npm run bundle:plugin",
     "build:test": "npm run typecheck && node scripts/build-test.mjs",
     "deploy": "npm run build && npm run bundle"

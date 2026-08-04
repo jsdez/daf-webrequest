@@ -1,6 +1,11 @@
 import { PluginContract, PropType, pluginContractSchema } from '@nintex/form-plugin-contract';
 
+declare const __DAF_WEBREQUEST_CONTROL_NAME__: string;
+
 const PLUGIN_VERSION = '1.1.8';
+const PLUGIN_CONTROL_NAME = typeof __DAF_WEBREQUEST_CONTROL_NAME__ !== 'undefined'
+  ? __DAF_WEBREQUEST_CONTROL_NAME__
+  : 'Web Request Plugin';
 
 let contractValidationDone = false;
 
@@ -22,7 +27,7 @@ function validateContractOnce(contract: PluginContract): void {
 
 export function getPluginContract(): PluginContract {
   const contract: PluginContract = {
-    controlName: 'Web Request Plugin',
+    controlName: PLUGIN_CONTROL_NAME,
     fallbackDisableSubmit: false,
     version: PLUGIN_VERSION,
     description: 'A Nintex Form Plugin for making API calls.',
