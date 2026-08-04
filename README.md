@@ -30,6 +30,10 @@ A comprehensive Nintex Form Plugin for making API calls with advanced features i
 - **Copy to Clipboard**: Easy copying of request/response data in debug mode
 - **JSON Tools**: Built-in JSON formatter, validator, and syntax highlighter
 
+## Developer documentation
+
+- [Plugin Flow Explorer](Docs/plugin-flow-explorer/README.md) — lifecycle, function-call flow, state model, Nintex value contract, and module dependencies.
+
 ## Installation
 
 ### Hosted plugin URLs

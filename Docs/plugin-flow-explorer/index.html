@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Interactive execution map for the DAF Web Request Nintex plugin.">
+  <title>DAF Web Request Plugin — Interactive Flow Map</title>
+  <style>
+    :root { --bg:#07111f; --panel:#101d2e; --panel-2:#14253a; --text:#e9f1fa; --muted:#a9bad0; --line:#34516f; --accent:#5eead4; --blue:#7dd3fc; --warn:#fbbf24; --error:#fb7185; --success:#86efac; --shadow:0 14px 36px rgba(0,0,0,.28); }
+    * { box-sizing:border-box; }
+    html { background:var(--bg); color:var(--text); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    body { margin:0; line-height:1.5; }
+    a { color:var(--accent); }
+    .shell { max-width:1500px; margin:0 auto; padding:32px 24px 56px; }
+    header { display:flex; align-items:flex-start; justify-content:space-between; gap:24px; margin-bottom:26px; }
+    h1 { margin:0 0 8px; font-size:clamp(1.7rem,3vw,2.6rem); line-height:1.12; }
+    h2 { font-size:1.1rem; margin:0 0 14px; }
+    p { margin:0; } .lede { color:var(--muted); max-width:900px; }
+    .back { white-space:nowrap; color:var(--accent); text-decoration:none; border:1px solid var(--line); border-radius:8px; padding:8px 12px; }
+    .legend, .stats { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+    .chip { display:inline-flex; align-items:center; gap:7px; border:1px solid var(--line); border-radius:999px; padding:5px 10px; background:#0d1928; color:var(--muted); font-size:.82rem; }
+    .dot { width:9px; height:9px; border-radius:50%; background:var(--blue); } .dot.gate{background:var(--warn)} .dot.error{background:var(--error)} .dot.success{background:var(--success)} .dot.state{background:var(--accent)}
+    .spine { background:linear-gradient(140deg,#10243a,#0b1727); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); padding:18px; overflow-x:auto; margin-bottom:22px; }
+    .spine-flow { min-width:1010px; display:grid; grid-template-columns:repeat(6,1fr); gap:14px; align-items:center; }
+    .spine-node { position:relative; min-height:86px; padding:13px; border:1px solid var(--line); background:var(--panel); border-radius:10px; }
+    .spine-node:not(:last-child)::after { content:"→"; position:absolute; right:-19px; top:27px; color:var(--accent); font-size:1.7rem; z-index:2; }
+    .spine-node strong { display:block; font-size:.93rem; } .spine-node small { display:block; color:var(--muted); margin-top:5px; font-size:.76rem; }
+    .layout { display:grid; grid-template-columns:minmax(400px,1.15fr) minmax(330px,.85fr); gap:22px; align-items:start; }
+    .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); padding:20px; }
+    .tree { margin:0; padding:0; list-style:none; }
+    .tree details { border-left:1px solid var(--line); margin-left:12px; padding-left:17px; }
+    .tree > li > details { margin-left:0; border-left:0; padding-left:0; }
+    .tree summary { cursor:pointer; color:var(--text); padding:7px 4px; font-weight:650; }
+    .tree summary::marker { color:var(--accent); }
+    .tree ul { list-style:none; margin:2px 0 7px; padding:0; }
+    .tree li { position:relative; }
+    .tree li:not(:has(details)) { margin:3px 0 3px 29px; }
+    .tree li:not(:has(details))::before { content:""; position:absolute; width:14px; border-top:1px solid var(--line); left:-17px; top:19px; }
+    .flow-button { width:100%; text-align:left; color:var(--text); background:transparent; border:1px solid transparent; padding:8px 9px; border-radius:7px; cursor:pointer; font:inherit; font-size:.89rem; }
+    .flow-button:hover, .flow-button:focus-visible, .flow-button.active { background:#193149; border-color:#4a7396; outline:none; }
+    .flow-button code { color:var(--blue); font-size:.83rem; }
+    .branch { color:var(--muted); font-size:.78rem; margin-left:8px; }
+    .detail { position:sticky; top:20px; min-height:505px; }
+    .detail .eyebrow { color:var(--accent); font-weight:700; letter-spacing:.08em; text-transform:uppercase; font-size:.72rem; }
+    .detail h2 { margin:8px 0 10px; font-size:1.35rem; }
+    .detail p, .detail li { color:var(--muted); font-size:.94rem; }
+    .detail ul { padding-left:20px; margin:12px 0; }
+    .detail code { color:var(--blue); background:#0b1727; padding:1px 4px; border-radius:4px; }
+    .tag { display:inline-block; margin:2px 4px 2px 0; padding:3px 7px; border-radius:999px; background:#18344c; color:#c9e9ff; font-size:.74rem; }
+    .note { border-left:3px solid var(--accent); background:#0c1b2b; border-radius:4px; color:var(--muted); padding:12px; margin-top:15px; font-size:.87rem; }
+    .paths { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; margin-top:22px; }
+    .path { border:1px solid var(--line); border-radius:10px; padding:14px; background:var(--panel-2); }
+    .path h3 { margin:0 0 7px; font-size:.94rem; } .path p { color:var(--muted); font-size:.84rem; }
+    footer { color:var(--muted); font-size:.78rem; margin-top:24px; }
+    @media (max-width:900px) { header { display:block; }.back { display:inline-block; margin-top:16px; }.layout { grid-template-columns:1fr; }.detail { position:static; min-height:0; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <h1>DAF Web Request Plugin — Interactive Flow Map</h1>
+        <p class="lede">A click-through map of the plugin’s lifecycle, function calls, execution state, guard conditions, and Nintex form interactions. Select any function in the tree to inspect its purpose, inputs, outputs, and next step.</p>
+        <div class="legend" aria-label="Map legend">
+          <span class="chip"><span class="dot"></span>Function / integration</span>
+          <span class="chip"><span class="dot gate"></span>Decision gate</span>
+          <span class="chip"><span class="dot state"></span>Published state</span>
+          <span class="chip"><span class="dot success"></span>Strict-success path</span>
+          <span class="chip"><span class="dot error"></span>Blocked or error path</span>
+        </div>
+      </div>
+      <a class="back" href="README.md">← Flow Explorer guide</a>
+    </header>
+
+    <section class="spine" aria-labelledby="spine-heading">
+      <h2 id="spine-heading">Execution spine</h2>
+      <div class="spine-flow">
+        <div class="spine-node"><strong>1. Nintex inputs</strong><small>Properties, attributes, form rules, user click</small></div>
+        <div class="spine-node"><strong>2. Trigger + pending</strong><small><code>updated()</code> clears stale output and publishes pending</small></div>
+        <div class="spine-node"><strong>3. Validation gates</strong><small>Form validity, replay protection, cooldown</small></div>
+        <div class="spine-node"><strong>4. Request pipeline</strong><small>Body, OAuth, headers, timeout-aware fetch</small></div>
+        <div class="spine-node"><strong>5. Interpret + publish</strong><small>Classify, extract output, emit <code>ntx-value-change</code></small></div>
+        <div class="spine-node"><strong>6. Optional submit</strong><small>None, quick, delayed, or native-only submission</small></div>
+      </div>
+    </section>
+
+    <section class="layout" aria-label="Function tree and selected function details">
+      <nav class="card" aria-label="Plugin function call tree">
+        <h2>Function call tree</h2>
+        <ul class="tree">
+          <li><details open><summary>Component registration and lifecycle</summary><ul>
+            <li><button class="flow-button active" data-flow="constructor"><code>constructor()</code><span class="branch">private state only</span></button></li>
+            <li><button class="flow-button" data-flow="connected"><code>connectedCallback()</code><span class="branch">attach to form</span></button></li>
+            <li><button class="flow-button" data-flow="render"><code>render()</code><span class="branch">button, alerts, debug UI</span></button></li>
+            <li><button class="flow-button" data-flow="updated"><code>updated(changedProperties)</code><span class="branch">central transition point</span></button></li>
+            <li><button class="flow-button" data-flow="disconnected"><code>disconnectedCallback()</code><span class="branch">dispose and detach</span></button></li>
+          </ul></details></li>
+          <li><details open><summary>Request trigger and pending state</summary><ul>
+            <li><button class="flow-button" data-flow="trigger"><code>triggerAPICall()</code><span class="branch">button click</span></button></li>
+            <li><button class="flow-button" data-flow="clear"><code>clearApiOutput()</code><span class="branch">remove stale result</span></button></li>
+            <li><button class="flow-button" data-flow="pending"><code>publishPendingResultToNintex()</code><span class="branch">two-stage event publish</span></button></li>
+            <li><button class="flow-button" data-flow="gate"><code>handleAPICallTrigger()</code><span class="branch">validation and guard gates</span></button></li>
+          </ul></details></li>
+          <li><details open><summary>Validation and request guards</summary><ul>
+            <li><button class="flow-button" data-flow="onlysubmit"><code>submissionAction === 'only-submit'</code><span class="branch">native form submit only</span></button></li>
+            <li><button class="flow-button" data-flow="validation"><code>ValidationModule.runHardValidation()</code><span class="branch">block invalid forms</span></button></li>
+            <li><button class="flow-button" data-flow="replay"><code>hasSuccessfulCall</code><span class="branch">single-call guard</span></button></li>
+            <li><button class="flow-button" data-flow="cooldown"><code>SubmissionScheduler.startCooldownTimer()</code><span class="branch">countdown guard</span></button></li>
+          </ul></details></li>
+          <li><details open><summary>HTTP request construction and execution</summary><ul>
+            <li><button class="flow-button" data-flow="request"><code>handleApiCall()</code><span class="branch">orchestrator</span></button></li>
+            <li><button class="flow-button" data-flow="body"><code>prepareRequestBody()</code><span class="branch">JSON validation</span></button></li>
+            <li><button class="flow-button" data-flow="oauth"><code>fetchOAuthToken()</code><span class="branch">optional credentials flow</span></button></li>
+            <li><button class="flow-button" data-flow="headers"><code>parseRequestHeaders()</code><span class="branch">headers + Bearer auth</span></button></li>
+            <li><button class="flow-button" data-flow="fetch"><code>callApi()</code><span class="branch">fetch + AbortController</span></button></li>
+          </ul></details></li>
+          <li><details open><summary>Response, state, and Nintex output</summary><ul>
+            <li><button class="flow-button" data-flow="callback"><code>setResponse(...)</code><span class="branch">response callback</span></button></li>
+            <li><button class="flow-button" data-flow="interpret"><code>interpretApiResponse()</code><span class="branch">type + optional extraction</span></button></li>
+            <li><button class="flow-button" data-flow="message"><code>getCustomMessage()</code><span class="branch">formatted alert content</span></button></li>
+            <li><button class="flow-button" data-flow="value"><code>createApiResponseValue()</code><span class="branch">output object</span></button></li>
+            <li><button class="flow-button" data-flow="event"><code>value setter → ntx-value-change</code><span class="branch">Nintex rule boundary</span></button></li>
+          </ul></details></li>
+          <li><details open><summary>Post-success submission coordination</summary><ul>
+            <li><button class="flow-button" data-flow="post"><code>handlePostSubmissionAction()</code><span class="branch">route by action</span></button></li>
+            <li><button class="flow-button" data-flow="scheduler"><code>SubmissionScheduler</code><span class="branch">quick/delayed timers</span></button></li>
+            <li><button class="flow-button" data-flow="submit"><code>submitNintexForm()</code><span class="branch">re-entry guarded submit</span></button></li>
+            <li><button class="flow-button" data-flow="coordinator"><code>FormCoordinatorManager</code><span class="branch">shared form interception</span></button></li>
+          </ul></details></li>
+          <li><details><summary>Supporting behavior</summary><ul>
+            <li><button class="flow-button" data-flow="ui"><code>render*()</code><span class="branch">alerts, modal, debug tabs</span></button></li>
+            <li><button class="flow-button" data-flow="formatter"><code>formatters/*</code><span class="branch">response display configuration</span></button></li>
+            <li><button class="flow-button" data-flow="contract"><code>getPluginContract()</code><span class="branch">Nintex metadata</span></button></li>
+          </ul></details></li>
+        </ul>
+      </nav>
+
+      <aside class="card detail" aria-live="polite">
+        <div class="eyebrow" id="detail-category">Lifecycle</div>
+        <h2 id="detail-title">constructor()</h2>
+        <div id="detail-tags"></div>
+        <p id="detail-copy">Initializes the web component through class field initializers. It deliberately does not assign Nintex-bound properties because Nintex can provide them as attributes after construction.</p>
+        <ul id="detail-list"><li>Starts with default private execution, debug, and submission state.</li><li>Hands lifecycle control to Lit and the browser.</li></ul>
+        <div class="note" id="detail-note">The component’s public configuration belongs to Lit <code>@property</code> fields; private fields hold per-instance state only.</div>
+      </aside>
+    </section>
+
+    <section class="paths" aria-label="Important end states">
+      <article class="path"><h3>✓ Strict success</h3><p>Transport succeeds and the response classifier returns <code>success</code>. The plugin sets <code>hasSuccessfulCall</code>, emits the result, then can submit the form.</p></article>
+      <article class="path"><h3>! Warning</h3><p>The response is classified as <code>warning</code>. A result is emitted, but it is not a strict success and does not start post-success submission.</p></article>
+      <article class="path"><h3>× Error / blocked</h3><p>Validation failure, cooldown, invalid JSON, OAuth failure, timeout, or failed transport stops or publishes an error without a native success submission.</p></article>
+      <article class="path"><h3>↻ Reconfiguration</h3><p>Changing any request-defining property clears the prior output and emits a pending value so form rules never act on stale API data.</p></article>
+    </section>
+
+    <footer>Source of truth: <a href="../../src/plugin.ts">src/plugin.ts</a>. This map is self-contained and has no external runtime dependencies.</footer>
+  </main>
+
+  <script>
+    const flows = {
+      constructor:{category:'Lifecycle',title:'constructor()',tags:['component setup','private state'],copy:'Creates the Lit component without overwriting values that Nintex later supplies as attributes. The private state used by rendering, request execution, debugging, and submission coordination is initialized through class field initializers.',items:['Public configuration is defined with Lit @property fields.','Avoids assigning metadata-backed properties in the constructor.','Next: connectedCallback() when the element joins the document.'],note:'Why it matters: assigning a metadata-backed property here could replace a Nintex value that arrives after the component is constructed.'},
+      connected:{category:'Lifecycle',title:'connectedCallback()',tags:['form registration','validation'],copy:'Runs when the plugin is attached to the DOM. It registers the instance with the containing Nintex form, attaches validation behavior, and then participates in Lit rendering.',items:['Calls FormCoordinatorManager.register() for the nearest form.','Stores the form reference for later native submission.','Calls ValidationModule.attach().'],note:'Multiple plugin instances can share one form; the coordinator maintains one native submit interception policy per form.'},
+      render:{category:'Lifecycle',title:'render()',tags:['Lit UI','debug'],copy:'Renders the configured button, status alerts, optional details/modal, and debug tabs. The rendered button’s click handler enters the trigger path.',items:['Uses isLoading and isButtonDisabled() to control button state.','Uses responseType, apiResponse, and message configuration for alerts.','Debug mode renders request, JSON, and response formatter tooling.'],note:'Rendering reflects state; it does not itself perform an API request.'},
+      updated:{category:'Lifecycle',title:'updated(changedProperties)',tags:['transition point','pending state'],copy:'This is the central property-transition handler. A new sendAPICall request or any request-defining configuration change clears the old output and publishes a pending state.',items:['Detects sendAPICall changing to true.','Calls clearApiOutput() for configuration changes and new requests.','Starts publishPendingResultBeforeValidation() only for a new request.','Updates native submit-button visibility when submitHidden changes.'],note:'The pending value prevents Nintex rules from reading a prior API result while the next request is being evaluated.'},
+      disconnected:{category:'Lifecycle',title:'disconnectedCallback()',tags:['cleanup','lifecycle'],copy:'Cleans up per-instance services when the plugin leaves the DOM.',items:['Disposes SubmissionScheduler timers.','Detaches ValidationModule listeners.','Unregisters the instance from FormCoordinatorManager.','Removes error-suppression styling when it is no longer needed.'],note:'Cleanup is essential when forms rerender or controls are removed.'},
+      trigger:{category:'Trigger',title:'triggerAPICall()',tags:['button click','property trigger'],copy:'The rendered button calls this short method. Rather than calling the API directly, it sets sendAPICall to true so the same updated() path is used for button clicks and Nintex-driven triggers.',items:['Sets sendAPICall = true.','Lit schedules updated().','Next: clear old state and publish pending output.'],note:'Nintex can also set send-api-call directly, producing the same behavior.'},
+      clear:{category:'State',title:'clearApiOutput(reason)',tags:['pending','stale-result protection'],copy:'Resets success/output state before a configuration transition or fresh request.',items:['Sets hasSuccessfulCall = false.','Clears responseType and apiResponse.','Assigns createPendingApiValue(timestamp) to value.','The value setter immediately emits ntx-value-change.'],note:'A configuration change must invalidate the prior output, not merely hide it in the UI.'},
+      pending:{category:'State',title:'publishPendingResultToNintex()',tags:['ntx-value-change','timing'],copy:'Re-emits the current pending value after Lit has rendered and waits 800 ms so Nintex form rules can settle before validation or native submission proceeds.',items:['Waits for updateComplete.','Dispatches ntx-value-change again.','Waits 800 ms.','publishPendingResultBeforeValidation() then calls handleAPICallTrigger().'],note:'The value setter sends the immediate event; this method provides a second, synchronized publication.'},
+      gate:{category:'Guard gates',title:'handleAPICallTrigger()',tags:['validation','cooldown','replay protection'],copy:'Resets the trigger flag and decides whether execution may proceed to handleApiCall().',items:['Stops re-entry when isFinalizingSubmission is true.','Routes only-submit directly to native form submission.','Runs hard Nintex validation for every other action.','Blocks repeat strict successes unless allowMultipleAPICalls is true.','Blocks active countdown cooldowns and starts their timer.'],note:'Only after every gate passes does this method call handleApiCall().'},
+      onlysubmit:{category:'Guard gates',title:"submissionAction = 'only-submit'",tags:['native submit','no API call'],copy:'This special mode uses the control as a proxy for the native Nintex submit button and deliberately skips all API behavior.',items:['Keeps the newly published pending API semantics.','Updates value.valid to true.','Calls submitNintexForm().','Does not run ValidationModule or handleApiCall().'],note:'Use this mode when the control controls form submission but should not call an endpoint.'},
+      validation:{category:'Guard gates',title:'ValidationModule.runHardValidation()',tags:['Nintex validation','blocker'],copy:'Triggers native validation, evaluates form controls and visible validation markers, and returns whether the form is valid enough to call the API.',items:['Invalid result: request stops with no HTTP call.','Valid result: replay/cooldown gates are evaluated.','attach() and detach() manage lifecycle integration.'],note:'Form validation happens before OAuth and before request construction.'},
+      replay:{category:'Guard gates',title:'hasSuccessfulCall + allowMultipleAPICalls',tags:['replay protection','state'],copy:'A successful call is strict: transport success plus responseType success. When multiple calls are disallowed, that state prevents another request.',items:['Warnings and errors do not set hasSuccessfulCall.','clearApiOutput() resets it on request/configuration changes.','isButtonDisabled() also uses it to keep the button disabled in single-call mode.'],note:'This avoids permanently blocking a user after an error or warning.'},
+      cooldown:{category:'Guard gates',title:'SubmissionScheduler.startCooldownTimer()',tags:['countdown','timer'],copy:'When countdown protection is enabled and the last request is still within the configured interval, the request is blocked and the scheduler updates the UI until cooldown expires.',items:['Sets showCooldownAlert = true.','Uses lastApiCallTime and countdownTimer.','Requests rerenders every second.','Clears showCooldownAlert when complete.'],note:'Cooldown is separate from delayed submission, although both use SubmissionScheduler.'},
+      request:{category:'Request pipeline',title:'handleApiCall()',tags:['orchestrator','execution state'],copy:'Owns the full request path after all gates pass: body validation, optional OAuth, request header assembly, transport, response interpretation, value publication, and strict-success follow-up.',items:['Returns immediately if isLoading is already true.','Records lastApiCallTime and apiCallStartTime.','Uses a common timeout for OAuth and API calls.','Delegates HTTP behavior to callApi().'],note:'The method sets state through callbacks rather than waiting for a custom response object.'},
+      body:{category:'Request pipeline',title:'prepareRequestBody()',tags:['JSON validation','local error'],copy:'Prepares the configured request body for the selected content type. JSON payloads are validated before credentials or network activity.',items:['Invalid JSON calls setRequestConfigurationError().','Configuration errors publish statusCode 0 and responseType error.','Valid body continues to OAuth/header preparation.'],note:'Invalid JSON is intentionally never silently converted to an empty request body.'},
+      oauth:{category:'Request pipeline',title:'fetchOAuthToken()',tags:['OAuth client credentials','timeout'],copy:'Runs only when tokenUrl, clientId, and clientSecret are all present. It posts client_credentials form data and returns an access token plus sanitized debug metadata.',items:['Fetched token replaces configured bearerToken for this request.','Failure publishes an API error value with statusCode 401.','AbortController applies the configured request timeout.'],note:'The client secret is not included in the sanitized debug metadata.'},
+      headers:{category:'Request pipeline',title:'parseRequestHeaders() + Authorization',tags:['headers','authentication'],copy:'Parses the configured headers and adds Authorization: Bearer <token> when a bearer token or OAuth token is available.',items:['Starts with parsed requestHeaders.','OAuth token takes precedence over bearerToken.','Passes headers with URL, method, body, content type, and timeout to callApi().'],note:'This is the final request assembly stage before fetch.'},
+      fetch:{category:'Request pipeline',title:'callApi()',tags:['fetch','AbortController','callbacks'],copy:'Encapsulates fetch execution. It prepares the body according to content type, uses AbortController for a timeout, and reports all outcomes through setLoading and setResponse callbacks.',items:['setLoading(true) starts the loading UI.','Reads response text and passes response/status/res.ok to setResponse.','Timeout and transport errors become a response with statusCode 0 and success false.','Always clears loading in finally.'],note:'callApi() does not decide business response type; plugin response logic does.'},
+      callback:{category:'Response',title:'setResponse(response, statusCode, success)',tags:['response callback','state update'],copy:'The callback supplied to callApi() receives raw text plus transport status. It updates execution state, refreshes the debug formatter input, and begins interpretation.',items:['Stores apiResponse.','Classifies initial response type.','Clears prior formatter field selections.','Measures executionTime from apiCallStartTime.'],note:'Both HTTP responses and caught transport failures arrive here.'},
+      interpret:{category:'Response',title:'interpretApiResponse()',tags:['classification','output extraction'],copy:'Safely parses JSON when possible. It forces error for failed transport, otherwise classifies the response and extracts optional values.',items:['Extracts access_token when present.','Resolves outputValueKey into value.output.','Finds conventional messages: d.Message, Message, message, msg, data.message.','Non-JSON responses retain their classified type.'],note:'Output extraction does not delay the timing of Nintex value publication.'},
+      message:{category:'Response',title:'getCustomMessage()',tags:['formatter','display'],copy:'Produces the alert content for success, warning, or error. It supports plain configured text or formatter configuration built by the debug tooling.',items:['Reads successMessage, warningMessage, or errorMessage.','Uses formatters/response-config and configured-message helpers.','Returns a title/message pair for UI and formattedResponse.'],note:'Message formatting affects display and formattedResponse; raw response remains in value.data.'},
+      value:{category:'Published state',title:'createApiResponseValue()',tags:['Nintex output','strict success'],copy:'Builds the outgoing value object after a completed API response.',items:['success and valid become true only for transport success plus responseType success.','Includes statusCode, raw data, message, formattedResponse, timestamp, executionTime.','Adds access_token and output only when extracted.','Pending and configuration errors use separate factories.'],note:'Strict success drives both hasSuccessfulCall and optional post-success submission.'},
+      event:{category:'Published state',title:'value setter → ntx-value-change',tags:['Nintex event','integration boundary'],copy:'Every assignment to value dispatches a bubbling, composed CustomEvent named ntx-value-change and requests a Lit update.',items:['Event detail is the complete value object.','Nintex form rules receive the output through this event.','Pending state and final result both use this pathway.'],note:'This is the main boundary between plugin execution and Nintex state/rules.'},
+      post:{category:'Submission',title:'handlePostSubmissionAction()',tags:['strict-success only','routing'],copy:'Runs only after a strict success has been published and Nintex has had 800 ms to consume the result.',items:['Delegates to SubmissionScheduler.handlePostSubmissionAction(submissionAction).','no-submit ends the flow.','quick-submit schedules a short native submit.','delayed-submit starts a visible countdown.'],note:'Warnings and errors never reach this step.'},
+      scheduler:{category:'Submission',title:'SubmissionScheduler',tags:['quick submit','delayed submit','cooldown'],copy:'Owns timing behavior while the plugin retains the decision about whether submission is allowed.',items:['quick-submit: calls submit after 500 ms.','delayed-submit: updates countdown every 100 ms then calls submit.','Cooldown: updates every second and clears cooldown alert at completion.','dispose() clears an active timer.'],note:'The scheduler receives callbacks for current timer state, rerendering, and submission.'},
+      submit:{category:'Submission',title:'submitNintexForm()',tags:['native submit','re-entry guard'],copy:'Requests a native Nintex form submission after an allowed submission action.',items:['Requires a containing form.','Sets isFinalizingSubmission = true.','Delegates the actual click to FormCoordinatorManager.submit().','Resets finalizing state when coordinator completion fires or no button is found.'],note:'isFinalizingSubmission stops a submission-triggered property change from becoming another API call.'},
+      coordinator:{category:'Submission',title:'FormCoordinatorManager',tags:['multi-plugin form','submit interception'],copy:'Maintains one coordinator per HTML form so all DAF controls can cooperate around native submission and submit-button visibility.',items:['register() installs a capture-phase submit listener when needed.','Blocks native submit until a plugin explicitly permits it.','submit() temporarily permits native submission and clicks the submit button.','setSubmitHidden() tracks requests to hide the native Nintex submit button.'],note:'The manager uses a WeakMap keyed by form, avoiding cross-form coordination.'},
+      ui:{category:'Supporting behavior',title:'render*() UI helpers',tags:['Lit templates','alerts','debug UI'],copy:'Rendering helpers build the normal control, response alerts, details modal, clipboard actions, and debug tab surfaces.',items:['renderButtonWithAlert() binds the trigger click.','renderResponseAlert() selects alert content/visibility.','showMoreDetails and alertPosition affect presentation.','isButtonDisabled() reflects loading, button configuration, and strict-success replay state.'],note:'UI helpers consume execution state but do not own request execution.'},
+      formatter:{category:'Supporting behavior',title:'formatters/* and debug tooling',tags:['debug mode','response formatting'],copy:'The debug views allow users to inspect request/response data, work with JSON, choose response fields, and produce formatter configuration.',items:['response-config parses configuration.','field-selection discovers, orders, and serializes selected fields.','configured-message resolves display content.','Debug formatter state refreshes from each API response.'],note:'Formatter tooling changes display configuration; transport execution remains in handleApiCall().'},
+      contract:{category:'Supporting behavior',title:'getPluginContract()',tags:['Nintex metadata','public surface'],copy:'Build metadata declares the control name, version, properties, defaults, and the plugin’s public contract to Nintex.',items:['Production and test builds inject distinct element/control identities.','The plugin tag is selected at build time.','Properties in metadata correspond to Lit @property fields.'],note:'When adding a configurable behavior, update the contract, component property, and this map together.'}
+    };
+    const category = document.getElementById('detail-category'), title = document.getElementById('detail-title'), copy = document.getElementById('detail-copy'), list = document.getElementById('detail-list'), tags = document.getElementById('detail-tags'), note = document.getElementById('detail-note');
+    document.querySelectorAll('.flow-button').forEach(button => button.addEventListener('click', () => {
+      const flow = flows[button.dataset.flow]; if (!flow) return;
+      document.querySelectorAll('.flow-button').forEach(item => item.classList.remove('active'));
+      button.classList.add('active'); category.textContent = flow.category; title.textContent = flow.title; copy.textContent = flow.copy;
+      tags.innerHTML = flow.tags.map(tag => `<span class="tag">${tag}</span>`).join('');
+      list.innerHTML = flow.items.map(item => `<li>${item}</li>`).join(''); note.innerHTML = flow.note;
+    }));
+  </script>
+</body>
+</html>
