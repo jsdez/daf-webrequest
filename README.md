@@ -41,13 +41,45 @@ A comprehensive Nintex Form Plugin for making API calls with advanced features i
 
 ### Local setup
 
+Install dependencies once before using either workflow:
+
 ```sh
 npm install
-npm test
-npm run typecheck
 ```
 
-Use `npm run build:test` for preview work. It writes only the preview artifact and verifies that the live artifact remains unchanged.
+#### Test / preview plugin
+
+Use this workflow for a Nintex test form. It creates a separate artifact and identities, so it can coexist with the live plugin:
+
+```sh
+npm test
+npm run typecheck
+npm run build:test
+```
+
+- **Generated file:** `test/plugin.bundle.js`
+- **Plugin name:** `daf-webrequest-plugin-test`
+- **Nintex control name:** `Web Request Plugin Test`
+- **Nintex URL:** `https://jsdez.github.io/daf-webrequest/test/plugin.bundle.js`
+
+`npm run build:test` does not overwrite `dist/plugin.bundle.js`; it verifies the live artifact remains unchanged.
+
+#### Live / production plugin
+
+Use this workflow only when releasing an approved change to production:
+
+```sh
+npm test
+npm run typecheck
+npm run build:plugin
+```
+
+- **Generated file:** `dist/plugin.bundle.js`
+- **Plugin name:** `daf-webrequest-plugin`
+- **Nintex control name:** `Web Request Plugin`
+- **Nintex URL:** `https://jsdez.github.io/daf-webrequest/dist/plugin.bundle.js`
+
+`npm run build:plugin` updates the production artifact. Review and release that change through the normal `main`/CDN workflow before using it in a live Nintex form.
 
 ## Setup in Nintex Forms
 
